@@ -1,12 +1,10 @@
 from PIL import Image
 import numpy as np
-import random
 import json
 import tiles
-import objects
-
+import generators
 # ==========================================================================
-z_coordinates = [0, 0, 0, 0,  0, 0, 0, 0,  0, 1, 1, 1, 1] # length: 1 + 11
+z_coordinates = [0, 0, 0, 0,  0, 0, 0, 0,  0, 1, 1, 1,  1] # length: 1 + 11
 
 map_array = []
 
@@ -17,15 +15,6 @@ tiles_per_width = int(image_width / tile_side_pixels)
 print(tiles_per_width)
 # 384x360
 # ==============================================================================
-
-
-def roll(chance):
-    """ Compute chances of objects"""
-    random_number = random.randint(1, 100)
-    if random_number <= chance:
-        return True
-    else:
-        return False
     
 def ComputeTile(x, y, im):
     """ Compute each tile"""
@@ -46,47 +35,8 @@ def ComputeTile(x, y, im):
     most_frequent_element = np.argmax(counts)
     return most_frequent_element
 
-
-def CleanUpTrees():
-    global map_array
-    index = 0
-    tree_count = 0
-    for tile in map_array:
-        if tile == 9 or tile == 10 or tile == 11:
-            tree_count += 1
-            if index + 1 < len(map_array) or index + 2 < len(map_array):
-                if tile == map_array[index + 1] or tile == map_array[index + 2]:
-                    map_array[index + 1] = 4
-                    map_array[index + 2] = 4
-            else:
-                pass    
-            
-            if index + image_width < len(map_array) or index + image_width + 1 < len(map_array):
-                if tile == map_array[index + image_width] or tile == map_array[index + image_width + 1]:
-                    map_array[index + image_width]  = 4
-                    map_array[index + image_width + 1]  = 4
-            else:
-                pass
-        index += 1
-    print(tree_count)
-
-
-def GenerateTrees():
-    global map_array
-    tile_index = 0
-    for tile in map_array:
-        if tile == 4:
-            rand = random.randint(0, 2) # Set value depending on amout of different trees
-            if roll(objects.trees[rand]["chance"]) and roll(20):
-                map_array[tile_index] = objects.trees[rand]["index"]
-        else:
-            pass
-        tile_index += 1
-    CleanUpTrees()
-
-
 # Open the BMP file
-image_name = "Map_bmp/forest_location" + ".bmp"
+image_name = "data/forest_location" + ".bmp"
 with Image.open(image_name) as im:
     # Iterate each row
     for y in reversed(range(0, image_height, tile_side_pixels)):
@@ -97,21 +47,21 @@ with Image.open(image_name) as im:
         print(y)
 
 # Generators
-GenerateTrees()
+new_map = generators.GenerateTrees(map_array, image_width)
 
 # Write array into file for Python Renderer 
-json_data = json.dumps(map_array)
-with open("output.json", "w") as json_file:
+json_data = json.dumps(new_map)
+with open("output/tile_map_array_py.json", "w") as json_file:
     json_file.write(json_data)
 
 # Set values for Cpp Renderer
 array_to_write = []
-for element in map_array:
+for element in new_map:
     number = (element << 16) | z_coordinates[element]
     array_to_write.append(hex(number))
 
 # Write array for Cpp Renderer
-with open("map_array.txt", "w") as f:
+with open("output/tile_map_array_cpp.txt", "w") as f:
     # iterate over the list in chunks of 64 elements
     f.write("{\n")
     for i in range(0, len(array_to_write), tiles_per_width):

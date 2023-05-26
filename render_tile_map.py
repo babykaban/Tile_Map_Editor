@@ -5,7 +5,7 @@ from pygame.locals import *
 pygame.init()
 
 # Difene tile_map
-with open("output.json", "r") as json_file:
+with open("output/tile_map_array_py.json", "r") as json_file:
     json_data = json_file.read()
 
 tile_map = json.loads(json_data)
@@ -63,7 +63,7 @@ while running:
     tile_x = 0
     tile_y = 10800
     for tile_index in tile_map:
-        world.blit(images[tile_index - 1], (tile_x, tile_y))  # Replace (0, 0) with the desired position of the image within the world
+        world.blit(images[tile_index - 1], (tile_x, tile_y)) 
         
         tile_x += 30
         if tile_x == 11520:
