@@ -1,0 +1,29 @@
+Forest_Location                     ZCoord              ColorForEditor   
+
+
+Tiles:
+    1, 2, 3, 4 - Grass_1            === Z0              R: 58  | G: 168 | B: 0
+    5, 6, 7, 8 - Grass_2            === Z0              R: 13  | G: 118 | B: 12
+    9, 10, 11, 12 - Water           === Z0              R: 0   | G: 103 | B: 139
+    13, 14, 15, 16 - Sand           === Z0              R: 255 | G: 209 | B: 132
+    17, 18, 19, 20 - Path           === Z0              R: 171 | G: 142 | B: 15
+
+    32 - UnMovableTile_Grass        === Z0              R: 108 | G: 107 | B: 134
+    33 - UnMovableTile_Grass_Fance  === Z0              R: 88  | G: 88  | B: 165
+
+
+Objects:
+    21 - oak_tree                   === Z1              
+    22 - spruce_tree                === Z1
+    23 - birch_tree                 === Z1
+    24 - bush                       === Z1
+
+
+Special_Parts:
+    25 - Cliff_WaterFall            === Z2              R: 0   | G: 0   | B: 0
+    26 - Cliff_Left_Bottom          === Z2              R: 0   | G: 0   | B: 1
+    27 - Cliff_Right_Bottom         === Z2              R: 0   | G: 0   | B: 2
+    28 - Stairs                     === Z1              R: 0   | G: 0   | B: 3
+    29 - Cliff_Vertical_Bottom      === Z3              R: 0   | G: 0   | B: 4
+    30 - Cliff_RightMost_Bottom     === Z3              R: 0   | G: 0   | B: 5
+    31 - Bridge                     === Z2              R: 0   | G: 0   | B: 6

@@ -1,18 +1,34 @@
-trees = {0: {
+trees = [{
                     "chance": 10,
-                    "index": 9,
-                    "z_coordinate": 1
+                    "name": "oak",
+                    "index": 21,
                    },
            
-         1: {
+         {
                     "chance": 10,
-                    "index": 10,
-                    "z_coordinate": 1
+                    "name": "spruce",
+                    "index": 22,
                    },
            
-         2: {
+         {
                     "chance": 10,
-                    "index": 11,
-                    "z_coordinate": 1
+                    "name": "birch",
+                    "index": 23,
                    }
-          } 
+        ] 
+
+bushes = [{
+                    "chance": 10,
+                    "index": 24,
+                   },
+           
+          {
+                    "chance": 10,
+                    "index": -1,
+                   },
+           
+          {
+                    "chance": 10,
+                    "index": -1,
+                   }
+         ] 
