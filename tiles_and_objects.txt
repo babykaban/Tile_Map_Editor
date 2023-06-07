@@ -2,7 +2,7 @@ Forest_Location                     ZCoord              ColorForEditor
 
 
 Tiles:
-    1, 2, 3, 4 - Grass_1            === Z0              R: 58  | G: 168 | B: 0
+    1, 2, 3, 4 - Grass_1            === Z0              R: 58  | G: 162 | B: 0
     5, 6, 7, 8 - Grass_2            === Z0              R: 13  | G: 118 | B: 12
     9, 10, 11, 12 - Water           === Z0              R: 0   | G: 103 | B: 139
     13, 14, 15, 16 - Sand           === Z0              R: 255 | G: 209 | B: 132
