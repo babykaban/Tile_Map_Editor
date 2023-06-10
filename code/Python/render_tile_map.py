@@ -23,15 +23,27 @@ screen = pygame.display.set_mode((viewport_width, viewport_height))
 world = pygame.Surface((world_width, world_height))
 
 # Load the images
+<<<<<<< HEAD:code/Python/render_tile_map.py
 tiles_objects = ["tiles/grass_1.bmp", "tiles/grass_2.bmp", "tiles/grass_3.bmp", "tiles/grass_4.bmp",
                 "tiles/grass_5.bmp", "tiles/grass_6.bmp", "tiles/grass_7.bmp", "tiles/grass_8.bmp",
                 "tiles/water_1.bmp", "tiles/water_2.bmp", "tiles/water_3.bmp", "water_4.bmp",
                 "tiles/sand_1.bmp", "tiles/sand_2.bmp", "tiles/sand_3.bmp", "tiles/sand_4.bmp",
                 "tiles/path_1.bmp", "tiles/path_2.bmp", "tiles/path_3.bmp", "tiles/path_4.bmp"]
+=======
+tiles_objects = ["tiles/grass_5.bmp", "tiles/grass_6.bmp", "tiles/grass_7.bmp", "tiles/grass_8.bmp",
+                "tiles/grass_1.bmp", "tiles/grass_2.bmp", "tiles/grass_3.bmp", "tiles/grass_4.bmp",
+                "tiles/water_1.bmp", "tiles/water_2.bmp", "tiles/water_3.bmp", "tiles/water_4.bmp",
+                "tiles/sand_1.bmp", "tiles/sand_2.bmp", "tiles/sand_3.bmp", "tiles/sand_4.bmp",
+                "tiles/path_1.bmp", "tiles/path_2.bmp", "tiles/path_3.bmp", "tiles/path_4.bmp",
+                "oak_tree.bmp", "spruce_tree.bmp", "birch_tree.bmp", "bush_1.bmp",
+                "cliff_waterfall.bmp", "cliff_left_bottom.bmp", "cliff_right_bottom.bmp",
+                "stairs.bmp", "cliff_vertical_bottom.bmp", "cliff_rightmost_bottom.bmp",
+                "bridge.bmp", "tiles/grass_1.bmp", "tiles/grass_2.bmp"]
+>>>>>>> d8dfa1a3fcfa5af47efedf68977f50dffb249b21:render_tile_map.py
 
 images = []
-for file_name in tiles_objects:
-    im = pygame.image.load("tiles/tiles_bmp/" + file_name)
+for file_path in tiles_objects:
+    im = pygame.image.load(file_path)
     images.append(im)
 
 # Set the initial position of the viewport
