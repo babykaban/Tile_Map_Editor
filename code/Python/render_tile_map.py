@@ -23,9 +23,11 @@ screen = pygame.display.set_mode((viewport_width, viewport_height))
 world = pygame.Surface((world_width, world_height))
 
 # Load the images
-tiles_objects = ["water.bmp", "grass_1.bmp", "grass_2.bmp", "grass_3.bmp",
-             "stone.bmp", "sand.bmp", "forest_path.bmp", "wooden_path.bmp",
-             "tree_1.bmp", "tree_2.bmp"]
+tiles_objects = ["tiles/grass_1.bmp", "tiles/grass_2.bmp", "tiles/grass_3.bmp", "tiles/grass_4.bmp",
+                "tiles/grass_5.bmp", "tiles/grass_6.bmp", "tiles/grass_7.bmp", "tiles/grass_8.bmp",
+                "tiles/water_1.bmp", "tiles/water_2.bmp", "tiles/water_3.bmp", "water_4.bmp",
+                "tiles/sand_1.bmp", "tiles/sand_2.bmp", "tiles/sand_3.bmp", "tiles/sand_4.bmp",
+                "tiles/path_1.bmp", "tiles/path_2.bmp", "tiles/path_3.bmp", "tiles/path_4.bmp"]
 
 images = []
 for file_name in tiles_objects:

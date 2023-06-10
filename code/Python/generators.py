@@ -42,7 +42,7 @@ def CleanUpTrees(array, width):
 def GenerateTrees(array, width):
     tile_index = 0
     for tile in array:
-        if tile <= 4 and tile != 0:
+        if tile <= 8 and tile >= 5:
             rand = sub_functions.randint(0, 2) # Set value depending on amout of different trees
             if sub_functions.roll(objects.trees[rand]["chance"]) and sub_functions.roll(20):
                 array[tile_index] = objects.trees[rand]["index"]

@@ -9,7 +9,7 @@ Tiles:
     17, 18, 19, 20 - Path           === Z0              R: 171 | G: 142 | B: 15
 
     32 - UnMovableTile_Grass        === Z0              R: 108 | G: 107 | B: 134
-    33 - UnMovableTile_Grass_Fance  === Z0              R: 88  | G: 88  | B: 165
+    33 - UnMovableTile_Grass_Fance  === Z1              R: 88  | G: 88  | B: 165
 
 
 Objects:

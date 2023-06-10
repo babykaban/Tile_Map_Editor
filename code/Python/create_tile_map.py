@@ -13,7 +13,7 @@ z_coords_tiles_ovbjects = \
 [
     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,
     0, 0, 0, 0,  1, 1, 1, 1,  2, 2, 2, 1,  3, 3, 2, 0,
-    0                            
+    1                            
 ] 
 
 map_array = []
@@ -57,7 +57,7 @@ with Image.open(image_name) as im:
             obj_tile_index = ComputeTile(x, y, im)
             map_array.append(int(obj_tile_index))
         end_time = time.time()
-        print(end_time - start_time)    
+        #print(end_time - start_time)    
         print(y)
 
 # Generators
