@@ -9,7 +9,6 @@
 #include <stdio.h>
 #include <time.h>
 
-
 #include "main_platform.h"
 #include "create_tilemap.h"
 
@@ -228,26 +227,28 @@ BinarySearch(u32 *Array, i32 Count, u32 Element)
 u32 *
 SortArray(u32 *Array, u32 Size)
 {
+    u32 *Result = Array; 
+
     i32 LastElementIndex = 0;
     for(u32 Index = 1;
         Index < Size;
         ++Index)
     {
-        u32 Element = Array[Index];
-        i32 AddElementIndex = BinarySearch(Array, LastElementIndex, Element);
+        u32 Element = Result[Index];
+        i32 AddElementIndex = BinarySearch(Result, LastElementIndex, Element);
 
         for(i32 Index = LastElementIndex + 1;
             Index > AddElementIndex;
             --Index)
         {
-            Array[Index] = Array[Index - 1];
+            Result[Index] = Result[Index - 1];
         }
 
-        Array[AddElementIndex] = Element;
+        Result[AddElementIndex] = Element;
         LastElementIndex += 1;
     }
 
-    return(Array);
+    return(Result);
 }
 
 u32
@@ -281,11 +282,11 @@ ComputeTileColor(i32 RangeX, i32 RangeY, u32 *Pixels, arguments *Main)
     u32 Index = 0;
 
     for(i32 Y = RangeY;
-        Y < RangeY + Main->TileSide;
+        Y < RangeY + TILESIDE;
         ++Y)
     {
         for(i32 X = RangeX;
-            X < RangeX + Main->TileSide;
+            X < RangeX + TILESIDE;
             ++X)
         {
             Index = Y * 11520 + X;
@@ -293,7 +294,7 @@ ComputeTileColor(i32 RangeX, i32 RangeY, u32 *Pixels, arguments *Main)
         }
     }
     
-    MidColor = (u32)(ColorsSum / (Main->TileSide * Main->TileSide));
+    MidColor = (u32)(ColorsSum / (TILESIDE * TILESIDE));
     
     Result = FindTileColor(MidColor, Main);
     
@@ -303,6 +304,9 @@ ComputeTileColor(i32 RangeX, i32 RangeY, u32 *Pixels, arguments *Main)
 int main()
 {
 
+    u32 TileMap[138240] = {};
+    
+#if CHECK_TIME
     clock_t start, end;
 
     clock_t start_y, end_y;
@@ -311,73 +315,44 @@ int main()
     r64 time_used;
     r64 time_used_for_iy;
     r64 time_to_read;
-    
-    i32 TileSide = 30;
-
-    u32 TileMap[138240] = {};
-
-    u32 MainColorsOriginal[14] =
-        {
-            0xff3aa200, 0xff0d760c, 0xff00678b, 0xffffd184, 0xffab8e0f,
-            0xff6c6b86, 0xff5858a5, 0xff000000, 0xff000001, 0xff000002,
-            0xff000003, 0xff000004, 0xff000005, 0xff000006
-        };
-
-    u16 MainTilesIndexes[14] =
-        {
-            0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007, 0x0008,
-            0x0009, 0x000a, 0x000b, 0x000c, 0x000d, 0x000e
-        };
-
-    u16 MainTilesZCoord[14] =
-        {
-            0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
-            0x0002, 0x0002, 0x0002, 0x0001, 0x0003, 0x0003, 0x0002 
-        };
-
-    u32 MainColors[14] =
-        {
-            0xff3aa200, 0xff0d760c, 0xff00678b, 0xffffd184, 0xffab8e0f,
-            0xff6c6b86, 0xff5858a5, 0xff000000, 0xff000001, 0xff000002,
-            0xff000003, 0xff000004, 0xff000005, 0xff000006
-        };
 
     start = clock();
-    
+#endif    
+
     loaded_bitmap BMPFile = LoadBMP("forest_location.bmp");     
 
+#if CHECK_TIME
     time_end_read = clock();
     time_to_read = ((r64)(time_end_read - start)) / CLOCKS_PER_SEC;
-    
     printf("Time To Read File: %.5f seconds\n", time_to_read);
-
-#if 1
-    if(BMPFile.Width)
+#endif
+    
+    if(BMPFile.Pixels)
     {
         arguments Main = {};
         Main.ColorCount = ArrayCount(MainColors);
         Main.Colors = SortArray(MainColors, Main.ColorCount);
-        Main.TileSide = TileSide;
     
         u32 TileColor = 0;
         u32 Tile = 0;
         u32 Count = 0;
-
-        for(i32 RangeY = BMPFile.Height - TileSide;
+        for(i32 RangeY = BMPFile.Height - TILESIDE;
             RangeY >= 0;
-            RangeY -= TileSide)
+            RangeY -= TILESIDE)
         {
+#if CHECK_TIME
             start_y = clock();
+#endif
             for(i32 RangeX = 0;
                 RangeX < BMPFile.Width;
-                RangeX += TileSide)
+                RangeX += TILESIDE)
             {
                 TileColor = ComputeTileColor(RangeX, RangeY, BMPFile.Pixels, &Main);
                 for(i32 TileIndex = 0;
-                    TileIndex < ArrayCount(MainColors);
+                    TileIndex < Main.ColorCount;
                     ++TileIndex)
                 {
-                    if(TileColor == MainColorsOriginal[TileIndex])
+                    if(TileColor == MainColors[TileIndex])
                     {
                         Tile = (MainTilesIndexes[TileIndex] << 16) | MainTilesZCoord[TileIndex];
                         TileMap[Count++] = Tile;
@@ -385,14 +360,16 @@ int main()
                     }
                 }
             }
+#if CHECK_TIME
             end_y = clock();
             time_used_for_iy = ((r64)(end_y - start_y)) / CLOCKS_PER_SEC;
             printf("One Y Iteration Time: %.5f seconds\n", time_used_for_iy);
+#endif
         }
 
-        printf("Comleted");
+        printf("Creating complited!\n");
         
-        FILE* file = fopen("array.txt", "w"); // "wb" for binary mode
+        FILE* file = fopen("tilemap.txt", "w"); // "wb" for binary mode
 
         i32 Size = ArrayCount(TileMap);
     
@@ -404,14 +381,24 @@ int main()
                 i < Size;
                 ++i)
             {
-                fprintf(file, "0x%x, ", TileMap[i]);
-                ++RowCount;
-                if(RowCount == 384)
+                if(RowCount == 0)
                 {
-                    fprintf(file, "\n");
-                    RowCount = 0;
+                    fprintf(file, "{0x%x", TileMap[i]);
+                    ++RowCount;
+                }
+                else
+                {
+                    fprintf(file, ", 0x%x ", TileMap[i]);
+                    ++RowCount;
+
+                    if(RowCount == 384)
+                    {
+                        fprintf(file, "},\n");
+                        RowCount = 0;
+                    }
                 }
             }
+
             fprintf(file, "}");
 
             fclose(file);
@@ -426,13 +413,12 @@ int main()
     {
         printf("Unable to open the file.\n");
     }
-#endif
 
+#if CHECK_TIME
     end = clock();
-
     time_used = ((r64)(end - start)) / CLOCKS_PER_SEC;
-    
     printf("Execution Time: %.5f seconds\n", time_used);
-
+#endif
+    
     return(0);
 }
