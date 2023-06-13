@@ -1,10 +1,9 @@
 from tkinter import messagebox
-from warnings import resetwarnings
 import customtkinter as ctk
 import json
 
 # Initialize Global Veriables
-tiles_array = 0
+tiles_array = []
 
 """
     tile = 
@@ -21,8 +20,11 @@ def get_tiles():
     with open("tiles_file.json") as file:
         tiles_array = json.load(file)
 
-def push_tile_to_file():
-    pass
+
+def update_file_content():
+    with open("tiles_file.json", "w") as file:
+        json.dump(tiles_array, file)
+
 
 def check_value(value, type):
     if type == "index":
@@ -30,19 +32,19 @@ def check_value(value, type):
             messagebox.showwarning("Warning", "Tile Index Can't be bigger then 65536!")
             return False
         else:
-            pass
+            return True
     elif type == "color":
         if value >= 256:
             messagebox.showwarning("Warning", "Tile ColorRange is from 0 to 255!")
             return False
         else:
-            pass
+            return True
     else:
         if value > 10:
             messagebox.showwarning("Warning", "Z coord can't be more then 10!")
             return False
         else:
-            pass
+            return True
 
 def convert_str_to_int(value):
     result = 0
@@ -50,12 +52,13 @@ def convert_str_to_int(value):
     if value != '':
         try:
             result = int(value)
-            return result
-
         except ValueError:
             messagebox.showwarning("Warning", "The nambers have to be integers")
     else:
         pass
+
+    return result
+
 
 def add_tile():
     global tiles_array
@@ -66,20 +69,43 @@ def add_tile():
     tile_color_B = convert_str_to_int(tile_blue_color_entry.get())
     tile_z_coord = convert_str_to_int(tile_z_coord_entry.get())
 
-    check_value(tile_index)
-    check_value(tile_color_R)
-    check_value(tile_color_G)
-    check_value(tile_color_B)
-    check_value(tile_z_coord)
+    if check_value(tile_index, "index") and check_value(tile_color_R, "color") and \
+        check_value(tile_color_G, "color") and check_value(tile_color_B, "color") and \
+            check_value(tile_z_coord, "z"):
+        allow_to_add = True
+        for tile in tiles_array:
+            if tile["index"] == tile_index:
+                messagebox.showerror("Error", "The tile with the same index is in the file!")
+                allow_to_add = False
+                break
+            if tile["color"] == (tile_color_R, tile_color_G, tile_color_B):
+                messagebox.showerror("Error", "The tile with the same color is in the file!")
+                allow_to_add = False
+                break
+        
+        if allow_to_add:
+            tile = {"index": tile_index, 
+                    "color": (tile_color_R, tile_color_G, tile_color_B),
+                    "z_coord": tile_z_coord}
+            
+            tiles_array.append(tile)
+            tiles_array = sorted(tiles_array, key=lambda x: x["index"])
+            
+            update_file_content()
 
-    tile = {"index": tile_index, 
-            "color": (tile_color_R, tile_color_G, tile_color_B),
-            "z_coord": tile_z_coord}
 
 def remove_tile():
     global tiles_array
     
-    pass
+    tile_index = convert_str_to_int(tile_index_entry_remove.get())
+    if check_value(tile_index, "index"):
+        for i in range(0, len(tiles_array)):
+            if tiles_array[i]["index"] == tile_index:
+                del tiles_array[i]
+                break
+        update_file_content()
+    else:
+        pass
 
 def write_array_for_cpp():
     pass
@@ -106,8 +132,8 @@ tile_blue_color_entry = ctk.CTkEntry(entry_frame, width=100, height=30)
 tile_z_coord_entry = ctk.CTkEntry(entry_frame, width=300, height=30)
 
 # Create buttons
-add_button = ctk.CTkButton(entry_frame, text="Add Tile", command=add_tile(), width=300, height=64, font=("Arial", 20))
-remove_button = ctk.CTkButton(entry_frame, text="Remove Tile", width=300, height=64, font=("Arial", 20))
+add_button = ctk.CTkButton(entry_frame, text="Add Tile", command=lambda: add_tile(), width=300, height=64, font=("Arial", 20))
+remove_button = ctk.CTkButton(entry_frame, text="Remove Tile", command=lambda: remove_tile(), width=300, height=64, font=("Arial", 20))
 
 # Create Labels
 info_label = ctk.CTkLabel(information_frame, width=620, text="TILES IN THE FILE", font=("Arial", 20))
