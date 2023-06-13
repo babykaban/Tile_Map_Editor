@@ -2,6 +2,8 @@ from tkinter import messagebox
 import customtkinter as ctk
 import json
 
+from customtkinter.windows.widgets.core_rendering.ctk_canvas import CTkCanvas
+
 # Initialize Global Veriables
 tiles_array = []
 
@@ -110,8 +112,54 @@ def remove_tile():
 def write_array_for_cpp():
     pass
 
+def clear_frame(frame):
+    for widget in frame.winfo_children():
+        widget.destroy()
+
+def show_tiles_info():
+    global tiles_array
+
+    clear_frame(information_frame)
+
+    info_label = ctk.CTkLabel(information_frame, width=620, text="TILES IN THE FILE", font=("Arial", 20))
+    info_index_label = ctk.CTkLabel(information_frame, width=50, text="INDEX")
+    info_color_label_r = ctk.CTkLabel(information_frame, width=50, text="RED")
+    info_color_lable_g = ctk.CTkLabel(information_frame, width=50, text="GREEN")
+    info_color_label_b = ctk.CTkLabel(information_frame, width=50, text="BLUE")
+    info_z_coord_label = ctk.CTkLabel(information_frame, width=50, text="ZCOORD")
+    info_label.grid(row=0, column=0, columnspan=6)
+    info_index_label.grid(row=1, column=0, sticky="W")
+    info_color_label_r.grid(row=1, column=1, sticky="W")
+    info_color_lable_g.grid(row=1, column=2, sticky="W")
+    info_color_label_b.grid(row=1, column=3, sticky="W")
+    info_z_coord_label.grid(row=1, column=4, sticky="W")
+
+    i = 0
+    for tile in tiles_array:
+        canvas = CTkCanvas(information_frame, width=30, height=30)
+        
+        index_label = ctk.CTkLabel(information_frame, width=50, text=str(tile["index"]))
+        color_label_r = ctk.CTkLabel(information_frame, width=50, text=str(tile["color"][0]))
+        color_lable_g = ctk.CTkLabel(information_frame, width=50, text=str(tile["color"][1]))
+        color_label_b = ctk.CTkLabel(information_frame, width=50, text=str(tile["color"][2]))
+        z_coord_label = ctk.CTkLabel(information_frame, width=50, text=str(tile["z_coord"]))
+        canvas.create_rectangle(0, 0, 30, 30, fill=('#%02x%02x%02x' % (tile["color"][0], tile["color"][1], tile["color"][2])))
+
+        index_label.grid(row=2+i, column=0, sticky="W")
+        color_label_r.grid(row=2+i, column=1, sticky="W")
+        color_lable_g.grid(row=2+i, column=2, sticky="W")
+        color_label_b.grid(row=2+i, column=3, sticky="W")
+        z_coord_label.grid(row=2+i, column=4, sticky="W")
+        canvas.grid(row=2+i, column=5, stick="W")
+        
+        i += 1
+    
+    root.after(1000, show_tiles_info)
+
 # Take Tiles Info
 get_tiles()
+
+
 
 # Create the main window
 root = ctk.CTk()
@@ -136,7 +184,6 @@ add_button = ctk.CTkButton(entry_frame, text="Add Tile", command=lambda: add_til
 remove_button = ctk.CTkButton(entry_frame, text="Remove Tile", command=lambda: remove_tile(), width=300, height=64, font=("Arial", 20))
 
 # Create Labels
-info_label = ctk.CTkLabel(information_frame, width=620, text="TILES IN THE FILE", font=("Arial", 20))
 add_tile_label = ctk.CTkLabel(entry_frame, width=300, text="ADD TILE", font=("Arial", 20))
 remove_tile_label = ctk.CTkLabel(entry_frame, width=300, text="REMOVE TILE", font=("Arial", 20))
 index_label0 = ctk.CTkLabel(entry_frame, width=300, text="TileIndex")
@@ -148,6 +195,7 @@ zcoord_label = ctk.CTkLabel(entry_frame, width=300, text="Z coordinate")
 space_label0 = ctk.CTkLabel(entry_frame, width=300, text="==========================================")
 space_label1 = ctk.CTkLabel(entry_frame, width=300, text="==========================================")
 space_label2 = ctk.CTkLabel(entry_frame, width=300, text="==========================================")
+
 
 entry_frame.grid(row=0, column=0, padx=5, pady=5)
 information_frame.grid(row=0, column=1, padx=5, pady=5)
@@ -173,7 +221,8 @@ tile_index_entry_remove.grid(row=12, column=0, columnspan=3)
 space_label2.grid(row=13, column=0, columnspan=3)
 remove_button.grid(row=14, column=0, columnspan=3)
 
-info_label.grid(row=0, column=0, columnspan=3)
+# Show Tiles
+show_tiles_info()
 
 # Start the event loop
 root.mainloop()
