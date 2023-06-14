@@ -1,8 +1,8 @@
+from customtkinter.windows.widgets.core_rendering.ctk_canvas import CTkCanvas
 from tkinter import messagebox
 import customtkinter as ctk
 import json
-
-from customtkinter.windows.widgets.core_rendering.ctk_canvas import CTkCanvas
+import struct
 
 # Initialize Global Veriables
 tiles_array = []
@@ -136,11 +136,23 @@ def remove_tile():
     show_tiles_info()
 
 def write_array_for_cpp():
-    with open("tile_file.txt", "w") as file:
+    # Open the binary file in write mode
+    with open("output.bin", "wb") as file:
         for tile in tiles_array:
-            text = 'a'
+            numbers = []
             color = rgb_to_hex_with_alpha((tile["color"][0], tile["color"][1], tile["color"][2]), 255)
-            file.write(text)
+ 
+            numbers.append(tile["index"])
+            numbers.append(color & 0xffff0000)
+            numbers.append(color & 0x0000ffff)
+            numbers.append(tile["z_coord"])
+
+            for number in numbers:
+                # Pack the number as a 4-byte signed integer (change the format if needed)
+                binary_data = struct.pack("H", number)
+                # Write the binary data to the file
+                file.write(binary_data)
+        
 
 
 def clear_frame(frame):
