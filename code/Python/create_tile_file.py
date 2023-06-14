@@ -19,19 +19,15 @@ tiles_array = []
 """
 
 def rgb_to_hex_with_alpha(rgb_tuple, alpha):
-    # Ensure the RGB values are within the valid range
-    rgb = tuple(max(0, min(255, value)) for value in rgb_tuple)
+    result = 0xff000000
 
-    # Ensure the alpha value is within the valid range
-    alpha = max(0, min(255, alpha))
+    red = rgb_tuple[0] << 16
+    green = rgb_tuple[1] << 8
+    blue = rgb_tuple[2]
+
+    result = result | red | green | blue
     
-    # Convert the RGB values to hexadecimal
-    hex_value = '{:02x}{:02x}{:02x}'.format(*rgb)
-    
-    # Add the alpha value in front of the hexadecimal representation
-    hex_with_alpha = '0x{:02x}{}'.format(alpha, hex_value)
-    
-    return hex_with_alpha
+    return result
 
 def get_tiles():
     global tiles_array
@@ -143,7 +139,7 @@ def write_array_for_cpp():
             color = rgb_to_hex_with_alpha((tile["color"][0], tile["color"][1], tile["color"][2]), 255)
  
             numbers.append(tile["index"])
-            numbers.append(color & 0xffff0000)
+            numbers.append(color >> 16)
             numbers.append(color & 0x0000ffff)
             numbers.append(tile["z_coord"])
 
