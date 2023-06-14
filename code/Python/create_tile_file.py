@@ -12,10 +12,26 @@ tiles_array = []
     {
         "index": 0,
         "color": (0, 0, 0),
-        "z_coord": 0
+        "z_coord": 0,
+        "name": ''
     }
 
 """
+
+def rgb_to_hex_with_alpha(rgb_tuple, alpha):
+    # Ensure the RGB values are within the valid range
+    rgb = tuple(max(0, min(255, value)) for value in rgb_tuple)
+
+    # Ensure the alpha value is within the valid range
+    alpha = max(0, min(255, alpha))
+    
+    # Convert the RGB values to hexadecimal
+    hex_value = '{:02x}{:02x}{:02x}'.format(*rgb)
+    
+    # Add the alpha value in front of the hexadecimal representation
+    hex_with_alpha = '0x{:02x}{}'.format(alpha, hex_value)
+    
+    return hex_with_alpha
 
 def get_tiles():
     global tiles_array
@@ -70,10 +86,11 @@ def add_tile():
     tile_color_G = convert_str_to_int(tile_green_color_entry.get())
     tile_color_B = convert_str_to_int(tile_blue_color_entry.get())
     tile_z_coord = convert_str_to_int(tile_z_coord_entry.get())
+    tile_name = tile_name_entry.get()
 
     if check_value(tile_index, "index") and check_value(tile_color_R, "color") and \
         check_value(tile_color_G, "color") and check_value(tile_color_B, "color") and \
-            check_value(tile_z_coord, "z"):
+            check_value(tile_z_coord, "z") and tile_name != '':
         allow_to_add = True
         for tile in tiles_array:
             if tile["index"] == tile_index:
@@ -84,16 +101,23 @@ def add_tile():
                 messagebox.showerror("Error", "The tile with the same color is in the file!")
                 allow_to_add = False
                 break
-        
+            if tile["name"] == tile_name:
+                messagebox.showerror("Error", "The tile with the same name is in the file")
+                allow_to_add = False
+                break
+
         if allow_to_add:
             tile = {"index": tile_index, 
                     "color": (tile_color_R, tile_color_G, tile_color_B),
-                    "z_coord": tile_z_coord}
+                    "z_coord": tile_z_coord,
+                    "name": tile_name}
             
             tiles_array.append(tile)
             tiles_array = sorted(tiles_array, key=lambda x: x["index"])
             
             update_file_content()
+    
+    show_tiles_info()
 
 
 def remove_tile():
@@ -109,8 +133,15 @@ def remove_tile():
     else:
         pass
 
+    show_tiles_info()
+
 def write_array_for_cpp():
-    pass
+    with open("tile_file.txt", "w") as file:
+        for tile in tiles_array:
+            text = 'a'
+            color = rgb_to_hex_with_alpha((tile["color"][0], tile["color"][1], tile["color"][2]), 255)
+            file.write(text)
+
 
 def clear_frame(frame):
     for widget in frame.winfo_children():
@@ -127,12 +158,15 @@ def show_tiles_info():
     info_color_lable_g = ctk.CTkLabel(information_frame, width=50, text="GREEN")
     info_color_label_b = ctk.CTkLabel(information_frame, width=50, text="BLUE")
     info_z_coord_label = ctk.CTkLabel(information_frame, width=50, text="ZCOORD")
-    info_label.grid(row=0, column=0, columnspan=6)
+    info_name_label = ctk.CTkLabel(information_frame, width=50, text="NAME")
+    info_label.grid(row=0, column=0, columnspan=7)
     info_index_label.grid(row=1, column=0, sticky="W")
     info_color_label_r.grid(row=1, column=1, sticky="W")
     info_color_lable_g.grid(row=1, column=2, sticky="W")
     info_color_label_b.grid(row=1, column=3, sticky="W")
     info_z_coord_label.grid(row=1, column=4, sticky="W")
+    info_name_label.grid(row=1, column=5, sticky="W")
+
 
     i = 0
     for tile in tiles_array:
@@ -143,6 +177,7 @@ def show_tiles_info():
         color_lable_g = ctk.CTkLabel(information_frame, width=50, text=str(tile["color"][1]))
         color_label_b = ctk.CTkLabel(information_frame, width=50, text=str(tile["color"][2]))
         z_coord_label = ctk.CTkLabel(information_frame, width=50, text=str(tile["z_coord"]))
+        name_label = ctk.CTkLabel(information_frame, width=50, text=tile["name"])
         canvas.create_rectangle(0, 0, 30, 30, fill=('#%02x%02x%02x' % (tile["color"][0], tile["color"][1], tile["color"][2])))
 
         index_label.grid(row=2+i, column=0, sticky="W")
@@ -150,16 +185,15 @@ def show_tiles_info():
         color_lable_g.grid(row=2+i, column=2, sticky="W")
         color_label_b.grid(row=2+i, column=3, sticky="W")
         z_coord_label.grid(row=2+i, column=4, sticky="W")
-        canvas.grid(row=2+i, column=5, stick="W")
+        name_label.grid(row=2+i, column=5, sticky="W")
+        canvas.grid(row=2+i, column=6, stick="W")
         
         i += 1
     
-    root.after(1000, show_tiles_info)
+    write_array_for_cpp()
 
 # Take Tiles Info
 get_tiles()
-
-
 
 # Create the main window
 root = ctk.CTk()
@@ -178,6 +212,7 @@ tile_red_color_entry = ctk.CTkEntry(entry_frame, width=100, height=30)
 tile_green_color_entry = ctk.CTkEntry(entry_frame, width=100, height=30)
 tile_blue_color_entry = ctk.CTkEntry(entry_frame, width=100, height=30)
 tile_z_coord_entry = ctk.CTkEntry(entry_frame, width=300, height=30)
+tile_name_entry = ctk.CTkEntry(entry_frame, width=300, height=30)
 
 # Create buttons
 add_button = ctk.CTkButton(entry_frame, text="Add Tile", command=lambda: add_tile(), width=300, height=64, font=("Arial", 20))
@@ -192,6 +227,7 @@ red_label = ctk.CTkLabel(entry_frame, width=100, text="RED")
 green_label = ctk.CTkLabel(entry_frame, width=100, text="GREEN")
 blue_label = ctk.CTkLabel(entry_frame, width=100, text="BLUE")
 zcoord_label = ctk.CTkLabel(entry_frame, width=300, text="Z coordinate")
+name_label = ctk.CTkLabel(entry_frame, width=300, text="Name")
 space_label0 = ctk.CTkLabel(entry_frame, width=300, text="==========================================")
 space_label1 = ctk.CTkLabel(entry_frame, width=300, text="==========================================")
 space_label2 = ctk.CTkLabel(entry_frame, width=300, text="==========================================")
@@ -211,17 +247,18 @@ tile_green_color_entry.grid(row=4, column=1)
 tile_blue_color_entry.grid(row=4, column=2)
 zcoord_label.grid(row=5, column=0, columnspan=3)
 tile_z_coord_entry.grid(row=6, column=0, columnspan=3)
-space_label0.grid(row=7, column=0, columnspan=3)
-add_button.grid(row=8, column=0, columnspan=3)
-
+#space_label0.grid(row=7, column=0, columnspan=3)
+name_label.grid(row=7, column=0, columnspan=3)
+tile_name_entry.grid(row=8, column=0, columnspan=3)
 space_label1.grid(row=9, column=0, columnspan=3)
-remove_tile_label.grid(row=10, column=0, columnspan=3)
-index_label1.grid(row=11, column=0, columnspan=3)
-tile_index_entry_remove.grid(row=12, column=0, columnspan=3)
-space_label2.grid(row=13, column=0, columnspan=3)
-remove_button.grid(row=14, column=0, columnspan=3)
+add_button.grid(row=10, column=0, columnspan=3)
 
-# Show Tiles
+remove_tile_label.grid(row=11, column=0, columnspan=3)
+index_label1.grid(row=12, column=0, columnspan=3)
+tile_index_entry_remove.grid(row=13, column=0, columnspan=3)
+space_label2.grid(row=14, column=0, columnspan=3)
+remove_button.grid(row=15, column=0, columnspan=3)
+
 show_tiles_info()
 
 # Start the event loop
