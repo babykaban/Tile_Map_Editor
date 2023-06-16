@@ -4,11 +4,11 @@ from pygame.locals import *
 
 pygame.init()
 
-# Difene tile_map
-with open("output/tile_map_array_py.json", "r") as json_file:
-    json_data = json_file.read()
+# Diffine tile_map
+with open("tilemap_py.txt", "r") as file:
+    data = file.read()
 
-tile_map = json.loads(json_data)
+tile_map = data.split()
 
 # Define the dimensions of the game world
 world_width, world_height = 11520, 10800
@@ -23,15 +23,15 @@ screen = pygame.display.set_mode((viewport_width, viewport_height))
 world = pygame.Surface((world_width, world_height))
 
 # Load the images
-tiles_objects = ["tiles/grass_1.bmp", "tiles/grass_2.bmp", "tiles/grass_3.bmp", "tiles/grass_4.bmp",
-                "tiles/grass_5.bmp", "tiles/grass_6.bmp", "tiles/grass_7.bmp", "tiles/grass_8.bmp",
-                "tiles/water_1.bmp", "tiles/water_2.bmp", "tiles/water_3.bmp", "water_4.bmp",
-                "tiles/sand_1.bmp", "tiles/sand_2.bmp", "tiles/sand_3.bmp", "tiles/sand_4.bmp",
-                "tiles/path_1.bmp", "tiles/path_2.bmp", "tiles/path_3.bmp", "tiles/path_4.bmp"]
-images = []
-for file_path in tiles_objects:
-    im = pygame.image.load(file_path)
-    images.append(im)
+# tiles_objects = ["tiles/grass_1.bmp", "tiles/grass_2.bmp", "tiles/grass_3.bmp", "tiles/grass_4.bmp",
+#                 "tiles/grass_5.bmp", "tiles/grass_6.bmp", "tiles/grass_7.bmp", "tiles/grass_8.bmp",
+#                 "tiles/water_1.bmp", "tiles/water_2.bmp", "tiles/water_3.bmp", "water_4.bmp",
+#                 "tiles/sand_1.bmp", "tiles/sand_2.bmp", "tiles/sand_3.bmp", "tiles/sand_4.bmp",
+#                 "tiles/path_1.bmp", "tiles/path_2.bmp", "tiles/path_3.bmp", "tiles/path_4.bmp"]
+# images = []
+# for file_path in tiles_objects:
+#     im = pygame.image.load(file_path)
+#     images.append(im)
 
 # Set the initial position of the viewport
 viewport_x, viewport_y = 0, 0
@@ -64,7 +64,9 @@ while running:
     tile_x = 0
     tile_y = 10800
     for tile_index in tile_map:
-        world.blit(images[tile_index - 1], (tile_x, tile_y)) 
+        tile = pygame.surface.Surface((30, 30))
+        tile.fill((0, 255, 0))
+        world.blit(tile, (tile_x, tile_y)) 
         
         tile_x += 30
         if tile_x == 11520:

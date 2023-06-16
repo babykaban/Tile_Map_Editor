@@ -252,7 +252,7 @@ SortArray(u32 *Array, u32 Size)
 }
 
 u32
-FindTileColor(u32 MidColor, arguments *Main)
+FindTileColor(u32 MidColor, colors *Main)
 {
     u32 Result = 0;
 
@@ -273,7 +273,7 @@ FindTileColor(u32 MidColor, arguments *Main)
 }
 
 u32
-ComputeTileColor(i32 RangeX, i32 RangeY, u32 *Pixels, arguments *Main)
+ComputeTileColor(i32 RangeX, i32 RangeY, u32 *Pixels, colors *Main)
 {
     u32 Result = 0;
 
@@ -301,10 +301,113 @@ ComputeTileColor(i32 RangeX, i32 RangeY, u32 *Pixels, arguments *Main)
     return(Result);
 }
 
+i32
+ReadBinaryFile(char *FileName, u16 *Buffer)
+{
+    i32 Result = 0;
+    FILE *fp;
+
+    fp = fopen(FileName, "rb");
+
+    if(fp == NULL)
+    {
+        printf("Failed to open file %s\n", FileName);
+    }
+    else
+    {
+        Result = (i32)fread(Buffer, sizeof(u16), 512, fp);
+    }
+
+    return(Result);
+}
+
+i32
+LoadTileDataAndColors(tile *Tiles, u32 *Colors)
+{
+    u16 FileContent[512]  {};
+    i32 PairsOfBytesReaded = ReadBinaryFile("output.bin", FileContent);
+    i32 Result = 0;
+    
+    i32 TileCount = 0;
+    i32 ColorCount = 0;
+    for(i32 ItemIndex = 0;
+        ItemIndex < PairsOfBytesReaded;
+        ItemIndex += 4)
+    {
+        tile *Tile = &Tiles[TileCount++];
+        Tile->Index = FileContent[ItemIndex];
+        Tile->Color = ((FileContent[ItemIndex + 1] << 16)
+                       | FileContent[ItemIndex + 2]);
+        Tile->Z = FileContent[ItemIndex + 3];
+
+        Colors[ColorCount++] = Tile->Color;
+    }
+
+    Result = TileCount;
+
+    return(Result);
+}
+
+void
+WriteTileMapToFile(u32 *Array, i32 Size)
+{
+    FILE* file = fopen("tilemap.txt", "w");
+    FILE* file_py = fopen("tilemap_py.txt", "w");
+    
+    if((file != NULL) && (file_py != NULL))
+    {
+        u32 RowCount = 0;
+        fprintf(file, "{");
+        for(i32 i = 0;
+            i < Size;
+            ++i)
+        {
+            if(RowCount == 0)
+            {
+                fprintf(file, "{0x%x", Array[i]);
+                ++RowCount;
+            }
+            else
+            {
+                fprintf(file, ", 0x%x ", Array[i]);
+                ++RowCount;
+
+                if(RowCount == 384)
+                {
+                    fprintf(file, "},\n");
+                    RowCount = 0;
+                }
+            }
+        }
+        fprintf(file, "}");
+        fclose(file);
+        printf("Array has been written to the file successfully.\n");
+
+        for(i32 i = 0;
+            i < Size;
+            ++i)
+        {
+            fprintf(file_py, "%u ", Array[i]);
+        }
+        fclose(file_py);
+        printf("Array has been written to the file successfully.\n");
+    }
+    else
+    {
+        printf("Unable to open the write file.\n");
+    }    
+}
+
 int main()
 {
 
     u32 TileMap[138240] = {};
+    i32 TileMapSize = ArrayCount(TileMap);
+
+    tile MainTiles[256] = {};
+    u32 MainColors[256] = {};
+    u32 TilesCount = LoadTileDataAndColors(MainTiles, MainColors);
+
     
 #if CHECK_TIME
     clock_t start, end;
@@ -329,10 +432,10 @@ int main()
     
     if(BMPFile.Pixels)
     {
-        arguments Main = {};
-        Main.ColorCount = ArrayCount(MainColors);
+        colors Main = {};
+        Main.ColorCount = TilesCount;
         Main.Colors = SortArray(MainColors, Main.ColorCount);
-    
+
         u32 TileColor = 0;
         u32 Tile = 0;
         u32 Count = 0;
@@ -352,9 +455,10 @@ int main()
                     TileIndex < Main.ColorCount;
                     ++TileIndex)
                 {
-                    if(TileColor == MainColors[TileIndex])
+                    tile *MainTile = &MainTiles[TileIndex];
+                    if(TileColor == MainTile->Color)
                     {
-                        Tile = (MainTilesIndexes[TileIndex] << 16) | MainTilesZCoord[TileIndex];
+                        Tile = (MainTile->Index << 16) | MainTile->Z;
                         TileMap[Count++] = Tile;
                         break;
                     }
@@ -366,48 +470,9 @@ int main()
             printf("One Y Iteration Time: %.5f seconds\n", time_used_for_iy);
 #endif
         }
-
         printf("Creating complited!\n");
-        
-        FILE* file = fopen("tilemap.txt", "w"); // "wb" for binary mode
 
-        i32 Size = ArrayCount(TileMap);
-    
-        if(file != NULL)
-        {
-            u32 RowCount = 0;
-            fprintf(file, "{");
-            for(i32 i = 0;
-                i < Size;
-                ++i)
-            {
-                if(RowCount == 0)
-                {
-                    fprintf(file, "{0x%x", TileMap[i]);
-                    ++RowCount;
-                }
-                else
-                {
-                    fprintf(file, ", 0x%x ", TileMap[i]);
-                    ++RowCount;
-
-                    if(RowCount == 384)
-                    {
-                        fprintf(file, "},\n");
-                        RowCount = 0;
-                    }
-                }
-            }
-
-            fprintf(file, "}");
-
-            fclose(file);
-            printf("Array has been written to the file successfully.\n");
-        }
-        else
-        {
-            printf("Unable to open the write file.\n");
-        }    
+        WriteTileMapToFile(TileMap, TileMapSize);
     }
     else
     {
