@@ -32,6 +32,7 @@ struct colors
 {
     u32 *Colors;
     i32 ColorCount;
+    i32 ColorsCounters[256];
 };
 
 struct tile

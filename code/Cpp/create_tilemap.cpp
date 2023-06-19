@@ -196,7 +196,9 @@ BinarySearch(u32 *Array, i32 Count, u32 Element)
     i32 Result = 0;
     i32 Low = 0;
     i32 High = Count;
+    b32 Found = false;
 
+    
     while(Low <= High)
     {
         i32 Mid = Low + (High - Low) / 2;
@@ -204,6 +206,7 @@ BinarySearch(u32 *Array, i32 Count, u32 Element)
         if((Array[Mid] == Element))
         {
             Result = Mid;
+            Found = true;
             break;
         }
         else if(Array[Mid] < Element)
@@ -216,12 +219,12 @@ BinarySearch(u32 *Array, i32 Count, u32 Element)
         }
     }
 
-    if((Array[High] < Element))
+    if((Array[High] < Element) && (High >= 0) && !Found)
     {
         Result = Low;
     }
     
-    return(Result);
+    return Result;
 }
 
 u32 *
@@ -256,11 +259,19 @@ FindTileColor(u32 MidColor, colors *Main)
 {
     u32 Result = 0;
 
-    u32 TileColorIndex = (u32)BinarySearch(Main->Colors, Main->ColorCount, MidColor);
+    i32 TileColorIndex = (u32)BinarySearch(Main->Colors, Main->ColorCount, MidColor);
     u32 MainColorsDiff = (Main->Colors[TileColorIndex + 1] - Main->Colors[TileColorIndex]);
 
-    if((MidColor >= Main->Colors[TileColorIndex]) &&
-       (MidColor <= (Main->Colors[TileColorIndex] + MainColorsDiff)))
+    if(MidColor == Main->Colors[TileColorIndex])
+    {
+        Result = Main->Colors[TileColorIndex];
+    }
+    else if(TileColorIndex == (Main->ColorCount - 1))
+    {
+        Result = Main->Colors[TileColorIndex];
+    }
+    else if((MidColor > Main->Colors[TileColorIndex]) &&
+            (MidColor < (Main->Colors[TileColorIndex] + MainColorsDiff)))
     {
         Result = Main->Colors[TileColorIndex];
     }
@@ -280,7 +291,7 @@ ComputeTileColor(i32 RangeX, i32 RangeY, u32 *Pixels, colors *Main)
     u64 ColorsSum = 0;
     u32 MidColor = 0;
     u32 Index = 0;
-
+    
     for(i32 Y = RangeY;
         Y < RangeY + TILESIDE;
         ++Y)
@@ -290,13 +301,31 @@ ComputeTileColor(i32 RangeX, i32 RangeY, u32 *Pixels, colors *Main)
             ++X)
         {
             Index = Y * 11520 + X;
-            ColorsSum += Pixels[Index];
+            for(i32 ColorIndex = 0;
+                ColorIndex < Main->ColorCount;
+                ++ColorIndex)
+            {
+                if(Pixels[Index] == Main->Colors[ColorIndex])
+                {
+                    Main->ColorsCounters[ColorIndex]++;
+                }
+            }
         }
     }
+
+    i32 MostFrequentColorIndex = 0;
+    for(i32 ColorIndex = 0;
+        ColorIndex < Main->ColorCount;
+        ++ColorIndex)
+    {
+        if(Main->ColorsCounters[ColorIndex] > MostFrequentColorIndex)
+        {
+            MostFrequentColorIndex = ColorIndex;
+        }
+        Main->ColorsCounters[ColorIndex] = 0;
+    }
     
-    MidColor = (u32)(ColorsSum / (TILESIDE * TILESIDE));
-    
-    Result = FindTileColor(MidColor, Main);
+    Result = Main->Colors[MostFrequentColorIndex];
     
     return(Result);
 }
@@ -380,12 +409,14 @@ WriteTileMapToFile(u32 *Array, i32 Size)
             }
         }
         fprintf(file, "}");
+        fprintf(file, "};");
         fclose(file);
+
         printf("Array has been written to the file successfully.\n");
 
-        for(i32 i = 0;
-            i < Size;
-            ++i)
+        for(i32 i = Size - 1;
+            i > 0;
+            --i)
         {
             fprintf(file_py, "%u ", Array[i]);
         }
@@ -407,7 +438,6 @@ int main()
     tile MainTiles[256] = {};
     u32 MainColors[256] = {};
     u32 TilesCount = LoadTileDataAndColors(MainTiles, MainColors);
-
     
 #if CHECK_TIME
     clock_t start, end;
@@ -435,13 +465,14 @@ int main()
         colors Main = {};
         Main.ColorCount = TilesCount;
         Main.Colors = SortArray(MainColors, Main.ColorCount);
-
+        
+        i32 c = 0;
         u32 TileColor = 0;
         u32 Tile = 0;
         u32 Count = 0;
-        for(i32 RangeY = BMPFile.Height - TILESIDE;
-            RangeY >= 0;
-            RangeY -= TILESIDE)
+        for(i32 RangeY = 0;
+            RangeY < BMPFile.Height;
+            RangeY += TILESIDE)
         {
 #if CHECK_TIME
             start_y = clock();
@@ -451,6 +482,11 @@ int main()
                 RangeX += TILESIDE)
             {
                 TileColor = ComputeTileColor(RangeX, RangeY, BMPFile.Pixels, &Main);
+
+                if(TileColor == 0xff00678b)
+                {
+                    int a = 1;
+                }
                 for(i32 TileIndex = 0;
                     TileIndex < Main.ColorCount;
                     ++TileIndex)
@@ -459,16 +495,18 @@ int main()
                     if(TileColor == MainTile->Color)
                     {
                         Tile = (MainTile->Index << 16) | MainTile->Z;
-                        TileMap[Count++] = Tile;
+                        c++;
                         break;
                     }
                 }
+                TileMap[Count++] = Tile;
             }
 #if CHECK_TIME
             end_y = clock();
             time_used_for_iy = ((r64)(end_y - start_y)) / CLOCKS_PER_SEC;
             printf("One Y Iteration Time: %.5f seconds\n", time_used_for_iy);
 #endif
+            printf("Tiles Set: %d\n", c);
         }
         printf("Creating complited!\n");
 

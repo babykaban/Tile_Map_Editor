@@ -5,10 +5,20 @@ from pygame.locals import *
 pygame.init()
 
 # Diffine tile_map
+tile_map = []
 with open("tilemap_py.txt", "r") as file:
-    data = file.read()
+    data = file.read().split()
+    for element in data:
+        try:
+            integer = int(element)
+            tile_map.append(integer)
+        except ValueError:
+            pass
 
-tile_map = data.split()
+# Load tiles
+tiles = []
+with open("tiles_file.json") as json_file:
+    tiles = json.load(json_file)
 
 # Define the dimensions of the game world
 world_width, world_height = 11520, 10800
@@ -22,19 +32,17 @@ screen = pygame.display.set_mode((viewport_width, viewport_height))
 # Create the game world
 world = pygame.Surface((world_width, world_height))
 
-# Load the images
-# tiles_objects = ["tiles/grass_1.bmp", "tiles/grass_2.bmp", "tiles/grass_3.bmp", "tiles/grass_4.bmp",
-#                 "tiles/grass_5.bmp", "tiles/grass_6.bmp", "tiles/grass_7.bmp", "tiles/grass_8.bmp",
-#                 "tiles/water_1.bmp", "tiles/water_2.bmp", "tiles/water_3.bmp", "water_4.bmp",
-#                 "tiles/sand_1.bmp", "tiles/sand_2.bmp", "tiles/sand_3.bmp", "tiles/sand_4.bmp",
-#                 "tiles/path_1.bmp", "tiles/path_2.bmp", "tiles/path_3.bmp", "tiles/path_4.bmp"]
-# images = []
-# for file_path in tiles_objects:
-#     im = pygame.image.load(file_path)
-#     images.append(im)
-
 # Set the initial position of the viewport
 viewport_x, viewport_y = 0, 0
+
+def find_tile_color(index, tiles):
+    result = 0
+    for tile in tiles:
+        if tile["index"] == index:
+            result = (tile["color"][0], tile["color"][0], tile["color"][0])
+            break
+    
+    return result
 
 running = True
 while running:
@@ -63,10 +71,13 @@ while running:
     # Blit the image onto the game world at its original position
     tile_x = 0
     tile_y = 10800
-    for tile_index in tile_map:
-        tile = pygame.surface.Surface((30, 30))
-        tile.fill((0, 255, 0))
-        world.blit(tile, (tile_x, tile_y)) 
+    for tile in tile_map:
+        tile_index = tile >> 16
+        tile_color = find_tile_color(tile_index, tiles)
+
+        draw_tile = pygame.surface.Surface((30, 30))
+        draw_tile.fill(tile_color)
+        world.blit(draw_tile, (tile_x, tile_y)) 
         
         tile_x += 30
         if tile_x == 11520:

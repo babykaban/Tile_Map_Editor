@@ -133,7 +133,7 @@ def remove_tile():
 
 def write_array_for_cpp():
     # Open the binary file in write mode
-    with open("C:\\Paul\\Projects\\Tile_Map_Editor\\data\\output.bin", "wb") as file:
+    with open("d:\\Projects\\Tile_Map_Editor\\data\\output.bin", "wb") as file:
         for tile in tiles_array:
             numbers = []
             color = rgb_to_hex_with_alpha((tile["color"][0], tile["color"][1], tile["color"][2]), 255)
