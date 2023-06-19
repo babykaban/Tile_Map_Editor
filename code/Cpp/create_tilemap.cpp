@@ -301,15 +301,9 @@ ComputeTileColor(i32 RangeX, i32 RangeY, u32 *Pixels, colors *Main)
             ++X)
         {
             Index = Y * 11520 + X;
-            for(i32 ColorIndex = 0;
-                ColorIndex < Main->ColorCount;
-                ++ColorIndex)
-            {
-                if(Pixels[Index] == Main->Colors[ColorIndex])
-                {
-                    Main->ColorsCounters[ColorIndex]++;
-                }
-            }
+            i32 ColorIndex =
+                BinarySearch(Main->Colors, Main->ColorCount, Pixels[Index]);
+            Main->ColorsCounters[ColorIndex]++;
         }
     }
 
