@@ -7,10 +7,13 @@
    ======================================================================== */
 #include <windows.h>
 #include <stdio.h>
+#include <stdlib.h>
+
 #include <time.h>
 
 #include "main_platform.h"
 #include "create_tilemap.h"
+#include "generators.cpp"
 
 inline bit_scan_result
 FindLeastSegnificantSetBit(u32 Value)
@@ -254,6 +257,7 @@ SortArray(u32 *Array, u32 Size)
     return(Result);
 }
 
+/*
 u32
 FindTileColor(u32 MidColor, colors *Main)
 {
@@ -282,7 +286,7 @@ FindTileColor(u32 MidColor, colors *Main)
     
     return(Result);
 }
-
+*/
 u32
 ComputeTileColor(i32 RangeX, i32 RangeY, u32 *Pixels, colors *Main)
 {
@@ -429,6 +433,8 @@ int main()
     u32 TileMap[138240] = {};
     i32 TileMapSize = ArrayCount(TileMap);
 
+    u32 TilesCounters[256] = {};
+
     tile MainTiles[256] = {};
     u32 MainColors[256] = {};
     u32 TilesCount = LoadTileDataAndColors(MainTiles, MainColors);
@@ -500,10 +506,13 @@ int main()
             time_used_for_iy = ((r64)(end_y - start_y)) / CLOCKS_PER_SEC;
             printf("One Y Iteration Time: %.5f seconds\n", time_used_for_iy);
 #endif
-            printf("Tiles Set: %d\n", c);
+            i32 a = RandomNumber(1, 100);
+            printf("Tiles Set: %d, Random: %d\n", c, a);
         }
         printf("Creating complited!\n");
 
+        TreeGenerator(TileMap, 100, 5, BMPFile.Width / TILESIDE, BMPFile.Height / TILESIDE);
+        
         WriteTileMapToFile(TileMap, TileMapSize);
     }
     else
