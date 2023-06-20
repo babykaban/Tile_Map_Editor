@@ -384,14 +384,14 @@ WriteTileMapToFile(u32 *Array, i32 Size)
     if((file != NULL) && (file_py != NULL))
     {
         u32 RowCount = 0;
-        fprintf(file, "{");
+        fprintf(file, "{\n");
         for(i32 i = 0;
             i < Size;
             ++i)
         {
             if(RowCount == 0)
             {
-                fprintf(file, "{0x%x", Array[i]);
+                fprintf(file, "    {0x%x", Array[i]);
                 ++RowCount;
             }
             else
@@ -406,7 +406,6 @@ WriteTileMapToFile(u32 *Array, i32 Size)
                 }
             }
         }
-        fprintf(file, "}");
         fprintf(file, "};");
         fclose(file);
 
@@ -511,7 +510,8 @@ int main()
         }
         printf("Creating complited!\n");
 
-        TreeGenerator(TileMap, 100, 5, BMPFile.Width / TILESIDE, BMPFile.Height / TILESIDE);
+        TreeGenerator(TileMap, 2400, 4, BMPFile.Width / TILESIDE, BMPFile.Height / TILESIDE,
+                      40);
         
         WriteTileMapToFile(TileMap, TileMapSize);
     }
