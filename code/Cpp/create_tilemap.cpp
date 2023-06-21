@@ -428,7 +428,6 @@ WriteTileMapToFile(u32 *Array, i32 Size)
 
 int main()
 {
-
     u32 TileMap[138240] = {};
     i32 TileMapSize = ArrayCount(TileMap);
 
@@ -452,6 +451,8 @@ int main()
 #endif    
 
     loaded_bitmap BMPFile = LoadBMP("forest_location.bmp");     
+    i32 TileMapWidth = BMPFile.Width / TILESIDE; 
+    i32 TileMapHeight = BMPFile.Height / TILESIDE; 
 
 #if CHECK_TIME
     time_end_read = clock();
@@ -510,8 +511,12 @@ int main()
         }
         printf("Creating complited!\n");
 
-        TreeGenerator(TileMap, 2400, 4, BMPFile.Width / TILESIDE, BMPFile.Height / TILESIDE,
-                      40);
+        // Generate trees
+        TreeGenerator(TileMap, 2400, 4, TileMapWidth, TileMapHeight, 30);
+
+        // Generate bushes
+        BushGenerator(TileMap, 500, 10, TileMapWidth, TileMapHeight, 30);
+
         
         WriteTileMapToFile(TileMap, TileMapSize);
     }

@@ -54,4 +54,39 @@ TreeGenerator(u32 *TileMap, i32 TreeCount, i32 TreeGap,
     printf("Trees in the map: %d\n", TreeCounter);
 }
 
+void
+BushGenerator(u32 *TileMap, i32 BushCount, i32 BushGap,
+              i32 MapWidth, i32 MapHeight, i32 BushChance)
+{
+    i32 BushCounter = 0;
+    i32 TileIndex = 0;
+    for(i32 TileY = 0;
+        TileY < MapHeight;
+        TileY += BushGap)
+    {
+        for(i32 TileX = 0;
+            TileX < MapWidth;
+            TileX += BushGap)
+        {
+            TileIndex = TileY * MapWidth + TileX;
+            if((TileMap[TileIndex] == 0x00020000) && (BushChance >= RandomNumber(1, 100)))
+            {
+                //i32 BushIndex = RandomNumber(0, 2);
+                TileMap[TileIndex] = Bushes;
+                --BushCount;
+                ++BushCounter;
+            }
+            if(BushCount == 0)
+            {
+                break;
+            }
+        }
+        if(BushCount == 0)
+        {
+            break;
+        }
+    }
+    printf("Bushs in the map: %d\n", BushCounter);
+}
+
 
