@@ -512,7 +512,7 @@ int main()
         printf("Creating complited!\n");
 
         // Generate trees
-        TreeGenerator(TileMap, 1600, 6, TileMapWidth, TileMapHeight, 30);
+        TreeGenerator(TileMap, 1600, 6, TileMapWidth, TileMapHeight, 28);
 
         // Generate bushes
         BushGenerator(TileMap, 500, 10, TileMapWidth, TileMapHeight, 30);
