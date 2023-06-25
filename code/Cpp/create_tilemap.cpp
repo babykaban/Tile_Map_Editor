@@ -5,14 +5,8 @@
    $Creator: Handy Paul $
    $Notice: (C) Copyright 2023 by Handy Paul, Inc. All Rights Reserved. $
    ======================================================================== */
-#include <windows.h>
-#include <stdio.h>
-#include <stdlib.h>
+//#include <time.h>
 
-#include <time.h>
-
-#include "main_platform.h"
-#include "create_tilemap.h"
 #include "generators.cpp"
 
 inline bit_scan_result
@@ -426,6 +420,121 @@ WriteTileMapToFile(u32 *Array, i32 Size)
     }    
 }
 
+union v2
+{
+    struct
+    {
+        r32 X, Y;
+    };
+    r32 E[2];
+};
+
+#include "math.h"
+
+inline i32
+RoundReal32ToInt32(r32 R32)
+{
+    i32 Result = (i32)roundf(R32);
+    return(Result);
+}
+
+inline u32
+RoundReal32ToUInt32(r32 R32)
+{
+    u32 Result = (u32)roundf(R32);
+    return(Result);
+}
+
+internal void
+DrawRectangle(game_offscreen_buffer *Buffer, v2 vMin, v2 vMax, r32 R, r32 G, r32 B)
+{    
+    i32 MinX = RoundReal32ToInt32(vMin.X);
+    i32 MinY = RoundReal32ToInt32(vMin.Y);
+    i32 MaxX = RoundReal32ToInt32(vMax.X);
+    i32 MaxY = RoundReal32ToInt32(vMax.Y);
+
+    if(MinX < 0)
+    {
+        MinX = 0;
+    }
+
+    if(MinY < 0)
+    {
+        MinY = 0;
+    }
+
+    if(MaxX > Buffer->Width)
+    {
+        MaxX = Buffer->Width;
+    }
+
+    if(MaxY > Buffer->Height)
+    {
+        MaxY = Buffer->Height;
+    }
+
+    u32 Color = ((RoundReal32ToUInt32(R * 255.0f) << 16) |
+                    (RoundReal32ToUInt32(G * 255.0f) << 8) |
+                    (RoundReal32ToUInt32(B * 255.0f) << 0));
+
+    u8 *Row = ((u8 *)Buffer->Memory +
+                  MinX*Buffer->BytesPerPixel +
+                  MinY*Buffer->Pitch);
+    for(int Y = MinY;
+        Y < MaxY;
+        ++Y)
+    {
+        u32 *Pixel = (u32 *)Row;
+        for(int X = MinX;
+            X < MaxX;
+            ++X)
+        {            
+            *Pixel++ = Color;
+        }
+        
+        Row += Buffer->Pitch;
+    }
+}
+
+internal void
+GameUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buffer *Buffer)
+{
+    Assert(sizeof(game_state) <= Memory->PermanentStorageSize);
+
+    game_state *GameState = (game_state *)Memory->PermanentStorage;
+    if(!Memory->IsInitialized)
+    {
+
+        //TODO(casey): This may be more appropriate to do in platform layer
+        Memory->IsInitialized = true;
+    }
+    
+    for(int ControllerIndex = 0;
+        ControllerIndex < ArrayCount(Input->Controllers);
+        ++ControllerIndex)
+    {
+        game_controller_input *Controller = GetController(Input, ControllerIndex);
+        //NOTE(casey): Use digital movement tuning
+        if(Controller->MoveLeft.EndedDown)
+        {
+            OutputDebugStringA("Left\n");
+        }
+
+        if(Controller->MoveRight.EndedDown)
+        {
+            OutputDebugStringA("Right\n");
+        }
+    }    
+
+    v2 vMin = {0.0f, 0.0f};
+    v2 vMax = {100.0f, 100.0f};
+    r32 R = 0.25f;
+    r32 G = 0.25f;
+    r32 B = 0.25f;
+    DrawRectangle(Buffer, vMin, vMax, R, G, B);
+}
+
+# if 0
 int main()
 {
     u32 TileMap[138240] = {};
@@ -533,3 +642,4 @@ int main()
     
     return(0);
 }
+#endif

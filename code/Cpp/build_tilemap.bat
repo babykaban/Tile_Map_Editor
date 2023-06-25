@@ -6,5 +6,5 @@ set CommonLinkerFlags= -opt:ref user32.lib gdi32.lib winmm.lib
 IF NOT EXIST ..\..\build_tilemap mkdir ..\..\build_tilemap
 pushd ..\..\build_tilemap
 
-cl %CommonCompilerFlags% ..\code\Cpp\create_tilemap.cpp /link %CommonLinkerFlags%
+cl %CommonCompilerFlags% ..\code\Cpp\win32_create_tilemap.cpp /link %CommonLinkerFlags%
 popd
