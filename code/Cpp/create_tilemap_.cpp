@@ -650,11 +650,44 @@ int main()
 #include "create_tilemap_render_group.cpp"
 #include "create_tilemap_world.cpp"
 #include "create_tilemap_random.h"
+#include "create_tilemap_sim_region.cpp"
+#include "create_tilemap_entity.cpp"
 
 #if 1
 // TODO(paul): Learn how to do asset streaming and remove this
 #include <stdio.h>
 #endif
+
+internal void
+GameOutputSound(game_state *GameState, game_sound_output_buffer *SoundBuffer, int ToneHz)
+{
+    int16 ToneVolume = 3000;
+    int WavePeriod = SoundBuffer->SamplesPerSecond/ToneHz;
+
+    int16 *SampleOut = SoundBuffer->Samples;
+    for(int SampleIndex = 0;
+        SampleIndex < SoundBuffer->SampleCount;
+        ++SampleIndex)
+    {
+        // TODO(casey): Draw this out for people
+#if 0
+        real32 SineValue = sinf(GameState->tSine);
+        int16 SampleValue = (int16)(SineValue * ToneVolume);
+#else
+        int16 SampleValue = 0;
+#endif
+        *SampleOut++ = SampleValue;
+        *SampleOut++ = SampleValue;
+
+#if 0
+        GameState->tSine += 2.0f*Pi32*1.0f/(real32)WavePeriod;
+        if(GameState->tSine > 2.0f*Pi32)
+        {
+            GameState->tSine -= 2.0f*Pi32;
+        }
+#endif
+    }
+}
 
 #pragma pack(push, 1)
 struct bitmap_header
@@ -793,6 +826,286 @@ DEBUGLoadBMP(thread_context *Thread, debug_platform_read_entire_file *ReadEntire
     return(Result);
 }
 
+struct add_low_entity_result
+{
+    low_entity *Low;
+    uint32 LowIndex;
+};
+internal add_low_entity_result
+AddLowEntity(game_state *GameState, entity_type Type, world_position P)
+{
+    Assert(GameState->LowEntityCount < ArrayCount(GameState->LowEntities));
+    uint32 EntityIndex = GameState->LowEntityCount++;
+   
+    low_entity *EntityLow = GameState->LowEntities + EntityIndex;
+    *EntityLow = {};
+    EntityLow->Sim.Type = Type;
+    EntityLow->Sim.Collision = GameState->NullCollision;
+    EntityLow->P = NullPosition();
+
+    ChangeEntityLocation(&GameState->WorldArena, GameState->World, EntityIndex, EntityLow, P);
+
+    add_low_entity_result Result;
+    Result.Low = EntityLow;
+    Result.LowIndex = EntityIndex;
+
+    // TODO(casey): Do we need to have a begin/end paradigm for adding
+    // entities so that they can be brought into the high set when they
+    // are added and are in the camera region?
+    
+    return(Result);
+}
+
+internal add_low_entity_result
+AddGroundedEntity(game_state *GameState, entity_type Type, world_position P,
+                  sim_entity_collision_volume_group *Collision)
+{
+    add_low_entity_result Entity = AddLowEntity(GameState, Type, P);
+    Entity.Low->Sim.Collision = Collision;
+    return(Entity);
+}
+
+inline world_position
+ChunkPositionFromTilePosition(world *World, int32 AbsTileX, int32 AbsTileY, int32 AbsTileZ,
+                              v3 AdditionalOffset = V3(0, 0, 0))
+{
+    world_position BasePos = {};
+
+    real32 TileSideInMeters = 1.4f;
+    real32 TileDepthInMeters = 3.0f;
+    
+    v3 TileDim = V3(TileSideInMeters, TileSideInMeters, TileDepthInMeters);
+    v3 Offset = Hadamard(TileDim, V3((real32)AbsTileX, (real32)AbsTileY, (real32)AbsTileZ));
+    world_position Result = MapIntoChunkSpace(World, BasePos, AdditionalOffset + Offset);
+    
+    Assert(IsCanonical(World, Result.Offset_));
+    
+    return(Result);
+}
+
+internal add_low_entity_result
+AddStandardRoom(game_state *GameState, uint32 AbsTileX, uint32 AbsTileY, uint32 AbsTileZ)
+{
+    world_position P = ChunkPositionFromTilePosition(GameState->World, AbsTileX, AbsTileY, AbsTileZ);
+    add_low_entity_result Entity = AddGroundedEntity(GameState, EntityType_Space, P,
+                                                     GameState->StandardRoomCollision);
+    AddFlags(&Entity.Low->Sim, EntityFlag_Traversable);
+
+    return(Entity);
+}
+
+internal add_low_entity_result
+AddWall(game_state *GameState, uint32 AbsTileX, uint32 AbsTileY, uint32 AbsTileZ)
+{
+    world_position P = ChunkPositionFromTilePosition(GameState->World, AbsTileX, AbsTileY, AbsTileZ);
+    add_low_entity_result Entity = AddGroundedEntity(GameState, EntityType_Wall, P,
+                                                     GameState->WallCollision);
+    AddFlags(&Entity.Low->Sim, EntityFlag_Collides);
+
+    return(Entity);
+}
+
+internal add_low_entity_result
+AddStair(game_state *GameState, uint32 AbsTileX, uint32 AbsTileY, uint32 AbsTileZ)
+{
+    world_position P = ChunkPositionFromTilePosition(GameState->World, AbsTileX, AbsTileY, AbsTileZ);
+    add_low_entity_result Entity = AddGroundedEntity(GameState, EntityType_Stairwell, P,
+                                                     GameState->StairCollision);
+    AddFlags(&Entity.Low->Sim, EntityFlag_Collides);
+    Entity.Low->Sim.WalkableDim = Entity.Low->Sim.Collision->TotalVolume.Dim.xy;
+    Entity.Low->Sim.WalkableHeight = GameState->TypicalFloorHeight;
+
+    return(Entity);
+}
+
+internal void
+InitHitPoints(low_entity *EntityLow, uint32 HitPointCount)
+{
+    Assert(HitPointCount <= ArrayCount(EntityLow->Sim.HitPoint));
+    EntityLow->Sim.HitPointMax = HitPointCount;
+    for(uint32 HitPointIndex = 0;
+        HitPointIndex < EntityLow->Sim.HitPointMax;
+        ++HitPointIndex)
+    {
+        hit_point *HitPoint = EntityLow->Sim.HitPoint + HitPointIndex;
+        HitPoint->Flags = 0;
+        HitPoint->FilledAmount = HIT_POINT_SUB_COUNT;
+    }
+}
+
+internal add_low_entity_result
+AddSword(game_state *GameState)
+{
+    add_low_entity_result Entity = AddLowEntity(GameState, EntityType_Sword, NullPosition());
+    Entity.Low->Sim.Collision = GameState->SwordCollision;
+
+    AddFlags(&Entity.Low->Sim, EntityFlag_Moveable);
+
+    return(Entity);
+}
+
+internal add_low_entity_result
+AddPlayer(game_state *GameState)
+{
+    world_position P = GameState->CameraP;
+    add_low_entity_result Entity = AddGroundedEntity(GameState, EntityType_Hero, P,
+                                                     GameState->PlayerCollision);
+    AddFlags(&Entity.Low->Sim, EntityFlag_Collides|EntityFlag_Moveable);
+
+    InitHitPoints(Entity.Low, 3);
+
+    add_low_entity_result Sword = AddSword(GameState);
+    Entity.Low->Sim.Sword.Index = Sword.LowIndex;
+
+    if(GameState->CameraFollowingEntityIndex == 0)
+    {
+        GameState->CameraFollowingEntityIndex = Entity.LowIndex;
+    }
+
+    return(Entity);
+}
+
+internal void
+DrawHitpoints(sim_entity *Entity, render_group *PieceGroup)
+{
+    if(Entity->HitPointMax >= 1)
+    {
+        v2 HealthDim = {0.2f, 0.2f};
+        real32 SpacingX = 1.5f*HealthDim.x;
+        v2 HitP = {-0.5f*(Entity->HitPointMax - 1)*SpacingX, -0.25f};
+        v2 dHitP = {SpacingX, 0.0f};
+        for(uint32 HealthIndex = 0;
+            HealthIndex < Entity->HitPointMax;
+            ++HealthIndex)
+        {
+            hit_point *HitPoint = Entity->HitPoint + HealthIndex;
+            v4 Color = {1.0f, 0.0f, 0.0f, 1.0f};
+            if(HitPoint->FilledAmount == 0)
+            {
+                Color = V4(0.2f, 0.2f, 0.2f, 1.0f);
+            }
+
+            PushRect(PieceGroup, V3(HitP, 0), HealthDim, Color);
+            HitP += dHitP;
+        }
+    }
+}
+
+internal void
+ClearCollisionRulesFor(game_state *GameState, uint32 StorageIndex)
+{
+    // TODO(casey): Need to make a better data structure that allows
+    // removal of collision rules without searching the entire table
+    // NOTE(casey): One way to make removal easy would be to always
+    // add _both_ orders of the pairs of storage indices to the
+    // hash table, so no matter which position the entity is in,
+    // you can always find it.  Then, when you do your first pass
+    // through for removal, you just remember the original top
+    // of the free list, and when you're done, do a pass through all
+    // the new things on the free list, and remove the reverse of
+    // those pairs.
+    for(uint32 HashBucket = 0;
+        HashBucket < ArrayCount(GameState->CollisionRuleHash);
+        ++HashBucket)
+    {
+        for(pairwise_collision_rule **Rule = &GameState->CollisionRuleHash[HashBucket];
+            *Rule;
+            )
+        {
+            if(((*Rule)->StorageIndexA == StorageIndex) ||
+               ((*Rule)->StorageIndexB == StorageIndex))
+            {
+                pairwise_collision_rule *RemovedRule = *Rule;
+                *Rule = (*Rule)->NextInHash;
+
+                RemovedRule->NextInHash = GameState->FirstFreeCollisionRule;
+                GameState->FirstFreeCollisionRule = RemovedRule;
+            }
+            else
+            {
+                Rule = &(*Rule)->NextInHash;
+            }
+        }
+    }
+}
+
+internal void
+AddCollisionRule(game_state *GameState, uint32 StorageIndexA, uint32 StorageIndexB, bool32 CanCollide)
+{
+    // TODO(casey): Collapse this with ShouldCollide
+    if(StorageIndexA > StorageIndexB)
+    {
+        uint32 Temp = StorageIndexA;
+        StorageIndexA = StorageIndexB;
+        StorageIndexB = Temp;
+    }
+
+    // TODO(casey): BETTER HASH FUNCTION
+    pairwise_collision_rule *Found = 0;
+    uint32 HashBucket = StorageIndexA & (ArrayCount(GameState->CollisionRuleHash) - 1);
+    for(pairwise_collision_rule *Rule = GameState->CollisionRuleHash[HashBucket];
+        Rule;
+        Rule = Rule->NextInHash)
+    {
+        if((Rule->StorageIndexA == StorageIndexA) &&
+           (Rule->StorageIndexB == StorageIndexB))
+        {
+            Found = Rule;
+            break;
+        }
+    }
+    
+    if(!Found)
+    {
+        Found = GameState->FirstFreeCollisionRule;
+        if(Found)
+        {
+            GameState->FirstFreeCollisionRule = Found->NextInHash;
+        }
+        else
+        {
+            Found = PushStruct(&GameState->WorldArena, pairwise_collision_rule);
+        }
+        
+        Found->NextInHash = GameState->CollisionRuleHash[HashBucket];
+        GameState->CollisionRuleHash[HashBucket] = Found;
+    }
+
+    if(Found)
+    {
+        Found->StorageIndexA = StorageIndexA;
+        Found->StorageIndexB = StorageIndexB;
+        Found->CanCollide = CanCollide;
+    }
+}
+
+sim_entity_collision_volume_group *
+MakeSimpleGroundedCollision(game_state *GameState, real32 DimX, real32 DimY, real32 DimZ)
+{
+    // TODO(casey): NOT WORLD ARENA!  Change to using the fundamental types arena, etc.
+    sim_entity_collision_volume_group *Group = PushStruct(&GameState->WorldArena, sim_entity_collision_volume_group);
+    Group->VolumeCount = 1;
+    Group->Volumes = PushArray(&GameState->WorldArena, Group->VolumeCount, sim_entity_collision_volume);
+    Group->TotalVolume.OffsetP = V3(0, 0, 0.5f*DimZ);
+    Group->TotalVolume.Dim = V3(DimX, DimY, DimZ);
+    Group->Volumes[0] = Group->TotalVolume;
+
+    return(Group);
+}
+
+sim_entity_collision_volume_group *
+MakeNullCollision(game_state *GameState)
+{
+    // TODO(casey): NOT WORLD ARENA!  Change to using the fundamental types arena, etc.
+    sim_entity_collision_volume_group *Group = PushStruct(&GameState->WorldArena, sim_entity_collision_volume_group);
+    Group->VolumeCount = 0;
+    Group->Volumes = 0;
+    Group->TotalVolume.OffsetP = V3(0, 0, 0);
+    // TODO(casey): Should this be negative?
+    Group->TotalVolume.Dim = V3(0, 0, 0);
+
+    return(Group);
+}
 
 internal void
 FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer *GroundBuffer, world_position *ChunkP)
@@ -848,22 +1161,163 @@ MakeEmptyBitmap(memory_arena *Arena, int32 Width, int32 Height, bool32 ClearToZe
     return(Result);
 }
 
-inline world_position
-ChunkPositionFromTilePosition(world *World, int32 AbsTileX, int32 AbsTileY, int32 AbsTileZ,
-                              v3 AdditionalOffset = V3(0, 0, 0))
+internal void
+MakeSphereNormalMap(loaded_bitmap *Bitmap, real32 Roughness, real32 Cx = 1.0f, real32 Cy = 1.0f)
 {
-    world_position BasePos = {};
+    real32 InvWidth = 1.0f / (Bitmap->Width - 1);
+    real32 InvHeight = 1.0f / (Bitmap->Height - 1);
 
-    real32 TileSideInMeters = 1.4f;
-    real32 TileDepthInMeters = 3.0f;
-    
-    v3 TileDim = V3(TileSideInMeters, TileSideInMeters, TileDepthInMeters);
-    v3 Offset = Hadamard(TileDim, V3((real32)AbsTileX, (real32)AbsTileY, (real32)AbsTileZ));
-    world_position Result = MapIntoChunkSpace(World, BasePos, AdditionalOffset + Offset);
-    
-    Assert(IsCanonical(World, Result.Offset_));
-    
-    return(Result);
+    uint8 *Row = (uint8 *)Bitmap->Memory;
+    for(int32 Y = 0;
+        Y < Bitmap->Height;
+        ++Y)
+    {
+        uint32 *Pixel = (uint32 *)Row;
+        for(int32 X = 0;
+            X < Bitmap->Width;
+            ++X)
+        {
+            v2 BitmapUV = {InvWidth*(real32)X, InvHeight*(real32)Y};
+
+            real32 Nx = Cx*(2.0f*BitmapUV.x - 1.0f); 
+            real32 Ny = Cy*(2.0f*BitmapUV.y - 1.0f); 
+
+            real32 RootTerm = 1.0f - Nx*Nx - Ny*Ny;
+            v3 Normal = {0, 0.707106781188f, 0.707106781188f};
+            real32 Nz = 0.0f; 
+            if(RootTerm >= 0.0f)
+            {
+                Nz = SquareRoot(RootTerm);
+                Normal = V3(Nx, Ny, Nz);
+            }
+
+            v4 Color =
+                {
+                    255.0f*(0.5f*(Normal.x + 1.0f)),
+                    255.0f*(0.5f*(Normal.y + 1.0f)),
+                    255.0f*(0.5f*(Normal.z + 1.0f)),
+                    255.0f*Roughness
+                };
+
+            *Pixel++ = (((uint32)(Color.a + 0.5f) << 24) |
+                        ((uint32)(Color.r + 0.5f) << 16) |
+                        ((uint32)(Color.g + 0.5f) << 8) |
+                        ((uint32)(Color.b + 0.5f) << 0));
+        }
+
+        Row += Bitmap->Pitch;
+    }
+}
+
+internal void
+MakeSphereDiffuseMap(loaded_bitmap *Bitmap, real32 Cx = 1.0f, real32 Cy = 1.0f)
+{
+    real32 InvWidth = 1.0f / (Bitmap->Width - 1);
+    real32 InvHeight = 1.0f / (Bitmap->Height - 1);
+
+    uint8 *Row = (uint8 *)Bitmap->Memory;
+    for(int32 Y = 0;
+        Y < Bitmap->Height;
+        ++Y)
+    {
+        uint32 *Pixel = (uint32 *)Row;
+        for(int32 X = 0;
+            X < Bitmap->Width;
+            ++X)
+        {
+            v2 BitmapUV = {InvWidth*(real32)X, InvHeight*(real32)Y};
+
+            real32 Nx = Cx*(2.0f*BitmapUV.x - 1.0f); 
+            real32 Ny = Cy*(2.0f*BitmapUV.y - 1.0f); 
+
+            real32 RootTerm = 1.0f - Nx*Nx - Ny*Ny;
+            real32 Alpha = 0.0f;
+            if(RootTerm >= 0.0f)
+            {
+                Alpha = 1.0f;
+            }
+
+
+            v3 BaseColor = {0.0f, 0.0f, 0.0f};
+            Alpha *= 255.0f;
+            v4 Color =
+                {
+                    Alpha*BaseColor.x,
+                    Alpha*BaseColor.y,
+                    Alpha*BaseColor.z,
+                    Alpha
+                };
+
+            *Pixel++ = (((uint32)(Color.a + 0.5f) << 24) |
+                        ((uint32)(Color.r + 0.5f) << 16) |
+                        ((uint32)(Color.g + 0.5f) << 8) |
+                        ((uint32)(Color.b + 0.5f) << 0));
+        }
+
+        Row += Bitmap->Pitch;
+    }
+}
+
+internal void
+MakePyramidNormalMap(loaded_bitmap *Bitmap, real32 Roughness)
+{
+    real32 InvWidth = 1.0f / (Bitmap->Width - 1);
+    real32 InvHeight = 1.0f / (Bitmap->Height - 1);
+
+    uint8 *Row = (uint8 *)Bitmap->Memory;
+    for(int32 Y = 0;
+        Y < Bitmap->Height;
+        ++Y)
+    {
+        uint32 *Pixel = (uint32 *)Row;
+        for(int32 X = 0;
+            X < Bitmap->Width;
+            ++X)
+        {
+            v2 BitmapUV = {InvWidth*(real32)X, InvHeight*(real32)Y};
+
+            int32 InvX = (Bitmap->Width - 1) - X;
+            real32 Seven = 0.707106781188f;
+            v3 Normal = {0, 0, Seven};
+            if(X < Y)
+            {
+                if(InvX < Y)
+                {
+                    Normal.x = -Seven;
+                }
+                else
+                {
+                    Normal.y = Seven;
+                }
+            }
+            else
+            {
+                if(InvX < Y)
+                {
+                    Normal.y = -Seven;
+                }
+                else
+                {
+                    Normal.x = Seven;
+                }
+            }
+
+            v4 Color =
+                {
+                    255.0f*(0.5f*(Normal.x + 1.0f)),
+                    255.0f*(0.5f*(Normal.y + 1.0f)),
+                    255.0f*(0.5f*(Normal.z + 1.0f)),
+                    255.0f*Roughness
+                };
+
+            *Pixel++ = (((uint32)(Color.a + 0.5f) << 24) |
+                        ((uint32)(Color.r + 0.5f) << 16) |
+                        ((uint32)(Color.g + 0.5f) << 8) |
+                        ((uint32)(Color.b + 0.5f) << 0));
+        }
+
+        Row += Bitmap->Pitch;
+    }
 }
 
 #if CREATE_TILEMAP_INTERNAL
@@ -905,6 +1359,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         InitializeArena(&GameState->WorldArena, Memory->PermanentStorageSize - sizeof(game_state),
                         (uint8 *)Memory->PermanentStorage + sizeof(game_state));
 
+        
+        // NOTE(casey): Reserve entity slot 0 for the null entity
+        AddLowEntity(GameState, EntityType_Null, NullPosition());
 
         GameState->World = PushStruct(&GameState->WorldArena, world);
         world *World = GameState->World;
@@ -925,6 +1382,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             ScreenIndex < 48;
             ++ScreenIndex)
         {
+            AddStandardRoom(GameState,
+                            ScreenX*TilesPerWidth + TilesPerWidth/2,
+                            ScreenY*TilesPerHeight + TilesPerHeight/2,
+                            AbsTileZ);
+            
             for(uint32 TileY = 0;
                 TileY < TilesPerHeight;
                 ++TileY)
@@ -959,7 +1421,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
                     if(ShouldBeDoor)
                     {
-//                        AddWall(GameState, AbsTileX, AbsTileY, AbsTileZ);
+                        AddWall(GameState, AbsTileX, AbsTileY, AbsTileZ);
                     }
                 }
             }
@@ -1073,6 +1535,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     //
     // NOTE(casey): 
     //
+    world_position NewCameraP = GameState->CameraP;
     for(int ControllerIndex = 0;
         ControllerIndex < ArrayCount(Input->Controllers);
         ++ControllerIndex)
@@ -1082,29 +1545,31 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         if(Controller->IsAnalog)
         {
             // NOTE(casey): Use analog movement tuning
-            //ConHero->ddP = V2(Controller->StickAverageX, Controller->StickAverageY);
+//            ddP = V2(Controller->StickAverageX, Controller->StickAverageY);
         }
         else
         {
             // NOTE(casey): Use digital movement tuning
             if(Controller->MoveUp.EndedDown)
             {
-                GameState->CameraP.ChunkY += 1;
+                NewCameraP.ChunkY += 5;
             }
             if(Controller->MoveDown.EndedDown)
             {
-                GameState->CameraP.ChunkY += -1;
+                NewCameraP.ChunkY -= 5;
             }
             if(Controller->MoveLeft.EndedDown)
             {
-                GameState->CameraP.ChunkX = -1;
+                NewCameraP.ChunkX -= 5;
             }
             if(Controller->MoveRight.EndedDown)
             {
-                GameState->CameraP.ChunkX = 1;
+                NewCameraP.ChunkX += 5;
             }
         }
     }
+
+    GameState->CameraP = NewCameraP;
     
     //
     // NOTE(casey): Render
@@ -1157,7 +1622,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         }
     }
 #endif
-
 #if 1
 
     // TODO(paul): Update only updatable ground chunks
@@ -1188,15 +1652,24 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         }
     }
 #endif    
-    v3 CameraP = Subtract(World, &GameState->CameraP, &GameState->CameraP);
+
+    // TODO(paul): Maybe make sim region for a whole map??
+    // TODO(casey): How big do we actually want to expand here?
+    v3 SimBoundsExpansion = {15.0f, 15.0f, 0.0f};
+    rectangle3 SimBounds = AddRadiusTo(CameraBoundsInMeters, SimBoundsExpansion);
+    temporary_memory SimMemory = BeginTemporaryMemory(&TranState->TranArena);
+    world_position SimCenterP = GameState->CameraP;
+    v3 CameraP = Subtract(World, &GameState->CameraP, &SimCenterP);
     
     PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(ScreenBounds), V4(1.0f, 1.0f, 0.0f, 1));
 //    PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(CameraBoundsInMeters).xy, V4(1.0f, 1.0f, 1.0f, 1));
+    PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(SimBounds).xy, V4(0.0f, 1.0f, 1.0f, 1));
 
     RenderGroup->GlobalAlpha = 1.0f;
     
     TiledRenderGroupToOutput(TranState->RenderQueue, RenderGroup, DrawBuffer);
 
+    EndTemporaryMemory(SimMemory);
     EndTemporaryMemory(RenderMemory);
     
     CheckArena(&GameState->WorldArena);
