@@ -255,56 +255,6 @@ AddStandardRoom(game_state *GameState, uint32 AbsTileX, uint32 AbsTileY, uint32 
 }
 
 internal add_low_entity_result
-AddWall(game_state *GameState, uint32 AbsTileX, uint32 AbsTileY, uint32 AbsTileZ)
-{
-    world_position P = ChunkPositionFromTilePosition(GameState->World, AbsTileX, AbsTileY, AbsTileZ);
-    add_low_entity_result Entity = AddGroundedEntity(GameState, EntityType_Wall, P,
-                                                     GameState->WallCollision);
-    AddFlags(&Entity.Low->Sim, EntityFlag_Collides);
-
-    return(Entity);
-}
-
-internal add_low_entity_result
-AddStair(game_state *GameState, uint32 AbsTileX, uint32 AbsTileY, uint32 AbsTileZ)
-{
-    world_position P = ChunkPositionFromTilePosition(GameState->World, AbsTileX, AbsTileY, AbsTileZ);
-    add_low_entity_result Entity = AddGroundedEntity(GameState, EntityType_Stairwell, P,
-                                                     GameState->StairCollision);
-    AddFlags(&Entity.Low->Sim, EntityFlag_Collides);
-    Entity.Low->Sim.WalkableDim = Entity.Low->Sim.Collision->TotalVolume.Dim.xy;
-    Entity.Low->Sim.WalkableHeight = GameState->TypicalFloorHeight;
-
-    return(Entity);
-}
-
-internal void
-InitHitPoints(low_entity *EntityLow, uint32 HitPointCount)
-{
-    Assert(HitPointCount <= ArrayCount(EntityLow->Sim.HitPoint));
-    EntityLow->Sim.HitPointMax = HitPointCount;
-    for(uint32 HitPointIndex = 0;
-        HitPointIndex < EntityLow->Sim.HitPointMax;
-        ++HitPointIndex)
-    {
-        hit_point *HitPoint = EntityLow->Sim.HitPoint + HitPointIndex;
-        HitPoint->Flags = 0;
-        HitPoint->FilledAmount = HIT_POINT_SUB_COUNT;
-    }
-}
-
-internal add_low_entity_result
-AddSword(game_state *GameState)
-{
-    add_low_entity_result Entity = AddLowEntity(GameState, EntityType_Sword, NullPosition());
-    Entity.Low->Sim.Collision = GameState->SwordCollision;
-
-    AddFlags(&Entity.Low->Sim, EntityFlag_Moveable);
-
-    return(Entity);
-}
-
-internal add_low_entity_result
 AddPlayer(game_state *GameState)
 {
     world_position P = GameState->CameraP;
@@ -312,43 +262,12 @@ AddPlayer(game_state *GameState)
                                                      GameState->PlayerCollision);
     AddFlags(&Entity.Low->Sim, EntityFlag_Collides|EntityFlag_Moveable);
 
-    InitHitPoints(Entity.Low, 3);
-
-    add_low_entity_result Sword = AddSword(GameState);
-    Entity.Low->Sim.Sword.Index = Sword.LowIndex;
-
     if(GameState->CameraFollowingEntityIndex == 0)
     {
         GameState->CameraFollowingEntityIndex = Entity.LowIndex;
     }
 
     return(Entity);
-}
-
-internal void
-DrawHitpoints(sim_entity *Entity, render_group *PieceGroup)
-{
-    if(Entity->HitPointMax >= 1)
-    {
-        v2 HealthDim = {0.2f, 0.2f};
-        real32 SpacingX = 1.5f*HealthDim.x;
-        v2 HitP = {-0.5f*(Entity->HitPointMax - 1)*SpacingX, -0.25f};
-        v2 dHitP = {SpacingX, 0.0f};
-        for(uint32 HealthIndex = 0;
-            HealthIndex < Entity->HitPointMax;
-            ++HealthIndex)
-        {
-            hit_point *HitPoint = Entity->HitPoint + HealthIndex;
-            v4 Color = {1.0f, 0.0f, 0.0f, 1.0f};
-            if(HitPoint->FilledAmount == 0)
-            {
-                Color = V4(0.2f, 0.2f, 0.2f, 1.0f);
-            }
-
-            PushRect(PieceGroup, V3(HitP, 0), HealthDim, Color);
-            HitP += dHitP;
-        }
-    }
 }
 
 internal void
@@ -521,165 +440,6 @@ MakeEmptyBitmap(memory_arena *Arena, int32 Width, int32 Height, bool32 ClearToZe
     return(Result);
 }
 
-internal void
-MakeSphereNormalMap(loaded_bitmap *Bitmap, real32 Roughness, real32 Cx = 1.0f, real32 Cy = 1.0f)
-{
-    real32 InvWidth = 1.0f / (Bitmap->Width - 1);
-    real32 InvHeight = 1.0f / (Bitmap->Height - 1);
-
-    uint8 *Row = (uint8 *)Bitmap->Memory;
-    for(int32 Y = 0;
-        Y < Bitmap->Height;
-        ++Y)
-    {
-        uint32 *Pixel = (uint32 *)Row;
-        for(int32 X = 0;
-            X < Bitmap->Width;
-            ++X)
-        {
-            v2 BitmapUV = {InvWidth*(real32)X, InvHeight*(real32)Y};
-
-            real32 Nx = Cx*(2.0f*BitmapUV.x - 1.0f); 
-            real32 Ny = Cy*(2.0f*BitmapUV.y - 1.0f); 
-
-            real32 RootTerm = 1.0f - Nx*Nx - Ny*Ny;
-            v3 Normal = {0, 0.707106781188f, 0.707106781188f};
-            real32 Nz = 0.0f; 
-            if(RootTerm >= 0.0f)
-            {
-                Nz = SquareRoot(RootTerm);
-                Normal = V3(Nx, Ny, Nz);
-            }
-
-            v4 Color =
-                {
-                    255.0f*(0.5f*(Normal.x + 1.0f)),
-                    255.0f*(0.5f*(Normal.y + 1.0f)),
-                    255.0f*(0.5f*(Normal.z + 1.0f)),
-                    255.0f*Roughness
-                };
-
-            *Pixel++ = (((uint32)(Color.a + 0.5f) << 24) |
-                        ((uint32)(Color.r + 0.5f) << 16) |
-                        ((uint32)(Color.g + 0.5f) << 8) |
-                        ((uint32)(Color.b + 0.5f) << 0));
-        }
-
-        Row += Bitmap->Pitch;
-    }
-}
-
-internal void
-MakeSphereDiffuseMap(loaded_bitmap *Bitmap, real32 Cx = 1.0f, real32 Cy = 1.0f)
-{
-    real32 InvWidth = 1.0f / (Bitmap->Width - 1);
-    real32 InvHeight = 1.0f / (Bitmap->Height - 1);
-
-    uint8 *Row = (uint8 *)Bitmap->Memory;
-    for(int32 Y = 0;
-        Y < Bitmap->Height;
-        ++Y)
-    {
-        uint32 *Pixel = (uint32 *)Row;
-        for(int32 X = 0;
-            X < Bitmap->Width;
-            ++X)
-        {
-            v2 BitmapUV = {InvWidth*(real32)X, InvHeight*(real32)Y};
-
-            real32 Nx = Cx*(2.0f*BitmapUV.x - 1.0f); 
-            real32 Ny = Cy*(2.0f*BitmapUV.y - 1.0f); 
-
-            real32 RootTerm = 1.0f - Nx*Nx - Ny*Ny;
-            real32 Alpha = 0.0f;
-            if(RootTerm >= 0.0f)
-            {
-                Alpha = 1.0f;
-            }
-
-
-            v3 BaseColor = {0.0f, 0.0f, 0.0f};
-            Alpha *= 255.0f;
-            v4 Color =
-                {
-                    Alpha*BaseColor.x,
-                    Alpha*BaseColor.y,
-                    Alpha*BaseColor.z,
-                    Alpha
-                };
-
-            *Pixel++ = (((uint32)(Color.a + 0.5f) << 24) |
-                        ((uint32)(Color.r + 0.5f) << 16) |
-                        ((uint32)(Color.g + 0.5f) << 8) |
-                        ((uint32)(Color.b + 0.5f) << 0));
-        }
-
-        Row += Bitmap->Pitch;
-    }
-}
-
-internal void
-MakePyramidNormalMap(loaded_bitmap *Bitmap, real32 Roughness)
-{
-    real32 InvWidth = 1.0f / (Bitmap->Width - 1);
-    real32 InvHeight = 1.0f / (Bitmap->Height - 1);
-
-    uint8 *Row = (uint8 *)Bitmap->Memory;
-    for(int32 Y = 0;
-        Y < Bitmap->Height;
-        ++Y)
-    {
-        uint32 *Pixel = (uint32 *)Row;
-        for(int32 X = 0;
-            X < Bitmap->Width;
-            ++X)
-        {
-            v2 BitmapUV = {InvWidth*(real32)X, InvHeight*(real32)Y};
-
-            int32 InvX = (Bitmap->Width - 1) - X;
-            real32 Seven = 0.707106781188f;
-            v3 Normal = {0, 0, Seven};
-            if(X < Y)
-            {
-                if(InvX < Y)
-                {
-                    Normal.x = -Seven;
-                }
-                else
-                {
-                    Normal.y = Seven;
-                }
-            }
-            else
-            {
-                if(InvX < Y)
-                {
-                    Normal.y = -Seven;
-                }
-                else
-                {
-                    Normal.x = Seven;
-                }
-            }
-
-            v4 Color =
-                {
-                    255.0f*(0.5f*(Normal.x + 1.0f)),
-                    255.0f*(0.5f*(Normal.y + 1.0f)),
-                    255.0f*(0.5f*(Normal.z + 1.0f)),
-                    255.0f*Roughness
-                };
-
-            *Pixel++ = (((uint32)(Color.a + 0.5f) << 24) |
-                        ((uint32)(Color.r + 0.5f) << 16) |
-                        ((uint32)(Color.g + 0.5f) << 8) |
-                        ((uint32)(Color.b + 0.5f) << 0));
-        }
-
-        Row += Bitmap->Pitch;
-    }
-}
-
 #if CREATE_TILEMAP_INTERNAL
 game_memory *DebugGlobalMemory;
 #endif
@@ -731,77 +491,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         real32 TileDepthInMeters = GameState->TypicalFloorHeight;
 
         GameState->NullCollision = MakeNullCollision(GameState);
-        GameState->SwordCollision = MakeSimpleGroundedCollision(GameState, 1.0f, 0.5f, 0.1f);
-        GameState->StairCollision = MakeSimpleGroundedCollision(GameState,
-                                                                TileSideInMeters,
-                                                                2.0f*TileSideInMeters,
-                                                                1.1f*TileDepthInMeters);
         GameState->PlayerCollision = MakeSimpleGroundedCollision(GameState, 1.0f, 0.5f, 1.2f);
-        GameState->MonstarCollision = MakeSimpleGroundedCollision(GameState, 1.0f, 0.5f, 0.5f);
-        GameState->FamiliarCollision = MakeSimpleGroundedCollision(GameState, 1.0f, 0.5f, 0.5f);
-        GameState->WallCollision = MakeSimpleGroundedCollision(GameState,
-                                                               TileSideInMeters,
-                                                               TileSideInMeters,
-                                                               TileDepthInMeters);
         GameState->StandardRoomCollision = MakeSimpleGroundedCollision(GameState,
                                                                        TilesPerWidth*TileSideInMeters,
                                                                        TilesPerHeight*TileSideInMeters,
                                                                        0.9f*TileDepthInMeters);
-        
-        char FilePath[128];
-        for(int DirectionIndex = 0;
-            DirectionIndex < ArrayCount(GameState->HeroBitmaps.HeroSprites);
-            ++DirectionIndex)
-        {
-            char FileName[32];
-            switch(DirectionIndex)
-            {
-
-                case 0:
-                {
-                    // NOTE(paul): Right
-                    sprintf_s(FileName, "hero/hero_right_");
-                } break;
-
-                case 1:
-                {
-                    // NOTE(paul): Back
-                    sprintf_s(FileName, "hero/hero_back_");
-                } break;
-
-                case 2:
-                {
-                    // NOTE(paul): Left
-                    sprintf_s(FileName, "hero/hero_left_");
-                } break;
-
-                case 3:
-                {
-                    // NOTE(paul): Front
-                    sprintf_s(FileName, "hero/hero_front_");
-                } break;
-            }
-
-            sprite_sheet *SpriteSheet = GameState->HeroBitmaps.HeroSprites + DirectionIndex;
-            for(int SpriteIndex = 0;
-                SpriteIndex < ArrayCount(SpriteSheet->Sprites);
-                ++SpriteIndex)
-            {
-                sprintf_s(FilePath, "%s%d.bmp", FileName, SpriteIndex);
-                loaded_bitmap Result = 
-                    DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, FilePath);
-                if(Result.Memory)
-                {
-                    SpriteSheet->Sprites[SpriteIndex] = Result;
-                    SpriteSheet->SpriteCount += 1;
-                }
-            }
-            --SpriteSheet->SpriteCount;
-        }
-
-        GameState->Grass = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/grass_tile_test.bmp");
-        GameState->Border = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/gray.bmp", 30, 30);
-        
         
         random_series Series = RandomSeed(1234);
         
@@ -830,32 +524,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 {
                     uint32 AbsTileX = ScreenX*TilesPerWidth + TileX;
                     uint32 AbsTileY = ScreenY*TilesPerHeight + TileY;
-                    
-                    bool32 ShouldBeDoor = false;
-                    if((TileX == 0) && (TileY != (TilesPerHeight/2)))
-                    {
-                        ShouldBeDoor = true;
-                    }
-
-                    if((TileX == (TilesPerWidth - 1)) && (TileY != (TilesPerHeight/2)))
-                    {
-                        ShouldBeDoor = true;
-                    }
-                    
-                    if((TileY == 0) && (TileX != (TilesPerWidth/2)))
-                    {
-                        ShouldBeDoor = true;
-                    }
-
-                    if((TileY == (TilesPerHeight - 1)) && (TileX != (TilesPerWidth/2)))
-                    {
-                        ShouldBeDoor = true;
-                    }
-
-                    if(ShouldBeDoor)
-                    {
-                        AddWall(GameState, AbsTileX, AbsTileY, AbsTileZ);
-                    }
                 }
             }
 
@@ -873,14 +541,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 ++ScreenY;
             }
         }
-
-#if 0
-        while(GameState->LowEntityCount < (ArrayCount(GameState->LowEntities) - 16))
-        {
-            uint32 Coordinate = 1024 + GameState->LowEntityCount;
-            AddWall(GameState, Coordinate, Coordinate, Coordinate);
-        }
-#endif
         
         world_position NewCameraP = {};
         uint32 CameraTileX = ScreenBaseX*TilesPerWidth + TilesPerWidth/2;
@@ -1012,29 +672,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 {
                     ConHero->ddP.x = 1.0f;
                 }
-            }
-
-            if(Controller->Start.EndedDown)
-            {
-                ConHero->dZ = 3.0f;
-            }
-
-            ConHero->dSword = {};
-            if(Controller->ActionUp.EndedDown)
-            {
-                ConHero->dSword = V2(0.0f, 1.0f);
-            }
-            if(Controller->ActionDown.EndedDown)
-            {
-                ConHero->dSword = V2(0.0f, -1.0f);
-            }
-            if(Controller->ActionLeft.EndedDown)
-            {
-                ConHero->dSword = V2(-1.0f, 0.0f);
-            }
-            if(Controller->ActionRight.EndedDown)
-            {
-                ConHero->dSword = V2(1.0f, 0.0f);
             }
         }
     }
@@ -1231,7 +868,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             if(!IsSet(Entity, EntityFlag_Nonspatial) &&
                IsSet(Entity, EntityFlag_Moveable))
             {
-                MoveEntity(GameState, SimRegion, Entity, Input->dtForFrame, &MoveSpec, ddP);
+                MoveEntity(GameState, SimRegion, Entity, Input->dtForFrame, ddP);
             }
 
             RenderGroup->Transform.OffsetP = GetEntityGroundPoint(Entity);
@@ -1239,6 +876,24 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             //
             // NOTE(casey): Post-physics entity work
             //
+        }
+
+        switch(Entity->Type)
+        {
+
+            case EntityType_Space:
+            {
+#if 1
+                for(uint32 VolumeIndex = 0;
+                    VolumeIndex < Entity->Collision->VolumeCount;
+                    ++VolumeIndex)
+                {
+                    sim_entity_collision_volume *Volume = Entity->Collision->Volumes + VolumeIndex;
+                    PushRectOutline(RenderGroup, Volume->OffsetP - V3(0, 0, 0.5f*Volume->Dim.z), Volume->Dim.xy,
+                                    V4(0, 0.5f, 1.0f, 1));
+                }
+#endif
+            } break;
         }
     }
 

@@ -230,29 +230,14 @@ struct game_state
     // TODO(casey): Change the name to "Stored entity"
     uint32 LowEntityCount;
     low_entity LowEntities[100000];
-
-    hero_bitmaps HeroBitmaps;
-
-    loaded_bitmap Border;
-    loaded_bitmap Grass;
     
     // TODO(casey): Must be power of two
     pairwise_collision_rule *CollisionRuleHash[256];
     pairwise_collision_rule *FirstFreeCollisionRule;
 
     sim_entity_collision_volume_group *NullCollision;
-    sim_entity_collision_volume_group *SwordCollision;
-    sim_entity_collision_volume_group *StairCollision;
     sim_entity_collision_volume_group *PlayerCollision;
-    sim_entity_collision_volume_group *MonstarCollision;
-    sim_entity_collision_volume_group *FamiliarCollision;
-    sim_entity_collision_volume_group *WallCollision;
     sim_entity_collision_volume_group *StandardRoomCollision;
-
-    real32 Time;
-
-    loaded_bitmap TestDiffuse;
-    loaded_bitmap TestNormal;
 };
 
 struct transient_state
