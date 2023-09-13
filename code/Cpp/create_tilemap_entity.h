@@ -1,4 +1,4 @@
-#if !defined(CREATE_TILMAP_ENTITY_H)
+#if !defined(SPELLWEAVER_ENTITY_H)
 /* ========================================================================
    $File: $
    $Date: $
@@ -72,5 +72,5 @@ GetStairGround(sim_entity *Entity, v3 AtGroundPoint)
     return(Result);
 }
 
-#define CREATE_TILMAP_ENTITY_H
+#define SPELLWEAVER_ENTITY_H
 #endif

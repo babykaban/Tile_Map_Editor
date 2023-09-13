@@ -313,5 +313,3 @@ ChangeEntityLocation(memory_arena *Arena, world *World,
         AddFlags(&LowEntity->Sim, EntityFlag_Nonspatial);
     }
 }
-
-

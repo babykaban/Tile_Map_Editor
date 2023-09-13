@@ -426,23 +426,6 @@ Win32ProcessKeyboardMessage(game_button_state *NewState, bool32 IsDown)
     }
 }
 
-internal real32
-Win32ProcessXInputStickValue(SHORT Value, SHORT DeadZoneThreshold)
-{
-    real32 Result = 0;
-
-    if(Value < -DeadZoneThreshold)
-    {
-        Result = (real32)((Value + DeadZoneThreshold) / (32768.0f - DeadZoneThreshold));
-    }
-    else if(Value > DeadZoneThreshold)
-    {
-        Result = (real32)((Value - DeadZoneThreshold) / (32767.0f - DeadZoneThreshold));
-    }
-
-    return(Result);
-}
-
 internal void
 Win32GetInputFileLocation(win32_state *State, bool32 InputStream,
                           int SlotIndex, int DestCount, char *Dest)
@@ -642,109 +625,6 @@ HandleDebugCycleCounters(game_memory *Memory)
 #endif
 }
 
-#if 0
-
-internal void
-Win32DebugDrawVertical(win32_offscreen_buffer *Backbuffer,
-                       int X, int Top, int Bottom, uint32 Color)
-{
-    if(Top <= 0)
-    {
-        Top = 0;
-    }
-
-    if(Bottom > Backbuffer->Height)
-    {
-        Bottom = Backbuffer->Height;
-    }
-    
-    if((X >= 0) && (X < Backbuffer->Width))
-    {
-        uint8 *Pixel = ((uint8 *)Backbuffer->Memory +
-                        X*Backbuffer->BytesPerPixel +
-                        Top*Backbuffer->Pitch);
-        for(int Y = Top;
-            Y < Bottom;
-            ++Y)
-        {
-            *(uint32 *)Pixel = Color;
-            Pixel += Backbuffer->Pitch;
-        }
-    }
-}
-
-inline void
-Win32DrawSoundBufferMarker(win32_offscreen_buffer *Backbuffer,
-                           win32_sound_output *SoundOutput,
-                           real32 C, int PadX, int Top, int Bottom,
-                           DWORD Value, uint32 Color)
-{
-    real32 XReal32 = (C * (real32)Value);
-    int X = PadX + (int)XReal32;
-    Win32DebugDrawVertical(Backbuffer, X, Top, Bottom, Color);
-}
-
-internal void
-Win32DebugSyncDisplay(win32_offscreen_buffer *Backbuffer,
-                      int MarkerCount, win32_debug_time_marker *Markers,
-                      int CurrentMarkerIndex,
-                      win32_sound_output *SoundOutput, real32 TargetSecondsPerFrame)
-{
-    int PadX = 16;
-    int PadY = 16;
-
-    int LineHeight = 64;
-    
-    real32 C = (real32)(Backbuffer->Width - 2*PadX) / (real32)SoundOutput->SecondaryBufferSize;
-    for(int MarkerIndex = 0;
-        MarkerIndex < MarkerCount;
-        ++MarkerIndex)
-    {
-        win32_debug_time_marker *ThisMarker = &Markers[MarkerIndex];
-        Assert(ThisMarker->OutputPlayCursor < SoundOutput->SecondaryBufferSize);
-        Assert(ThisMarker->OutputWriteCursor < SoundOutput->SecondaryBufferSize);
-        Assert(ThisMarker->OutputLocation < SoundOutput->SecondaryBufferSize);
-        Assert(ThisMarker->OutputByteCount < SoundOutput->SecondaryBufferSize);
-        Assert(ThisMarker->FlipPlayCursor < SoundOutput->SecondaryBufferSize);
-        Assert(ThisMarker->FlipWriteCursor < SoundOutput->SecondaryBufferSize);
-
-        DWORD PlayColor = 0xFFFFFFFF;
-        DWORD WriteColor = 0xFFFF0000;
-        DWORD ExpectedFlipColor = 0xFFFFFF00;
-        DWORD PlayWindowColor = 0xFFFF00FF;
-
-        int Top = PadY;
-        int Bottom = PadY + LineHeight;
-        if(MarkerIndex == CurrentMarkerIndex)
-        {
-            Top += LineHeight+PadY;
-            Bottom += LineHeight+PadY;
-
-            int FirstTop = Top;
-            
-            Win32DrawSoundBufferMarker(Backbuffer, SoundOutput, C, PadX, Top, Bottom, ThisMarker->OutputPlayCursor, PlayColor);
-            Win32DrawSoundBufferMarker(Backbuffer, SoundOutput, C, PadX, Top, Bottom, ThisMarker->OutputWriteCursor, WriteColor);
-
-            Top += LineHeight+PadY;
-            Bottom += LineHeight+PadY;
-
-            Win32DrawSoundBufferMarker(Backbuffer, SoundOutput, C, PadX, Top, Bottom, ThisMarker->OutputLocation, PlayColor);
-            Win32DrawSoundBufferMarker(Backbuffer, SoundOutput, C, PadX, Top, Bottom, ThisMarker->OutputLocation + ThisMarker->OutputByteCount, WriteColor);
-
-            Top += LineHeight+PadY;
-            Bottom += LineHeight+PadY;
-
-            Win32DrawSoundBufferMarker(Backbuffer, SoundOutput, C, PadX, FirstTop, Bottom, ThisMarker->ExpectedFlipPlayCursor, ExpectedFlipColor);
-        }        
-        
-        Win32DrawSoundBufferMarker(Backbuffer, SoundOutput, C, PadX, Top, Bottom, ThisMarker->FlipPlayCursor, PlayColor);
-        Win32DrawSoundBufferMarker(Backbuffer, SoundOutput, C, PadX, Top, Bottom, ThisMarker->FlipPlayCursor + 480*SoundOutput->BytesPerSample, PlayWindowColor);
-        Win32DrawSoundBufferMarker(Backbuffer, SoundOutput, C, PadX, Top, Bottom, ThisMarker->FlipWriteCursor, WriteColor);
-    }
-}
-
-#endif
-
 struct platform_work_queue_entry
 {
     platform_work_queue_callback *Callback;
@@ -851,7 +731,7 @@ WinMain(HINSTANCE Instance,
 {
     win32_state Win32State = {};
 
-    win32_thread_info ThreadInfo[5];
+    win32_thread_info ThreadInfo[1];
 
     platform_work_queue Queue = {};
 
@@ -905,7 +785,7 @@ WinMain(HINSTANCE Instance,
     Win32GetEXEFileName(&Win32State);
 
     char SourceGameCodeDLLFullPath[WIN32_STATE_FILE_NAME_COUNT];
-    Win32BuildEXEPathFileName(&Win32State, "create_tilemap_.dll",
+    Win32BuildEXEPathFileName(&Win32State, "create_tilemap.dll",
                               sizeof(SourceGameCodeDLLFullPath), SourceGameCodeDLLFullPath);
 
     char TempGameCodeDLLFullPath[WIN32_STATE_FILE_NAME_COUNT];

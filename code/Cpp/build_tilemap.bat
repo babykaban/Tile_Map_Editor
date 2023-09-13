@@ -10,7 +10,7 @@ REM 64-bit build
 del *.pdb > NUL 2> NUL
 REM Optimization switches /O2
 echo WAITING FOR PDB > lock.tmp
-cl %CommonCompilerFlags% ..\code\Cpp\create_tilemap_.cpp -Fmcreate_tilemap_.map -LD /link -incremental:no -opt:ref -PDB:create_tilemap_%random%.pdb -EXPORT:GameUpdateAndRender
+cl %CommonCompilerFlags% ..\code\Cpp\create_tilemap.cpp -Fmcreate_tilemap_.map -LD /link -incremental:no -opt:ref -PDB:create_tilemap_%random%.pdb -EXPORT:GameUpdateAndRender
 del lock.tmp
 cl %CommonCompilerFlags% ..\code\Cpp\win32_create_tilemap.cpp -Fmwin32_create_tilemap.map /link %CommonLinkerFlags%
 popd

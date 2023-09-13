@@ -1,4 +1,4 @@
-#if !defined(CREATE_TILEMAP_SIM_REGION_H)
+#if !defined(SPELLWEAVER_SIM_REGION_H)
 /* ========================================================================
    $File: $
    $Date: $
@@ -139,5 +139,5 @@ struct sim_region
     sim_entity_hash Hash[4096];
 };
 
-#define CREATE_TILEMAP_SIM_REGION_H
+#define SPELLWEAVER_SIM_REGION_H
 #endif
