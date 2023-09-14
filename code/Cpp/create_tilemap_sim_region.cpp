@@ -6,6 +6,8 @@
    $Notice: (C) Copyright 2023 by Handy Paul, Inc. All Rights Reserved. $
    ======================================================================== */
 
+#define InvalidP V3(100000.0f, 100000.0f, 100000.0f)
+
 internal sim_entity_hash *
 GetHashFromStorageIndex(sim_region *SimRegion, uint32 StorageIndex)
 {
@@ -31,15 +33,6 @@ GetHashFromStorageIndex(sim_region *SimRegion, uint32 StorageIndex)
     return(Result);
 }
 
-inline sim_entity *
-GetEntityByStorageIndex(sim_region *SimRegion, uint32 StorageIndex)
-{
-    sim_entity_hash *Entry = GetHashFromStorageIndex(SimRegion, StorageIndex);
-    sim_entity *Result = Entry->Ptr;
-
-    return(Result);
-}
-
 inline v3
 GetSimSpaceP(sim_region *SimRegion, low_entity *Stored)
 {
@@ -48,109 +41,33 @@ GetSimSpaceP(sim_region *SimRegion, low_entity *Stored)
     // debug mode to make sure nobody ever uses the position
     // of a nonspatial entity?
     v3 Result = InvalidP;
-    if(!IsSet(&Stored->Sim, EntityFlag_Nonspatial))
-    {
-        Result = Subtract(SimRegion->World, &Stored->P, &SimRegion->Origin);
-    }
+    Result = Subtract(SimRegion->World, &Stored->P, &SimRegion->Origin);
 
-    return(Result);
-}
-
-internal sim_entity *
-AddEntity(game_state *GameState, sim_region *SimRegion, uint32 StorageIndex, low_entity *Source, v3 *SimP);
-inline void
-LoadEntityreference(game_state *GameState, sim_region *SimRegion, entity_reference *Ref)
-{
-    if(Ref->Index)
-    {
-        sim_entity_hash *Entry = GetHashFromStorageIndex(SimRegion, Ref->Index); 
-        if(Entry->Ptr == 0)
-        {
-            Entry->Index = Ref->Index;
-            low_entity *LowEntity = GetLowEntity(GameState, Ref->Index);
-            v3 P = GetSimSpaceP(SimRegion, LowEntity);
-            Entry->Ptr = AddEntity(GameState, SimRegion, Ref->Index, LowEntity, &P);
-        }
-        
-        Ref->Ptr = Entry->Ptr;
-    }
-}
-
-inline void
-StoreEntityreference(entity_reference *Ref)
-{
-    if(Ref->Ptr != 0)
-    {
-        Ref->Index = Ref->Ptr->StorageIndex;
-    }
-}
-
-internal sim_entity *
-AddEntityRaw(game_state *GameState, sim_region *SimRegion, uint32 StorageIndex, low_entity *Source)
-{
-    Assert(StorageIndex);
-    sim_entity *Entity = 0;
-    
-    sim_entity_hash *Entry = GetHashFromStorageIndex(SimRegion, StorageIndex); 
-    if(Entry->Ptr == 0)
-    {
-        if(SimRegion->EntityCount < SimRegion->MaxEntityCount)
-        {
-            Entity = SimRegion->Entities + SimRegion->EntityCount++;
-
-            Entry->Index = StorageIndex;
-            Entry->Ptr = Entity;
-
-            if(Source)
-            {
-                // TODO(casey): This should really be a decompression step, not
-                // a copy!
-                *Entity = Source->Sim;
-                LoadEntityreference(GameState, SimRegion, &Entity->Sword);
-
-                Assert(!IsSet(&Source->Sim, EntityFlag_Simming));
-                AddFlags(&Source->Sim, EntityFlag_Simming);
-            }
-
-            Entity->StorageIndex = StorageIndex;
-            Entity->Updatable = false;
-        }
-        else
-        {
-            InvalidCodePath;
-        }
-    }
-
-    return(Entity);
-}
-
-inline bool32
-EntityOverlapsRectangle(v3 P, sim_entity_collision_volume Volume, rectangle3 Rect)
-{
-    rectangle3 Grown = AddRadiusTo(Rect, 0.5f*Volume.Dim);
-    bool32 Result = IsInRectangle(Grown, P+ Volume.OffsetP);
     return(Result);
 }
 
 internal sim_entity *
 AddEntity(game_state *GameState, sim_region *SimRegion, uint32 StorageIndex, low_entity *Source, v3 *SimP)
 {
-    sim_entity *Dest = AddEntityRaw(GameState, SimRegion, StorageIndex, Source);
-    if(Dest)
+    Assert(StorageIndex);
+    sim_entity *Entity = 0;
+    
+    if(SimRegion->EntityCount < SimRegion->MaxEntityCount)
     {
-        if(SimP)
-        {
-            Dest->P = *SimP;
-            Dest->Updatable = EntityOverlapsRectangle(Dest->P, Dest->Collision->TotalVolume,
-                                                      SimRegion->UpdatableBounds);
-        }
-        else
-        {
-            Dest->P = GetSimSpaceP(SimRegion, Source);
-        }
+        Entity = SimRegion->Entities + SimRegion->EntityCount++;
+
+        *Entity = Source->Sim;
+
+        Entity->StorageIndex = StorageIndex;
+        Entity->P = *SimP;
+        Entity->Updatable = true;
+    }
+    else
+    {
+        InvalidCodePath;
     }
 
-    return(Dest);
+    return(Entity);
 }
 
 internal sim_region *
@@ -211,15 +128,9 @@ BeginSim(memory_arena *SimArena, game_state *GameState, world *World, world_posi
                         {
                             uint32 LowEntityIndex = Block->LowEntityIndex[EntityIndexIndex];
                             low_entity *Low = GameState->LowEntities + LowEntityIndex;
-                            if(!IsSet(&Low->Sim, EntityFlag_Nonspatial))
-                            {
-                                v3 SimSpaceP = GetSimSpaceP(SimRegion, Low);
-                                if(EntityOverlapsRectangle(SimSpaceP, Low->Sim.Collision->TotalVolume,
-                                                           SimRegion->Bounds))
-                                {
-                                    AddEntity(GameState, SimRegion, LowEntityIndex, Low, &SimSpaceP);
-                                }
-                            }
+                            v3 SimSpaceP = GetSimSpaceP(SimRegion, Low);
+
+                            AddEntity(GameState, SimRegion, LowEntityIndex, Low, &SimSpaceP);
                         }
                     }
                 }
@@ -241,19 +152,9 @@ EndSim(sim_region *Region, game_state *GameState)
         ++EntityIndex, ++Entity)
     {
         low_entity *Stored = GameState->LowEntities + Entity->StorageIndex;
-
-        Assert(IsSet(&Stored->Sim, EntityFlag_Simming));
         Stored->Sim = *Entity;
-        Assert(!IsSet(&Stored->Sim, EntityFlag_Simming));
 
-        StoreEntityreference(&Stored->Sim.Sword);
-        
-        // TODO(casey): Save state back to the stored entity, once high entities
-        // do state decompression, etc.
-
-        world_position NewP = IsSet(Entity, EntityFlag_Nonspatial) ?
-            NullPosition() :
-            MapIntoChunkSpace(GameState->World, Region->Origin, Entity->P);
+        world_position NewP = MapIntoChunkSpace(GameState->World, Region->Origin, Entity->P);
 
         ChangeEntityLocation(&GameState->WorldArena, GameState->World, Entity->StorageIndex,
                              Stored, NewP);
@@ -263,28 +164,7 @@ EndSim(sim_region *Region, game_state *GameState)
             world_position NewCameraP = GameState->CameraP;
 
             NewCameraP.ChunkZ = Stored->P.ChunkZ;
-#if 0
-            if(CameraFollowingEntity.High->P.X > (9.0f * World->TileSideInMeters))
-            {
-                NewCameraP.AbsTileX += 17;
-            }
-            if(CameraFollowingEntity.High->P.X < -(9.0f * World->TileSideInMeters))
-            {
-                NewCameraP.AbsTileX -= 17;
-            }
-            if(CameraFollowingEntity.High->P.Y > (5.0f * World->TileSideInMeters))
-            {
-                NewCameraP.AbsTileY += 9;
-            }
-            if(CameraFollowingEntity.High->P.Y < -(5.0f * World->TileSideInMeters))
-            {
-                NewCameraP.AbsTileY -= 9;
-            }
-#else
-//            real32 CamZOffset = NewCameraP.Offset_.z;
             NewCameraP = Stored->P;
-//            NewCameraP.Offset_.z = CamZOffset;
-#endif
 
             GameState->CameraP = NewCameraP;
         }
@@ -294,8 +174,6 @@ EndSim(sim_region *Region, game_state *GameState)
 internal void
 MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entity *Entity, real32 dt, v3 ddP)
 {
-    Assert(!IsSet(Entity, EntityFlag_Nonspatial));
-
     world *World = SimRegion->World;
 
     if(true)

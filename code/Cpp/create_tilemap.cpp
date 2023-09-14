@@ -11,43 +11,11 @@
 #include "create_tilemap_world.cpp"
 #include "create_tilemap_random.h"
 #include "create_tilemap_sim_region.cpp"
-#include "create_tilemap_entity.cpp"
 
 #if 1
 // TODO(paul): Learn how to do asset streaming and remove this
 #include <stdio.h>
 #endif
-
-internal void
-GameOutputSound(game_state *GameState, game_sound_output_buffer *SoundBuffer, int ToneHz)
-{
-    int16 ToneVolume = 3000;
-    int WavePeriod = SoundBuffer->SamplesPerSecond/ToneHz;
-
-    int16 *SampleOut = SoundBuffer->Samples;
-    for(int SampleIndex = 0;
-        SampleIndex < SoundBuffer->SampleCount;
-        ++SampleIndex)
-    {
-        // TODO(casey): Draw this out for people
-#if 0
-        real32 SineValue = sinf(GameState->tSine);
-        int16 SampleValue = (int16)(SineValue * ToneVolume);
-#else
-        int16 SampleValue = 0;
-#endif
-        *SampleOut++ = SampleValue;
-        *SampleOut++ = SampleValue;
-
-#if 0
-        GameState->tSine += 2.0f*Pi32*1.0f/(real32)WavePeriod;
-        if(GameState->tSine > 2.0f*Pi32)
-        {
-            GameState->tSine -= 2.0f*Pi32;
-        }
-#endif
-    }
-}
 
 #pragma pack(push, 1)
 struct bitmap_header
@@ -191,39 +159,6 @@ struct add_low_entity_result
     low_entity *Low;
     uint32 LowIndex;
 };
-internal add_low_entity_result
-AddLowEntity(game_state *GameState, entity_type Type, world_position P)
-{
-    Assert(GameState->LowEntityCount < ArrayCount(GameState->LowEntities));
-    uint32 EntityIndex = GameState->LowEntityCount++;
-   
-    low_entity *EntityLow = GameState->LowEntities + EntityIndex;
-    *EntityLow = {};
-    EntityLow->Sim.Type = Type;
-    EntityLow->Sim.Collision = GameState->NullCollision;
-    EntityLow->P = NullPosition();
-
-    ChangeEntityLocation(&GameState->WorldArena, GameState->World, EntityIndex, EntityLow, P);
-
-    add_low_entity_result Result;
-    Result.Low = EntityLow;
-    Result.LowIndex = EntityIndex;
-
-    // TODO(casey): Do we need to have a begin/end paradigm for adding
-    // entities so that they can be brought into the high set when they
-    // are added and are in the camera region?
-    
-    return(Result);
-}
-
-internal add_low_entity_result
-AddGroundedEntity(game_state *GameState, entity_type Type, world_position P,
-                  sim_entity_collision_volume_group *Collision)
-{
-    add_low_entity_result Entity = AddLowEntity(GameState, Type, P);
-    Entity.Low->Sim.Collision = Collision;
-    return(Entity);
-}
 
 inline world_position
 ChunkPositionFromTilePosition(world *World, int32 AbsTileX, int32 AbsTileY, int32 AbsTileZ,
@@ -244,23 +179,30 @@ ChunkPositionFromTilePosition(world *World, int32 AbsTileX, int32 AbsTileY, int3
 }
 
 internal add_low_entity_result
-AddStandardRoom(game_state *GameState, uint32 AbsTileX, uint32 AbsTileY, uint32 AbsTileZ)
+AddLowEntity(game_state *GameState, entity_type Type, world_position P)
 {
-    world_position P = ChunkPositionFromTilePosition(GameState->World, AbsTileX, AbsTileY, AbsTileZ);
-    add_low_entity_result Entity = AddGroundedEntity(GameState, EntityType_Space, P,
-                                                     GameState->StandardRoomCollision);
-    AddFlags(&Entity.Low->Sim, EntityFlag_Traversable);
+    Assert(GameState->LowEntityCount < ArrayCount(GameState->LowEntities));
+    uint32 EntityIndex = GameState->LowEntityCount++;
+   
+    low_entity *EntityLow = GameState->LowEntities + EntityIndex;
+    *EntityLow = {};
+    EntityLow->Sim.Type = Type;
+    EntityLow->P = NullPosition();
 
-    return(Entity);
+    ChangeEntityLocation(&GameState->WorldArena, GameState->World, EntityIndex, EntityLow, P);
+
+    add_low_entity_result Result;
+    Result.Low = EntityLow;
+    Result.LowIndex = EntityIndex;
+    
+    return(Result);
 }
 
 internal add_low_entity_result
-AddPlayer(game_state *GameState)
+AddCameraPoint(game_state *GameState)
 {
     world_position P = GameState->CameraP;
-    add_low_entity_result Entity = AddGroundedEntity(GameState, EntityType_Hero, P,
-                                                     GameState->PlayerCollision);
-    AddFlags(&Entity.Low->Sim, EntityFlag_Collides|EntityFlag_Moveable);
+    add_low_entity_result Entity = AddLowEntity(GameState, EntityType_Camera, P);
 
     if(GameState->CameraFollowingEntityIndex == 0)
     {
@@ -268,122 +210,6 @@ AddPlayer(game_state *GameState)
     }
 
     return(Entity);
-}
-
-internal void
-ClearCollisionRulesFor(game_state *GameState, uint32 StorageIndex)
-{
-    // TODO(casey): Need to make a better data structure that allows
-    // removal of collision rules without searching the entire table
-    // NOTE(casey): One way to make removal easy would be to always
-    // add _both_ orders of the pairs of storage indices to the
-    // hash table, so no matter which position the entity is in,
-    // you can always find it.  Then, when you do your first pass
-    // through for removal, you just remember the original top
-    // of the free list, and when you're done, do a pass through all
-    // the new things on the free list, and remove the reverse of
-    // those pairs.
-    for(uint32 HashBucket = 0;
-        HashBucket < ArrayCount(GameState->CollisionRuleHash);
-        ++HashBucket)
-    {
-        for(pairwise_collision_rule **Rule = &GameState->CollisionRuleHash[HashBucket];
-            *Rule;
-            )
-        {
-            if(((*Rule)->StorageIndexA == StorageIndex) ||
-               ((*Rule)->StorageIndexB == StorageIndex))
-            {
-                pairwise_collision_rule *RemovedRule = *Rule;
-                *Rule = (*Rule)->NextInHash;
-
-                RemovedRule->NextInHash = GameState->FirstFreeCollisionRule;
-                GameState->FirstFreeCollisionRule = RemovedRule;
-            }
-            else
-            {
-                Rule = &(*Rule)->NextInHash;
-            }
-        }
-    }
-}
-
-internal void
-AddCollisionRule(game_state *GameState, uint32 StorageIndexA, uint32 StorageIndexB, bool32 CanCollide)
-{
-    // TODO(casey): Collapse this with ShouldCollide
-    if(StorageIndexA > StorageIndexB)
-    {
-        uint32 Temp = StorageIndexA;
-        StorageIndexA = StorageIndexB;
-        StorageIndexB = Temp;
-    }
-
-    // TODO(casey): BETTER HASH FUNCTION
-    pairwise_collision_rule *Found = 0;
-    uint32 HashBucket = StorageIndexA & (ArrayCount(GameState->CollisionRuleHash) - 1);
-    for(pairwise_collision_rule *Rule = GameState->CollisionRuleHash[HashBucket];
-        Rule;
-        Rule = Rule->NextInHash)
-    {
-        if((Rule->StorageIndexA == StorageIndexA) &&
-           (Rule->StorageIndexB == StorageIndexB))
-        {
-            Found = Rule;
-            break;
-        }
-    }
-    
-    if(!Found)
-    {
-        Found = GameState->FirstFreeCollisionRule;
-        if(Found)
-        {
-            GameState->FirstFreeCollisionRule = Found->NextInHash;
-        }
-        else
-        {
-            Found = PushStruct(&GameState->WorldArena, pairwise_collision_rule);
-        }
-        
-        Found->NextInHash = GameState->CollisionRuleHash[HashBucket];
-        GameState->CollisionRuleHash[HashBucket] = Found;
-    }
-
-    if(Found)
-    {
-        Found->StorageIndexA = StorageIndexA;
-        Found->StorageIndexB = StorageIndexB;
-        Found->CanCollide = CanCollide;
-    }
-}
-
-sim_entity_collision_volume_group *
-MakeSimpleGroundedCollision(game_state *GameState, real32 DimX, real32 DimY, real32 DimZ)
-{
-    // TODO(casey): NOT WORLD ARENA!  Change to using the fundamental types arena, etc.
-    sim_entity_collision_volume_group *Group = PushStruct(&GameState->WorldArena, sim_entity_collision_volume_group);
-    Group->VolumeCount = 1;
-    Group->Volumes = PushArray(&GameState->WorldArena, Group->VolumeCount, sim_entity_collision_volume);
-    Group->TotalVolume.OffsetP = V3(0, 0, 0.5f*DimZ);
-    Group->TotalVolume.Dim = V3(DimX, DimY, DimZ);
-    Group->Volumes[0] = Group->TotalVolume;
-
-    return(Group);
-}
-
-sim_entity_collision_volume_group *
-MakeNullCollision(game_state *GameState)
-{
-    // TODO(casey): NOT WORLD ARENA!  Change to using the fundamental types arena, etc.
-    sim_entity_collision_volume_group *Group = PushStruct(&GameState->WorldArena, sim_entity_collision_volume_group);
-    Group->VolumeCount = 0;
-    Group->Volumes = 0;
-    Group->TotalVolume.OffsetP = V3(0, 0, 0);
-    // TODO(casey): Should this be negative?
-    Group->TotalVolume.Dim = V3(0, 0, 0);
-
-    return(Group);
 }
 
 internal void
@@ -444,6 +270,22 @@ MakeEmptyBitmap(memory_arena *Arena, int32 Width, int32 Height, bool32 ClearToZe
 game_memory *DebugGlobalMemory;
 #endif
 
+inline v3
+GetEntityGroundPoint(sim_entity *Entity, v3 ForEntityP)
+{
+    v3 Result = ForEntityP;
+
+    return(Result);
+}
+
+inline v3
+GetEntityGroundPoint(sim_entity *Entity)
+{
+    v3 Result = GetEntityGroundPoint(Entity, Entity->P);
+
+    return(Result);
+}
+
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {    
     PlatformAddEntry = Memory->PlatformAddEntry;
@@ -490,13 +332,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         real32 TileSideInMeters = 1.4f;
         real32 TileDepthInMeters = GameState->TypicalFloorHeight;
 
-        GameState->NullCollision = MakeNullCollision(GameState);
-        GameState->PlayerCollision = MakeSimpleGroundedCollision(GameState, 1.0f, 0.5f, 1.2f);
-        GameState->StandardRoomCollision = MakeSimpleGroundedCollision(GameState,
-                                                                       TilesPerWidth*TileSideInMeters,
-                                                                       TilesPerHeight*TileSideInMeters,
-                                                                       0.9f*TileDepthInMeters);
-        
         random_series Series = RandomSeed(1234);
         
         uint32 ScreenBaseX = 0;
@@ -509,11 +344,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             ScreenIndex < 48;
             ++ScreenIndex)
         {
-            AddStandardRoom(GameState,
-                            ScreenX*TilesPerWidth + TilesPerWidth/2,
-                            ScreenY*TilesPerHeight + TilesPerHeight/2,
-                            AbsTileZ);
-            
             for(uint32 TileY = 0;
                 TileY < TilesPerHeight;
                 ++TileY)
@@ -564,48 +394,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                         (uint8 *)Memory->TransientStorage + sizeof(transient_state));
 
         TranState->RenderQueue = Memory->HighPriorityQueue;
-#if 0
-        // TODO(casey): Pick a real number here!
-        TranState->GroundBufferCount = 128;
-        TranState->GroundBuffers = PushArray(&TranState->TranArena, TranState->GroundBufferCount, ground_buffer);
-        for(uint32 GroundBufferIndex = 0;
-            GroundBufferIndex < TranState->GroundBufferCount;
-            ++GroundBufferIndex)
-        {
-            ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
-            GroundBuffer->Bitmap = MakeEmptyBitmap(&TranState->TranArena, GroundBufferWidth, GroundBufferHeight, false);
-            GroundBuffer->P = NullPosition();
-        }
-
-        GameState->TestDiffuse = MakeEmptyBitmap(&TranState->TranArena, 256, 256, false);
-        DrawRectangle(&GameState->TestDiffuse, V2(0, 0),
-                      V2i(GameState->TestDiffuse.Width, GameState->TestDiffuse.Height),
-                      V4(0.5f, 0.5f, 0.5f, 1.0f));
-        GameState->TestNormal =
-            MakeEmptyBitmap(&TranState->TranArena,GameState->TestDiffuse.Width,
-                            GameState->TestDiffuse.Height, false);
-        MakeSphereNormalMap(&GameState->TestNormal, 0.0f);
-        MakeSphereDiffuseMap(&GameState->TestDiffuse);
-        
-        TranState->EnvMapWidth = 512;
-        TranState->EnvMapHeight = 256;
-        for(uint32 MapIndex = 0;
-            MapIndex < ArrayCount(TranState->EnvMaps);
-            ++MapIndex)
-        {
-            environment_map *Map = TranState->EnvMaps + MapIndex;
-            uint32 Width = TranState->EnvMapWidth;
-            uint32 Height = TranState->EnvMapHeight;
-            for(uint32 LODIndex = 0;
-                LODIndex < ArrayCount(Map->LOD);
-                ++LODIndex)
-            {
-                Map->LOD[LODIndex] = MakeEmptyBitmap(&TranState->TranArena, Width, Height, false);
-                Width >>= 1;
-                Height >>= 1;
-            }
-        }
-#endif
         
         TranState->IsInitialized = true;
     }
@@ -633,44 +421,42 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         ++ControllerIndex)
     {
         game_controller_input *Controller = GetController(Input, ControllerIndex);
-        controlled_hero *ConHero = GameState->ControlledHeroes + ControllerIndex;
-        if(ConHero->EntityIndex == 0)
+        controlled_camera *ConCamera = GameState->ControlledHeroes + ControllerIndex;
+        if(ConCamera->CameraIndex == 0)
         {
             if(Controller->Start.EndedDown)
             {
-                *ConHero = {};
-                ConHero->EntityIndex = AddPlayer(GameState).LowIndex;
+                *ConCamera = {};
+                ConCamera->CameraIndex = AddCameraPoint(GameState).LowIndex;
             }
         }
         else
         {
-            ConHero->dZ = 0.0f;
-            ConHero->ddP = {};
-            ConHero->dSword = {};
+            ConCamera->ddP = {};
 
             if(Controller->IsAnalog)
             {
                 // NOTE(casey): Use analog movement tuning
-                ConHero->ddP = V2(Controller->StickAverageX, Controller->StickAverageY);
+                ConCamera->ddP = V2(Controller->StickAverageX, Controller->StickAverageY);
             }
             else
             {
                 // NOTE(casey): Use digital movement tuning
                 if(Controller->MoveUp.EndedDown)
                 {
-                    ConHero->ddP.y = 1.0f;
+                    ConCamera->ddP.y = 1.0f;
                 }
                 if(Controller->MoveDown.EndedDown)
                 {
-                    ConHero->ddP.y = -1.0f;
+                    ConCamera->ddP.y = -1.0f;
                 }
                 if(Controller->MoveLeft.EndedDown)
                 {
-                    ConHero->ddP.x = -1.0f;
+                    ConCamera->ddP.x = -1.0f;
                 }
                 if(Controller->MoveRight.EndedDown)
                 {
-                    ConHero->ddP.x = 1.0f;
+                    ConCamera->ddP.x = 1.0f;
                 }
             }
         }
@@ -693,6 +479,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     real32 WidthOfMonitor = 0.635f; // NOTE(casey): Horizontal measurement of monitor in meters
     real32 MetersToPixels = (real32)DrawBuffer->Width*WidthOfMonitor;
     Prespective(RenderGroup, DrawBuffer->Width, DrawBuffer->Height, MetersToPixels, 0.6f, 9.0f);
+
     Clear(RenderGroup, V4(0.25f, 0.25f, 0.25f, 0.0f));
 
     v2 ScreenCenter = {0.5f*(real32)DrawBuffer->Width,
@@ -704,29 +491,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     CameraBoundsInMeters.Min.z = -3.0f*GameState->TypicalFloorHeight;
     CameraBoundsInMeters.Max.z =  1.0f*GameState->TypicalFloorHeight;
 
-#if 0
-
-    // NOTE(casey): Ground chunk rendering
-    for(uint32 GroundBufferIndex = 0;
-        GroundBufferIndex < TranState->GroundBufferCount;
-        ++GroundBufferIndex)
-    {
-        ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
-        if(IsValid(GroundBuffer->P))
-        {
-            loaded_bitmap *Bitmap = &GroundBuffer->Bitmap;
-            v3 Delta = Subtract(GameState->World, &GroundBuffer->P, &GameState->CameraP);        
-            if((Delta.z >= -1.0f) && (Delta.z < 1.0f))
-            {
-                real32 GroundSideInMeters = World->ChunkDimInMeters.x;
-//                PushBitmap(RenderGroup, Bitmap, GroundSideInMeters, Delta);
-
-                PushRectOutline(RenderGroup, Delta, V2(GroundSideInMeters, GroundSideInMeters),
-                                V4(1.0f, 1.0f, 0.0f, 1.0f));
-            }
-        }
-    }
-#endif
 #if 1
 
     // TODO(paul): Update only updatable ground chunks
@@ -790,7 +554,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 ShadowAlpha = 0.0f;
             }
 
-            move_spec MoveSpec = DefaultMoveSpec();
             v3 ddP = {};
 
             v3 CameraRelativeGroundP = GetEntityGroundPoint(Entity) - CameraP;
@@ -814,7 +577,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
             switch(Entity->Type)
             {
-                case EntityType_Hero:
+                case EntityType_Camera:
                 {
                     // TODO(casey): Now that we have some real usage examples, let's solidify
                     // the positioning system!
@@ -822,78 +585,16 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                         ControlIndex < ArrayCount(GameState->ControlledHeroes);
                         ++ControlIndex)
                     {
-                        controlled_hero *ConHero = GameState->ControlledHeroes + ControlIndex;
-
-                        if(Entity->StorageIndex == ConHero->EntityIndex)
+                        controlled_camera *ConCamera = GameState->ControlledHeroes + ControlIndex;
+                        if(Entity->StorageIndex == ConCamera->CameraIndex)
                         {
-                            if(ConHero->dZ != 0.0f)
-                            {
-                                Entity->dP.z = ConHero->dZ;
-                            }
-                        
-                            MoveSpec.UnitMaxAccelVector = true;
-                            MoveSpec.Speed = 50.0f;
-                            MoveSpec.Drag = 8.0f;
-                            ddP = V3(ConHero->ddP, 0);
-                            
-                            if((ConHero->dSword.x != 0.0f) || (ConHero->dSword.y != 0.0f))
-                            {
-                                sim_entity *Sword = Entity->Sword.Ptr;
-                                if(Sword && IsSet(Sword, EntityFlag_Nonspatial))
-                                {
-                                    Sword->DistanceLimit = 5.0f;
-                                    MakeEntitySpatial(Sword, Entity->P,
-                                                      Entity->dP + 5.0f*V3(ConHero->dSword, 0));
-                                    AddCollisionRule(GameState, Sword->StorageIndex, Entity->StorageIndex, false);
-                                }
-                            }
+                            MoveEntity(GameState, SimRegion, Entity, Input->dtForFrame, V3(ConCamera->ddP, 0.0f));
                         }
                     }
                 } break;
-
-                case EntityType_Sword:
-                {
-                    MoveSpec.UnitMaxAccelVector = false;
-                    MoveSpec.Speed = 0.0f;
-                    MoveSpec.Drag = 0.0f;
-
-                    if(Entity->DistanceLimit == 0.0f)
-                    {
-                        ClearCollisionRulesFor(GameState, Entity->StorageIndex);
-                        MakeEntityNonSpatial(Entity);
-                    }
-                } break;
-            }
-            
-            if(!IsSet(Entity, EntityFlag_Nonspatial) &&
-               IsSet(Entity, EntityFlag_Moveable))
-            {
-                MoveEntity(GameState, SimRegion, Entity, Input->dtForFrame, ddP);
             }
 
             RenderGroup->Transform.OffsetP = GetEntityGroundPoint(Entity);
-
-            //
-            // NOTE(casey): Post-physics entity work
-            //
-        }
-
-        switch(Entity->Type)
-        {
-
-            case EntityType_Space:
-            {
-#if 1
-                for(uint32 VolumeIndex = 0;
-                    VolumeIndex < Entity->Collision->VolumeCount;
-                    ++VolumeIndex)
-                {
-                    sim_entity_collision_volume *Volume = Entity->Collision->Volumes + VolumeIndex;
-                    PushRectOutline(RenderGroup, Volume->OffsetP - V3(0, 0, 0.5f*Volume->Dim.z), Volume->Dim.xy,
-                                    V4(0, 0.5f, 1.0f, 1));
-                }
-#endif
-            } break;
         }
     }
 

@@ -759,22 +759,6 @@ WinMain(HINSTANCE Instance,
     Win32AddEntry(&Queue, DoWorkerWork, "String2\n");
     Win32AddEntry(&Queue, DoWorkerWork, "String3\n");
     Win32AddEntry(&Queue, DoWorkerWork, "String4\n");
-    Win32AddEntry(&Queue, DoWorkerWork, "String5\n");
-    Win32AddEntry(&Queue, DoWorkerWork, "String6\n");
-    Win32AddEntry(&Queue, DoWorkerWork, "String7\n");
-    Win32AddEntry(&Queue, DoWorkerWork, "String8\n");
-    Win32AddEntry(&Queue, DoWorkerWork, "String9\n");
-    
-    Win32AddEntry(&Queue, DoWorkerWork, "String10\n");
-    Win32AddEntry(&Queue, DoWorkerWork, "String11\n");
-    Win32AddEntry(&Queue, DoWorkerWork, "String12\n");
-    Win32AddEntry(&Queue, DoWorkerWork, "String13\n");
-    Win32AddEntry(&Queue, DoWorkerWork, "String14\n");
-    Win32AddEntry(&Queue, DoWorkerWork, "String15\n");
-    Win32AddEntry(&Queue, DoWorkerWork, "String16\n");
-    Win32AddEntry(&Queue, DoWorkerWork, "String17\n");
-    Win32AddEntry(&Queue, DoWorkerWork, "String18\n");
-    Win32AddEntry(&Queue, DoWorkerWork, "String19\n");
 
     Win32CompleteAllWork(&Queue);
     

@@ -7,68 +7,6 @@
    $Notice: (C) Copyright 2014 by Molly Rocket, Inc. All Rights Reserved. $
    ======================================================================== */
 
-/*
-  TODO(casey):
-
-  ARCHITECTURE EXPLORATION
-  - Z!
-    - How is this rendered?
-      "Frinstances"!
-  - Collision detection?
-    - Clean up predicate proliferation! Can we make a nice clean
-      set of flags/rules so that it's easy to understand how
-      things work in terms of special handling? This may involve
-      making the iteration handle everything instead of handling
-      overlap outside and so on.
-    - Transient collision rules! Ckear based on flag.
-      - Allow non-transient rules to everride transient ones.
-      - Entry/exit?
-    - What's the plan for robustness / shape definition?
-    - (Implement reprojection to handle interpenetration)
-  - Implement multiple sim regions per frame
-    - Per-entity clocking
-    - Sim region merging? For multiple players?
-
-  - Debug code
-    - Logging
-    - Diagramming
-    - (A LITTLE GUI, but only a little!) Switches / sliders / etc.
-    - Draw tile chunks so we can verify that things are aligned /
-      in the chunks we want them to be in / etc.
-    
-  - Audio
-    - Sound effect triggers
-    - Ambient sounds
-    - Music
-  - Asset streaming
-    
-  - Metagame / save game?
-    - How do you enter "save slot"?
-    - Persistent unlocks/etc.
-    - Do we allow saved games? Probably yes, just only for "pausing".
-    * Continuos save for crash recovery?
-  - Rudimentary world gen (no quality, just "what sorts of things" we do)
-    - Placement of background things
-    - Connectivity?
-    - Non-overlapping?
-      - Map display
-        - Magnets - how they work??
-  - AI
-    - Rudimentary monstar behavior example
-    * Pathfinding
-    - AI "storage"
-
-  * Animation, should probably lead into rendering
-    - Skeletal animation
-    - Particle systems
-    
-  PRODACTION
-  - Rendering
-  -> GAME
-    - Entity system
-    - World generation
- */
-
 #include "create_tilemap_platform.h"
 
 //#include "my_profiler.cpp"
@@ -163,21 +101,7 @@ ZeroSize(memory_index Size, void *Ptr)
 #include "create_tilemap_math.h"
 #include "create_tilemap_world.h"
 #include "create_tilemap_sim_region.h"
-#include "create_tilemap_entity.h"
 #include "create_tilemap_render_group.h"
-
-struct sprite_sheet
-{
-    uint32 SpriteCount;
-    loaded_bitmap Sprites[32];
-};
-
-struct hero_bitmaps
-{
-    sprite_sheet HeroSprites[4];
-    loaded_bitmap Spheres[3]; 
-    loaded_bitmap Shadow;
-};
 
 struct low_entity
 {
@@ -185,27 +109,12 @@ struct low_entity
     sim_entity Sim;
 };
 
-struct controlled_hero
+struct controlled_camera
 {
-    uint32 EntityIndex;
+    uint32 CameraIndex;
     // NOTE(casey): These are the controller requests for simulation
     v2 ddP;
-    v2 dSword;
-    real32 dZ;
 };
-
-struct pairwise_collision_rule
-{
-    bool32 CanCollide;
-    uint32 StorageIndexA;
-    uint32 StorageIndexB;
-
-    pairwise_collision_rule *NextInHash;
-};
-
-struct game_state;
-internal void AddCollisionRule(game_state *GameState, uint32 StorageIndexA, uint32 StorageIndexB, bool32 CanCollide);
-internal void ClearCollisionRulesFor(game_state *GameState, uint32 StorageIndex);
 
 struct ground_buffer
 {
@@ -220,24 +129,16 @@ struct game_state
     world *World;
 
     real32 TypicalFloorHeight;
-    
+
     // TODO(casey): Should we allow split-screen?
     uint32 CameraFollowingEntityIndex;
     world_position CameraP;
 
-    controlled_hero ControlledHeroes[ArrayCount(((game_input *)0)->Controllers)];
+    controlled_camera ControlledHeroes[ArrayCount(((game_input *)0)->Controllers)];
 
     // TODO(casey): Change the name to "Stored entity"
     uint32 LowEntityCount;
     low_entity LowEntities[100000];
-    
-    // TODO(casey): Must be power of two
-    pairwise_collision_rule *CollisionRuleHash[256];
-    pairwise_collision_rule *FirstFreeCollisionRule;
-
-    sim_entity_collision_volume_group *NullCollision;
-    sim_entity_collision_volume_group *PlayerCollision;
-    sim_entity_collision_volume_group *StandardRoomCollision;
 };
 
 struct transient_state
@@ -249,11 +150,6 @@ struct transient_state
     ground_buffer *GroundBuffers;
 
     platform_work_queue *RenderQueue;
-    
-    uint32 EnvMapWidth;
-    uint32 EnvMapHeight;
-    // NOTE(casey): 0 is bottom, 1 is middle, 2 is top
-    environment_map EnvMaps[3];
 };
 
 inline low_entity * 
