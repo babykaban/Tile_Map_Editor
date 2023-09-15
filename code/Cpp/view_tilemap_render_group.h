@@ -1,4 +1,4 @@
-#if !defined(CREATE_TILEMAP_RENDER_GROUP_H)
+#if !defined(VIEW_TILEMAP_RENDER_GROUP_H)
 /* ========================================================================
    $File: $
    $Date: $
@@ -139,5 +139,5 @@ struct render_group
     uint8 *PushBufferBase;
 };
 
-#define CREATE_TILEMAP_RENDER_GROUP_H
+#define VIEW_TILEMAP_RENDER_GROUP_H
 #endif

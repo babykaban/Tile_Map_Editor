@@ -1,4 +1,4 @@
-#if !defined(CREATE_TILEMAP_WORLD_H)
+#if !defined(VIEW_TILEMAP_WORLD_H)
 /* ========================================================================
    $File: $
    $Date: $
@@ -56,5 +56,5 @@ struct world
     world_chunk ChunkHash[4096];
 };
 
-#define CREATE_TILEMAP_WORLD_H
+#define VIEW_TILEMAP_WORLD_H
 #endif

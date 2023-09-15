@@ -1,4 +1,4 @@
-#if !defined(CREATE_TILEMAP_PLATFORM_H)
+#if !defined(VIEW_TILEMAP_PLATFORM_H)
 /* ========================================================================
    $File: $
    $Date: $
@@ -10,11 +10,11 @@
 /*
   NOTE(casey):
 
-  CREATE_TILEMAP_INTERNAL:
+  VIEW_TILEMAP_INTERNAL:
     0 - Build for public release
     1 - Build for developer only
 
-  CREATE_TILEMAP_SLOW:
+  VIEW_TILEMAP_SLOW:
     0 - Not slow code allowed!
     1 - Slow code welcome.
 */
@@ -86,7 +86,7 @@ typedef double real64;
 
 #define Pi32 3.14159265359f
 
-#if CREATE_TILEMAP_SLOW
+#if VIEW_TILEMAP_SLOW
 // TODO(casey): Complete assertion macro - don't worry everyone!
 #define Assert(Expression) if(!(Expression)) {*(int *)0 = 0;}
 #else
@@ -123,7 +123,7 @@ typedef struct thread_context
 /*
   NOTE(casey): Services that the platform layer provides to the game
 */
-#if CREATE_TILEMAP_INTERNAL
+#if VIEW_TILEMAP_INTERNAL
 /* IMPORTANT(casey):
 
    These are NOT for doing anything in the shipping game - they are
@@ -277,7 +277,7 @@ typedef struct game_memory
     debug_platform_read_entire_file *DEBUGPlatformReadEntireFile;
     debug_platform_write_entire_file *DEBUGPlatformWriteEntireFile;
 
-#if CREATE_TILEMAP_INTERNAL
+#if VIEW_TILEMAP_INTERNAL
     debug_cycle_counter Counters[DebugCycleCounter_Count];
 #endif
 } game_memory;
@@ -287,10 +287,6 @@ typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
 
 // NOTE(casey): At the moment, this has to be a very fast function, it cannot be
 // more than a millisecond or so.
-// TODO(casey): Reduce the pressure on this function's performance by measuring it
-// or asking about it, etc.
-#define GAME_GET_SOUND_SAMPLES(name) void name(thread_context *Thread, game_memory *Memory, game_sound_output_buffer *SoundBuffer)
-typedef GAME_GET_SOUND_SAMPLES(game_get_sound_samples);
 
 inline game_controller_input *GetController(game_input *Input, int unsigned ControllerIndex)
 {
@@ -304,5 +300,5 @@ inline game_controller_input *GetController(game_input *Input, int unsigned Cont
 }
 #endif
 
-#define CREATE_TILEMAP_PLATFORM_H
+#define VIEW_TILEMAP_PLATFORM_H
 #endif

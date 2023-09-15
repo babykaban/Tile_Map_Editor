@@ -1,4 +1,4 @@
-#if !defined(CREATE_TILEMAP_INTRINSICS_H)
+#if !defined(VIEW_TILEMAP_INTRINSICS_H)
 /* ========================================================================
    $File: $
    $Date: $
@@ -145,5 +145,5 @@ FindLeastSignificantSetBit(uint32 Value)
     return(Result);
 }
 
-#define CREATE_TILEMAP_INTRINSICS_H
+#define VIEW_TILEMAP_INTRINSICS_H
 #endif

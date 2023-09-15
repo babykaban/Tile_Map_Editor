@@ -1,172 +1,311 @@
 #if !defined(CREATE_TILEMAP_H)
-/* ========================================================================
-   $File: $
-   $Date: $
-   $Revision: $
-   $Creator: Casey Muratori $
-   $Notice: (C) Copyright 2014 by Molly Rocket, Inc. All Rights Reserved. $
-   ======================================================================== */
 
-#include "create_tilemap_platform.h"
 
-//#include "my_profiler.cpp"
+//#include <time.h>
+#if 0
+#include "generators.cpp"
 
-#define Minimum(A, B) ((A < B) ? (A) : (B))
-#define Maximum(A, B) ((A > B) ? (A) : (B))
-
-//
-//
-//
-
-struct memory_arena
+u32 *
+SortArray(u32 *Array, u32 Size)
 {
-    memory_index Size;
-    uint8 *Base;
-    memory_index Used;
+    u32 *Result = Array; 
 
-    int32 TempCount;
-};
-
-struct temporary_memory
-{
-    memory_arena *Arena;
-    memory_index Used;
-};
-
-inline void
-InitializeArena(memory_arena *Arena, memory_index Size, void *Base)
-{
-    Arena->Size = Size;
-    Arena->Base = (uint8 *)Base;
-    Arena->Used = 0;
-    Arena->TempCount = 0;
-}
-
-#define PushStruct(Arena, type) (type *)PushSize_(Arena, sizeof(type))
-#define PushArray(Arena, Count, type) (type *)PushSize_(Arena, (Count)*sizeof(type))
-#define PushSize(Arena, Size) PushSize_(Arena, Size)
-
-inline void *
-PushSize_(memory_arena *Arena, memory_index Size)
-{
-    Assert((Arena->Used + Size) <= Arena->Size);
-    void *Result = Arena->Base + Arena->Used;
-    Arena->Used += Size;
-    
-    return(Result);
-}
-
-inline temporary_memory
-BeginTemporaryMemory(memory_arena *Arena)
-{
-    temporary_memory Result;
-
-    Result.Arena = Arena;
-    Result.Used = Arena->Used;
-
-    ++Arena->TempCount;
-    
-    return(Result);
-}
-
-inline void
-EndTemporaryMemory(temporary_memory TempMem)
-{
-    memory_arena *Arena = TempMem.Arena;
-    Assert(Arena->Used >= TempMem.Used);
-    Arena->Used = TempMem.Used;
-    Assert(Arena->TempCount > 0);
-    --Arena->TempCount;
-}
-
-inline void
-CheckArena(memory_arena *Arena)
-{
-    Assert(Arena->TempCount == 0);
-}
-
-#define ZeroStruct(Instance) ZeroSize(sizeof(Instance), &(Instance))
-inline void
-ZeroSize(memory_index Size, void *Ptr)
-{
-    // TODO(casey): Check this guy for performance
-    uint8 *Byte = (uint8 *)Ptr;
-    while(Size--)
+    i32 LastElementIndex = 0;
+    for(u32 Index = 1;
+        Index < Size;
+        ++Index)
     {
-        *Byte++ = 0;
-    }
-}
+        u32 Element = Result[Index];
+        i32 AddElementIndex = BinarySearch(Result, LastElementIndex, Element);
 
-#include "create_tilemap_intrinsics.h"
-#include "create_tilemap_math.h"
-#include "create_tilemap_world.h"
-#include "create_tilemap_sim_region.h"
-#include "create_tilemap_render_group.h"
+        for(i32 Index = LastElementIndex + 1;
+            Index > AddElementIndex;
+            --Index)
+        {
+            Result[Index] = Result[Index - 1];
+        }
 
-struct low_entity
-{
-    world_position P;
-    sim_entity Sim;
-};
-
-struct controlled_camera
-{
-    uint32 CameraIndex;
-    // NOTE(casey): These are the controller requests for simulation
-    v2 ddP;
-};
-
-struct ground_buffer
-{
-    // NOTE(casey): An invalid P tells us that this ground_buffer has not been filled 
-    world_position P; // NOTE(casey): This is the center of the bitmap
-    loaded_bitmap Bitmap;
-};
-
-struct game_state
-{
-    memory_arena WorldArena;
-    world *World;
-
-    real32 TypicalFloorHeight;
-
-    // TODO(casey): Should we allow split-screen?
-    uint32 CameraFollowingEntityIndex;
-    world_position CameraP;
-
-    controlled_camera ControlledHeroes[ArrayCount(((game_input *)0)->Controllers)];
-
-    // TODO(casey): Change the name to "Stored entity"
-    uint32 LowEntityCount;
-    low_entity LowEntities[100000];
-};
-
-struct transient_state
-{
-    bool32 IsInitialized;
-    memory_arena TranArena;
-
-    uint32 GroundBufferCount;
-    ground_buffer *GroundBuffers;
-
-    platform_work_queue *RenderQueue;
-};
-
-inline low_entity * 
-GetLowEntity(game_state *GameState, uint32 Index)
-{
-    low_entity *Result = 0;
-
-    if((Index > 0) && (Index < GameState->LowEntityCount))
-    {
-        Result = GameState->LowEntities + Index;
+        Result[AddElementIndex] = Element;
+        LastElementIndex += 1;
     }
 
     return(Result);
 }
 
-global_variable platform_add_entry *PlatformAddEntry;
-global_variable platform_complete_all_work *PlatformCompleteAllWork;
+u32
+ComputeTileColor(i32 RangeX, i32 RangeY, u32 *Pixels, colors *Main)
+{
+    u32 Result = 0;
+
+    u64 ColorsSum = 0;
+    u32 MidColor = 0;
+    u32 Index = 0;
+    
+    for(i32 Y = RangeY;
+        Y < RangeY + TILESIDE;
+        ++Y)
+    {
+        for(i32 X = RangeX;
+            X < RangeX + TILESIDE;
+            ++X)
+        {
+            Index = Y * 11520 + X;
+            i32 ColorIndex =
+                BinarySearch(Main->Colors, Main->ColorCount, Pixels[Index]);
+            Main->ColorsCounters[ColorIndex]++;
+        }
+    }
+
+    i32 MostFrequentColorIndex = 0;
+    for(i32 ColorIndex = 0;
+        ColorIndex < Main->ColorCount;
+        ++ColorIndex)
+    {
+        if(Main->ColorsCounters[ColorIndex] > MostFrequentColorIndex)
+        {
+            MostFrequentColorIndex = ColorIndex;
+        }
+        Main->ColorsCounters[ColorIndex] = 0;
+    }
+    
+    Result = Main->Colors[MostFrequentColorIndex];
+    
+    return(Result);
+}
+
+i32
+ReadBinaryFile(char *FileName, u16 *Buffer)
+{
+    i32 Result = 0;
+    FILE *fp;
+
+    fp = fopen(FileName, "rb");
+
+    if(fp == NULL)
+    {
+        printf("Failed to open file %s\n", FileName);
+    }
+    else
+    {
+        Result = (i32)fread(Buffer, sizeof(u16), 512, fp);
+    }
+
+    return(Result);
+}
+
+i32
+LoadTileDataAndColors(tile *Tiles, u32 *Colors)
+{
+    u16 FileContent[512]  {};
+    i32 PairsOfBytesReaded = ReadBinaryFile("output.bin", FileContent);
+    i32 Result = 0;
+    
+    i32 TileCount = 0;
+    i32 ColorCount = 0;
+    for(i32 ItemIndex = 0;
+        ItemIndex < PairsOfBytesReaded;
+        ItemIndex += 4)
+    {
+        tile *Tile = &Tiles[TileCount++];
+        Tile->Index = FileContent[ItemIndex];
+        Tile->Color = ((FileContent[ItemIndex + 1] << 16)
+                       | FileContent[ItemIndex + 2]);
+        Tile->Z = FileContent[ItemIndex + 3];
+
+        Colors[ColorCount++] = Tile->Color;
+    }
+
+    Result = TileCount;
+
+    return(Result);
+}
+
+void
+WriteTileMapToFile(u32 *Array, i32 Size)
+{
+    FILE* file = fopen("tilemap.txt", "w");
+    FILE* file_py = fopen("tilemap_py.txt", "w");
+    
+    if((file != NULL) && (file_py != NULL))
+    {
+        u32 RowCount = 0;
+        fprintf(file, "{\n");
+        for(i32 i = 0;
+            i < Size;
+            ++i)
+        {
+            if(RowCount == 0)
+            {
+                fprintf(file, "    {0x%x", Array[i]);
+                ++RowCount;
+            }
+            else
+            {
+                fprintf(file, ", 0x%x ", Array[i]);
+                ++RowCount;
+
+                if(RowCount == 384)
+                {
+                    fprintf(file, "},\n");
+                    RowCount = 0;
+                }
+            }
+        }
+        fprintf(file, "};");
+        fclose(file);
+
+        printf("Array has been written to the file successfully.\n");
+
+        for(i32 i = Size - 1;
+            i > 0;
+            --i)
+        {
+            fprintf(file_py, "%u ", Array[i]);
+        }
+        fclose(file_py);
+        printf("Array has been written to the file successfully.\n");
+    }
+    else
+    {
+        printf("Unable to open the write file.\n");
+    }    
+}
+
+union v2
+{
+    struct
+    {
+        r32 X, Y;
+    };
+    r32 E[2];
+};
+
+#include "math.h"
+
+inline i32
+RoundReal32ToInt32(r32 R32)
+{
+    i32 Result = (i32)roundf(R32);
+    return(Result);
+}
+
+inline u32
+RoundReal32ToUInt32(r32 R32)
+{
+    u32 Result = (u32)roundf(R32);
+    return(Result);
+}
+
+# if 0
+int main()
+{
+    u32 TileMap[138240] = {};
+    i32 TileMapSize = ArrayCount(TileMap);
+
+    u32 TilesCounters[256] = {};
+
+    tile MainTiles[256] = {};
+    u32 MainColors[256] = {};
+    u32 TilesCount = LoadTileDataAndColors(MainTiles, MainColors);
+    
+#if CHECK_TIME
+    clock_t start, end;
+
+    clock_t start_y, end_y;
+    clock_t time_end_read;
+
+    r64 time_used;
+    r64 time_used_for_iy;
+    r64 time_to_read;
+
+    start = clock();
+#endif    
+
+    loaded_bitmap BMPFile = LoadBMP("forest_location.bmp");     
+    i32 TileMapWidth = BMPFile.Width / TILESIDE; 
+    i32 TileMapHeight = BMPFile.Height / TILESIDE; 
+
+#if CHECK_TIME
+    time_end_read = clock();
+    time_to_read = ((r64)(time_end_read - start)) / CLOCKS_PER_SEC;
+    printf("Time To Read File: %.5f seconds\n", time_to_read);
+#endif
+    
+    if(BMPFile.Pixels)
+    {
+        colors Main = {};
+        Main.ColorCount = TilesCount;
+        Main.Colors = SortArray(MainColors, Main.ColorCount);
+        
+        i32 c = 0;
+        u32 TileColor = 0;
+        u32 Tile = 0;
+        u32 Count = 0;
+        for(i32 RangeY = 0;
+            RangeY < BMPFile.Height;
+            RangeY += TILESIDE)
+        {
+#if CHECK_TIME
+            start_y = clock();
+#endif
+            for(i32 RangeX = 0;
+                RangeX < BMPFile.Width;
+                RangeX += TILESIDE)
+            {
+                TileColor = ComputeTileColor(RangeX, RangeY, BMPFile.Pixels, &Main);
+
+                if(TileColor == 0xff00678b)
+                {
+                    int a = 1;
+                }
+                for(i32 TileIndex = 0;
+                    TileIndex < Main.ColorCount;
+                    ++TileIndex)
+                {
+                    tile *MainTile = &MainTiles[TileIndex];
+                    if(TileColor == MainTile->Color)
+                    {
+                        Tile = (MainTile->Index << 16) | MainTile->Z;
+                        c++;
+                        break;
+                    }
+                }
+                TileMap[Count++] = Tile;
+            }
+#if CHECK_TIME
+            end_y = clock();
+            time_used_for_iy = ((r64)(end_y - start_y)) / CLOCKS_PER_SEC;
+            printf("One Y Iteration Time: %.5f seconds\n", time_used_for_iy);
+#endif
+            i32 a = RandomNumber(1, 100);
+            printf("Tiles Set: %d, Random: %d\n", c, a);
+        }
+        printf("Creating complited!\n");
+
+        // Generate trees
+        TreeGenerator(TileMap, 1600, 6, TileMapWidth, TileMapHeight, 28);
+
+        // Generate bushes
+        BushGenerator(TileMap, 500, 10, TileMapWidth, TileMapHeight, 30);
+
+        
+        WriteTileMapToFile(TileMap, TileMapSize);
+    }
+    else
+    {
+        printf("Unable to open the file.\n");
+    }
+
+#if CHECK_TIME
+    end = clock();
+    time_used = ((r64)(end - start)) / CLOCKS_PER_SEC;
+    printf("Execution Time: %.5f seconds\n", time_used);
+#endif
+    
+    return(0);
+}
+#endif
+#endif
 
 #define CREATE_TILEMAP_H
 #endif

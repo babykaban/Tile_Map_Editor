@@ -2,11 +2,10 @@
    $File: $
    $Date: $
    $Revision: $
-   $Creator: Handy Paul $
-   $Notice: (C) Copyright 2023 by Handy Paul, Inc. All Rights Reserved. $
+   $Creator: Casey Muratori $
+   $Notice: (C) Copyright 2014 by Molly Rocket, Inc. All Rights Reserved. $
    ======================================================================== */
 
-// TODO(casey): Think about what the real safe margin is!
 #define TILE_CHUNK_SAFE_MARGIN (INT32_MAX / 64) 
 #define TILE_CHUNK_UNINITIALIZED INT32_MAX
 
@@ -130,14 +129,6 @@ InitializeWorld(world *World, v3 ChunkDimInMeters)
 inline void
 RecanonicalizeCoord(real32 ChunkDim, int32 *Tile, real32 *TileRel)
 {
-    // TODO(casey): Need to do something that doesn't use the divide/multiply method
-    // for recanonicalizing because this can end up rounding back on to the tile
-    // you just came from.
-
-    // NOTE(casey): Wrapping IS NOT ALLOWED, so all coordinates are assumed to be
-    // within the safe margin!
-    // TODO(casey): Assert that  we are nowhere near the edges of the world.
-    
     int32 Offset = RoundReal32ToInt32(*TileRel / ChunkDim);
     *Tile += Offset;
     *TileRel -= Offset*ChunkDim;
@@ -197,11 +188,6 @@ inline void
 ChangeEntityLocationRaw(memory_arena *Arena, world *World, uint32 LowEntityIndex,
                         world_position *OldP, world_position *NewP)
 {
-    // TODO(casey): If this moves an entity into the camera bounds, should it automatically
-    // go into the high set immediately?
-    // If it moves _out_ of the camera bounds, should it be removed from the high set
-    // immediately?
-    
     Assert(!OldP || IsValid(*OldP));
     Assert(!NewP || IsValid(*NewP));
     

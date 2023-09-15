@@ -27,13 +27,13 @@
    Just a partial list of stuff!!
 */
 
-#include "create_tilemap_platform.h"
+#include "view_tilemap_platform.h"
 
 #include <windows.h>
 #include <stdio.h>
 #include <malloc.h>
 
-#include "win32_create_tilemap.h"
+#include "win32_view_tilemap.h"
 
 // TODO(casey): This is a global for now.
 global_variable bool32 GlobalRunning;
@@ -221,9 +221,6 @@ Win32LoadGameCode(char *SourceDLLName, char *TempDLLName, char *LockFileName)
         {
             Result.UpdateAndRender = (game_update_and_render *)
                 GetProcAddress(Result.GameCodeDLL, "GameUpdateAndRender");
-        
-            Result.GetSoundSamples = (game_get_sound_samples *)
-                GetProcAddress(Result.GameCodeDLL, "GameGetSoundSamples");
 
             Result.IsValid = true;
         }
@@ -231,7 +228,6 @@ Win32LoadGameCode(char *SourceDLLName, char *TempDLLName, char *LockFileName)
     if(!Result.IsValid)
     {
         Result.UpdateAndRender = 0;
-        Result.GetSoundSamples = 0;
     }
 
     return(Result);
@@ -248,7 +244,6 @@ Win32UnloadGameCode(win32_game_code *GameCode)
 
     GameCode->IsValid = false;
     GameCode->UpdateAndRender = 0;
-    GameCode->GetSoundSamples = 0;
 }
 
 internal win32_window_dimension
@@ -543,7 +538,7 @@ Win32ProcessPendingMessages(win32_state *State, game_controller_input *KeyboardC
                     {
                         Win32ProcessKeyboardMessage(&KeyboardController->Start, IsDown);
                     }
-#if CREATE_TILEMAP_INTERNAL
+#if VIEW_TILEMAP_INTERNAL
                     else if(VKCode == 'P')
                     {
                         if(IsDown)
@@ -602,7 +597,7 @@ Win32GetSecondsElapsed(LARGE_INTEGER Start, LARGE_INTEGER End)
 internal void
 HandleDebugCycleCounters(game_memory *Memory)
 {
-#if CREATE_TILEMAP_INTERNAL
+#if VIEW_TILEMAP_INTERNAL
     OutputDebugStringA("DEBUG CYCLE COUNTS:\n");
     for(int CounterIndex = 0;
         CounterIndex < ArrayCount(Memory->Counters);
@@ -769,11 +764,11 @@ WinMain(HINSTANCE Instance,
     Win32GetEXEFileName(&Win32State);
 
     char SourceGameCodeDLLFullPath[WIN32_STATE_FILE_NAME_COUNT];
-    Win32BuildEXEPathFileName(&Win32State, "create_tilemap.dll",
+    Win32BuildEXEPathFileName(&Win32State, "view_tilemap.dll",
                               sizeof(SourceGameCodeDLLFullPath), SourceGameCodeDLLFullPath);
 
     char TempGameCodeDLLFullPath[WIN32_STATE_FILE_NAME_COUNT];
-    Win32BuildEXEPathFileName(&Win32State, "create_tilemap_temp.dll",
+    Win32BuildEXEPathFileName(&Win32State, "view_tilemap_temp.dll",
                               sizeof(TempGameCodeDLLFullPath), TempGameCodeDLLFullPath);
 
     char GameCodeLockFullPath[WIN32_STATE_FILE_NAME_COUNT];
@@ -797,7 +792,7 @@ WinMain(HINSTANCE Instance,
     WindowClass.hInstance = Instance;
     WindowClass.hCursor = LoadCursor(0, IDC_ARROW);
 //    WindowClass.hIcon;
-    WindowClass.lpszClassName = "Create_TilemapWindowClass";
+    WindowClass.lpszClassName = "View_TilemapWindowClass";
 
     if(RegisterClassA(&WindowClass))
     {
@@ -805,7 +800,7 @@ WinMain(HINSTANCE Instance,
             CreateWindowExA(
                 0, // WS_EX_TOPMOST|WS_EX_LAYERED,
                 WindowClass.lpszClassName,
-                "Create_Tilemap",
+                "View_Tilemap",
                 WS_OVERLAPPEDWINDOW|WS_VISIBLE,
                 CW_USEDEFAULT,
                 CW_USEDEFAULT,
@@ -831,7 +826,7 @@ WinMain(HINSTANCE Instance,
 
             GlobalRunning = true;
             
-#if CREATE_TILEMAP_INTERNAL
+#if VIEW_TILEMAP_INTERNAL
             LPVOID BaseAddress = (LPVOID)Terabytes(2);
 #else
             LPVOID BaseAddress = 0;

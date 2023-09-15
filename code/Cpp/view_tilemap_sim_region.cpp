@@ -2,8 +2,8 @@
    $File: $
    $Date: $
    $Revision: $
-   $Creator: Handy Paul $
-   $Notice: (C) Copyright 2023 by Handy Paul, Inc. All Rights Reserved. $
+   $Creator: Casey Muratori $
+   $Notice: (C) Copyright 2014 by Molly Rocket, Inc. All Rights Reserved. $
    ======================================================================== */
 
 #define InvalidP V3(100000.0f, 100000.0f, 100000.0f)
@@ -199,4 +199,3 @@ MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entity *Entity, rea
     Entity->dP = ddP * dt + Entity->dP;
     Entity->P += PlayerDelta;
 }
-

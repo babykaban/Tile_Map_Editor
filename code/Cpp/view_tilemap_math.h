@@ -1,4 +1,4 @@
-#if !defined(CREATE_TILEMAP_MATH_H)
+#if !defined(VIEW_TILEMAP_MATH_H)
 /* ========================================================================
    $File: $
    $Date: $
@@ -1001,5 +1001,5 @@ InvertedInfinityRectangle(void)
     return(Result);
 }
 
-#define CREATE_TILEMAP_MATH_H
+#define VIEW_TILEMAP_MATH_H
 #endif
