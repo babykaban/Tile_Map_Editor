@@ -1,6 +1,6 @@
 @echo off
 
-set CommonCompilerFlags=-MTd -nologo -fp:fast -Gm- -GR- -EHa- -Od -Oi -WX -W4  -wd4201 -wd4456 -wd4100 -wd4189 -wd4505 -DVIEW_TILEMAP_INTERNAL=1 -DVIEW_TILEMAP_SLOW=1 -DVIEW_TILEMAP_WIN32=1 -DLAPTOP=1 -DDRAW=1 -FC -Z7
+set CommonCompilerFlags=-MTd -nologo -fp:fast -Gm- -GR- -EHa- -Od -Oi -WX -W4 -wd4996 -wd4201 -wd4456 -wd4100 -wd4189 -wd4505 -DVIEW_TILEMAP_INTERNAL=1 -DVIEW_TILEMAP_SLOW=1 -DVIEW_TILEMAP_WIN32=1 -DLAPTOP=1 -DDRAW=1 -FC -Z7
 set CommonLinkerFlags= -incremental:no -opt:ref user32.lib gdi32.lib winmm.lib
 
 IF NOT EXIST ..\..\build_tilemap mkdir ..\..\build_tilemap

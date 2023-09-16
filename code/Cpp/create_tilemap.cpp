@@ -56,7 +56,8 @@ TakeInfo(loaded_bitmap *Bitmap)
 struct tile_identities
 {
     uint32 Count;
-    uint32 Array[256];
+    uint32 Indecies[256];
+    uint32 Colors[256];
 };
 
 static info
@@ -78,7 +79,7 @@ TakeInfo(tile_identities *Identities, loaded_bitmap *Bitmap)
     {
         uint32 *TileIndentity = TileIdentities + TileIndex;
 
-        uint32 TileID = (uint32)BinarySearch(Identities->Array, Identities->Count, *TileIndentity);
+        uint32 TileID = (uint32)BinarySearch(Identities->Colors, Identities->Count, *TileIndentity);
 
         if(TileID)
         {
@@ -89,11 +90,34 @@ TakeInfo(tile_identities *Identities, loaded_bitmap *Bitmap)
     return(Result);
 }
 
+static tile_identities Identities;
+
+static void
+LoadTileDataAndColors(uint32 *Indecies, uint32 *Colors)
+{
+    uint32 FileContent[512] = {};
+    int32 DWordsReaded = ReadBinaryFile32("output_0.bin", FileContent);
+    
+    int32 Count = 0;
+    for(int32 ItemIndex = 0;
+        ItemIndex <= DWordsReaded;
+        ItemIndex += 2)
+    {
+        *Indecies = FileContent[ItemIndex];
+        *Colors = FileContent[ItemIndex + 1];
+
+        *Colors++;
+        *Indecies++;
+        ++Count;
+    }
+
+    Identities.Count = Count;
+}
 
 int main()
 {
-//    chunk Chunks[4096];
-
+    LoadTileDataAndColors(Identities.Indecies, Identities.Colors);
+    
     loaded_bitmap Source = {};
     Source = LoadBMP("tiles\\structured_art.bmp");
     

@@ -31,12 +31,12 @@ def rgb_to_hex_with_alpha(rgb_tuple, alpha):
 
 def get_tiles():
     global tiles_array
-    with open("tiles_file.json") as file:
+    with open("tiles_file_1.json") as file:
         tiles_array = json.load(file)
 
 
 def update_file_content():
-    with open("tiles_file.json", "w") as file:
+    with open("tiles_file_1.json", "w") as file:
         json.dump(tiles_array, file)
 
 
@@ -133,19 +133,17 @@ def remove_tile():
 
 def write_array_for_cpp():
     # Open the binary file in write mode
-    with open("D:\\Projects\\Tile_Map_Editor\\data\\output.bin", "wb") as file:
+    with open("C:\\Paul\\Projects\\Tile_Map_Editor\\data\\output_0.bin", "wb") as file:
         for tile in tiles_array:
             numbers = []
             color = rgb_to_hex_with_alpha((tile["color"][0], tile["color"][1], tile["color"][2]), 255)
  
             numbers.append(tile["index"])
-            numbers.append(color >> 16)
-            numbers.append(color & 0x0000ffff)
-            numbers.append(tile["z_coord"])
+            numbers.append(color)
 
             for number in numbers:
                 # Pack the number as a 4-byte signed integer (change the format if needed)
-                binary_data = struct.pack("H", number)
+                binary_data = struct.pack("I", number)
                 # Write the binary data to the file
                 file.write(binary_data)
         

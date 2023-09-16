@@ -73,53 +73,6 @@ ComputeTileColor(i32 RangeX, i32 RangeY, u32 *Pixels, colors *Main)
     return(Result);
 }
 
-i32
-ReadBinaryFile(char *FileName, u16 *Buffer)
-{
-    i32 Result = 0;
-    FILE *fp;
-
-    fp = fopen(FileName, "rb");
-
-    if(fp == NULL)
-    {
-        printf("Failed to open file %s\n", FileName);
-    }
-    else
-    {
-        Result = (i32)fread(Buffer, sizeof(u16), 512, fp);
-    }
-
-    return(Result);
-}
-
-i32
-LoadTileDataAndColors(tile *Tiles, u32 *Colors)
-{
-    u16 FileContent[512]  {};
-    i32 PairsOfBytesReaded = ReadBinaryFile("output.bin", FileContent);
-    i32 Result = 0;
-    
-    i32 TileCount = 0;
-    i32 ColorCount = 0;
-    for(i32 ItemIndex = 0;
-        ItemIndex < PairsOfBytesReaded;
-        ItemIndex += 4)
-    {
-        tile *Tile = &Tiles[TileCount++];
-        Tile->Index = FileContent[ItemIndex];
-        Tile->Color = ((FileContent[ItemIndex + 1] << 16)
-                       | FileContent[ItemIndex + 2]);
-        Tile->Z = FileContent[ItemIndex + 3];
-
-        Colors[ColorCount++] = Tile->Color;
-    }
-
-    Result = TileCount;
-
-    return(Result);
-}
-
 void
 WriteTileMapToFile(u32 *Array, i32 Size)
 {

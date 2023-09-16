@@ -6,6 +6,47 @@
    $Notice: (C) Copyright 2014 by Molly Rocket, Inc. All Rights Reserved. $
    ======================================================================== */
 
+int32
+ReadBinaryFile32(char *FileName, uint32 *Buffer)
+{
+    int32 Result = 0;
+    FILE *fp;
+
+    fp = fopen(FileName, "rb");
+
+    if(fp == NULL)
+    {
+        printf("Failed to open file %s\n", FileName);
+    }
+    else
+    {
+        Result = (int32)fread(Buffer, sizeof(uint32)*ArrayCount(Buffer),
+                              ArrayCount(Buffer), fp);
+    }
+
+    return(Result);
+}
+
+int32
+ReadBinaryFile16(char *FileName, uint16 *Buffer)
+{
+    int32 Result = 0;
+    FILE *fp;
+
+    fp = fopen(FileName, "rb");
+
+    if(fp == NULL)
+    {
+        printf("Failed to open file %s\n", FileName);
+    }
+    else
+    {
+        Result = (int32)fread(Buffer, sizeof(uint16), ArrayCount(Buffer), fp);
+    }
+
+    return(Result);
+}
+
 inline bit_scan_result
 FindLeastSegnificantSetBit(uint32 Value)
 {
