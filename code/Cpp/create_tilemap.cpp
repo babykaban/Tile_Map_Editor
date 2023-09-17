@@ -13,91 +13,13 @@
 
 
 #define TILES_PER_CHUNK 8
-
-struct chunk
-{
-    int32 ChunkX;
-    int32 ChunkY;
-
-    uint32 TileID[16];
-};
-
-struct info
-{
-    uint32 ChunkCountX;
-    uint32 ChunkCountY;
-
-    uint32 TileIndecies[1024];
-};
-
-#if 0
-static info
-TakeInfo(loaded_bitmap *Bitmap)
-{
-
-    for(int32 ChunkIndexY = 0;
-        ChunkIndexY < Result.ChunkCountY;
-        ++ChunkIndexY)
-    {
-        for(int32 ChunkIndexX = 0;
-            ChunkIndexX < Result.ChunkCountX;
-            ++ChunkIndexX)
-        {
-            int32 ChunkIndex = ChunkIndexY*TILES_PER_CHUNK + ChunkIndexX;
-            chunk *Chunk = &Result.Chunks + ChunkIndex;
-            
-        }
-    }
-    
-    return(Result);
-}
-#endif
-
-struct tile_identities
-{
-    uint32 Count;
-    uint32 Indecies[256];
-    uint32 Colors[256];
-};
-
-static info
-TakeInfo(tile_identities *Identities, loaded_bitmap *Bitmap)
-{
-    info Result = {};
-
-    Result.ChunkCountX = Bitmap->Width % TILES_PER_CHUNK ? (Bitmap->Width / TILES_PER_CHUNK) + 1 :
-        Bitmap->Width / TILES_PER_CHUNK;
-
-    Result.ChunkCountY = Bitmap->Height % TILES_PER_CHUNK ? (Bitmap->Height / TILES_PER_CHUNK) + 1 :
-        Bitmap->Height / TILES_PER_CHUNK;
-
-    uint32 *TileIdentities = (uint32 *)Bitmap->Memory;
-
-    for(int32 TileIndex = 0;
-        TileIndex < Bitmap->Height * Bitmap->Width;
-        ++TileIndex)
-    {
-        uint32 *TileIndentity = TileIdentities + TileIndex;
-
-        uint32 TileID = (uint32)BinarySearch(Identities->Colors, Identities->Count, *TileIndentity);
-
-        if(TileID)
-        {
-            Result.TileIndecies[TileIndex] = TileID;
-        }
-    }
-    
-    return(Result);
-}
-
+#define BITMAP_BYTES_PER_PIXEL 4
 
 struct loaded_tile
 {
     uint32 Identity;
     loaded_bitmap Bitmap;
 };
-
-#define BITMAP_BYTES_PER_PIXEL 4
 
 static void
 ClearBitmap(loaded_bitmap *Bitmap)
@@ -167,9 +89,9 @@ LoadTileDataAndIdentities(memory_arena *MainArena, loaded_tile *Tiles, loaded_bi
                     X < MaxX;
                     ++X)
                 {
-            
                     *Dest = *Source;
-                    ColorSum += *Source;
+
+                    ColorSum += (uint64)*Dest;
                     ++Dest;
                     ++Source;
                 }
@@ -178,7 +100,7 @@ LoadTileDataAndIdentities(memory_arena *MainArena, loaded_tile *Tiles, loaded_bi
                 SourceRow += TileSheet->Pitch;
             }
 
-            Tile->Identity = (uint32)(ColorSum / TileDim*TileDim);
+            Tile->Identity = (uint32)(ColorSum / (TileDim*TileDim));
         }
     }
 
@@ -188,7 +110,6 @@ LoadTileDataAndIdentities(memory_arena *MainArena, loaded_tile *Tiles, loaded_bi
 int main()
 {
     LPVOID BaseAddress = 0;
-
     uint64 MainMemoryStorageSize = Megabytes(256);
     void *MainMemoryStorage = VirtualAlloc(BaseAddress, (memory_index)MainMemoryStorageSize,
                                          MEM_RESERVE|MEM_COMMIT,
@@ -203,11 +124,16 @@ int main()
     int32 TileDim = 60;
     loaded_bitmap TileSheet = LoadBMP("tile_sheet.bmp");
     TileSheet.Pitch = TileSheet.Width*BITMAP_BYTES_PER_PIXEL;
+
+    if(TileSheet.Memory)
+    {
+        LoadedTileCount = LoadTileDataAndIdentities(&MainArena, Tiles, &TileSheet, TileDim);
     
-    LoadedTileCount = LoadTileDataAndIdentities(&MainArena, Tiles, &TileSheet, TileDim);
-    
-    loaded_bitmap Source = {};
-    Source = LoadBMP("tiles\\structured_art.bmp");
+        loaded_bitmap MapSource = {};
+        MapSource = LoadBMP("tiles\\structured_art.bmp");
+
+//        AsignTilesForChunks(Tiles, LoadedTileCount, );
+    }
     
     return(0);
 }

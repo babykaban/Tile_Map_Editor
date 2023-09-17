@@ -212,9 +212,8 @@ AddCameraPoint(game_state *GameState)
 }
 
 internal void
-FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer *GroundBuffer, world_position *ChunkP)
+FillGroundChunks(transient_state *TranState, game_state *GameState, ground_buffer *GroundBuffer)
 {
-    // TODO(casey): Decide what our pushbuffer size is!
     temporary_memory GroundMemory = BeginTemporaryMemory(&TranState->TranArena);
 
     loaded_bitmap *Buffer = &GroundBuffer->Bitmap;
@@ -230,8 +229,22 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
     Ortographic(RenderGroup, Buffer->Width, Buffer->Height, Buffer->Width / Width);
     Clear(RenderGroup, V4(1.0f, 1.0f, 0.0f, 1.0f));
 
-    GroundBuffer->P = *ChunkP;
-    HalfDim = 2.0f*HalfDim;
+    for(int32 ChunkY = 0;
+        ChunkY <= 10;
+        ++ChunkY)
+    {
+        for(int32 ChunkX = 0;
+            ChunkX <= 10;
+            ++ChunkX)
+        {
+            world_position ChunkP = CenteredChunkPoint(ChunkX, ChunkY, 0);
+            v3 Delta = Subtract(GameState->World, &ChunkP, &GameState->CameraP);        
+            real32 GroundSideInMeters = GameState->World->ChunkDimInMeters.x;
+
+            PushRectOutline(RenderGroup, Delta, V2(GroundSideInMeters, GroundSideInMeters),
+                            V4(1.0f, 1.0f, 0.0f, 1.0f));
+        }
+    }
 
     TiledRenderGroupToOutput(TranState->RenderQueue, RenderGroup, Buffer);
     EndTemporaryMemory(GroundMemory);
@@ -333,6 +346,22 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
         GameState->Border = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "tiles\border.bmp");
         GameState->Source = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "tiles\\structured_art.bmp");
+
+        uint32 GroundBufferWidth = 256; 
+        uint32 GroundBufferHeight = 256;
+        
+        GameState->GroundBufferCount = 128;
+        GameState->GroundBuffers = PushArray(&GameState->WorldArena, GameState->GroundBufferCount, ground_buffer);
+        for(uint32 GroundBufferIndex = 0;
+            GroundBufferIndex < GameState->GroundBufferCount;
+            ++GroundBufferIndex)
+        {
+            ground_buffer *GroundBuffer = GameState->GroundBuffers + GroundBufferIndex;
+            GroundBuffer->Bitmap = MakeEmptyBitmap(&GameState->WorldArena, GroundBufferWidth, GroundBufferHeight, false);
+            GroundBuffer->P = NullPosition();
+        }
+
+        //FillGroundChunks();
         
         uint32 ScreenBaseX = 0;
         uint32 ScreenBaseY = 0;
