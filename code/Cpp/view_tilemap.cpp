@@ -298,6 +298,64 @@ GetEntityGroundPoint(sim_entity *Entity)
     return(Result);
 }
 
+static uint32
+LoadTileDataAndIdentities(memory_arena *Arena, loaded_tile *Tiles, loaded_bitmap *TileSheet, int32 TileDim)
+{
+    uint32 TileCountX = (TileSheet->Width / TileDim);
+    uint32 TileCountY = (TileSheet->Height / TileDim);
+
+    uint32 LoadedTileCount = 0; 
+    for(uint32 TileY = 0;
+        TileY < TileCountY;
+        ++TileY)
+    {
+    
+        for(uint32 TileX = 0;
+            TileX < TileCountX;
+            ++TileX)
+        {
+            loaded_tile *Tile = Tiles + LoadedTileCount;
+            Tile->Bitmap = MakeEmptyBitmap(Arena, TileDim, TileDim);
+            loaded_bitmap *Bitmap = &Tile->Bitmap;
+            ++LoadedTileCount;
+
+            int32 MinX = TileX * TileDim;
+            int32 MinY = TileY * TileDim;
+            int32 MaxX = MinX + TileDim;
+            int32 MaxY = MinY + TileDim;
+
+            uint8 *SourceRow = ((uint8 *)TileSheet->Memory + MinX*BITMAP_BYTES_PER_PIXEL + MinY*TileSheet->Pitch);
+    
+            uint8 *DestRow = (uint8 *)Bitmap->Memory;
+            uint64 ColorSum = 0;
+            for(int Y = MinY;
+                Y < MaxY;
+                ++Y)
+            {
+                uint32 *Dest = (uint32 *)DestRow;
+                uint32 *Source = (uint32 *)SourceRow;
+                for(int X = MinX;
+                    X < MaxX;
+                    ++X)
+                {
+                    *Dest = *Source;
+
+                    ColorSum += (uint64)*Dest;
+                    ++Dest;
+                    ++Source;
+                }
+
+                DestRow += Bitmap->Pitch;
+                SourceRow += TileSheet->Pitch;
+            }
+
+            Tile->Identity = (uint32)(ColorSum / (TileDim*TileDim));
+        }
+    }
+
+    return(LoadedTileCount);
+}
+
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {    
     PlatformAddEntry = Memory->PlatformAddEntry;
@@ -361,6 +419,10 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             GroundBuffer->P = NullPosition();
         }
 
+        loaded_bitmap TileSheet = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "tileset.bmp");
+        LoadTileDataAndIdentities(&GameState->WorldArena, GameState->Tiles,
+                                  &TileSheet, 60);
+        
         //FillGroundChunks();
         
         uint32 ScreenBaseX = 0;

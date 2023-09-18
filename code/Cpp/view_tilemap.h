@@ -123,6 +123,12 @@ struct ground_buffer
     loaded_bitmap Bitmap;
 };
 
+struct loaded_tile
+{
+    uint32 Identity;
+    loaded_bitmap Bitmap;
+};
+
 struct game_state
 {
     memory_arena WorldArena;
@@ -139,6 +145,9 @@ struct game_state
 
     controlled_camera ControlledHeroes[ArrayCount(((game_input *)0)->Controllers)];
 
+    uint32 LoadedTileCount;
+    loaded_tile Tiles[256];
+    
     uint32 GroundBufferCount;
     ground_buffer *GroundBuffers;
 
