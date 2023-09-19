@@ -231,7 +231,8 @@ FindTileBitmapByIdentity(loaded_tile *Tiles, uint32 TileCount, uint32 Identity)
 }
 
 internal void
-FillGroundChunks(transient_state *TranState, game_state *GameState, loaded_bitmap *MapBitmap, uint32 TileDim)
+FillGroundChunks(transient_state *TranState, game_state *GameState, loaded_bitmap *MapBitmap, uint32 TileDim,
+                 real32 TileSideInMeters)
 {
     temporary_memory GroundMemory = BeginTemporaryMemory(&TranState->TranArena);
 
@@ -273,25 +274,36 @@ FillGroundChunks(transient_state *TranState, game_state *GameState, loaded_bitma
             GroundBuffer->P.ChunkY = ChunkIndexY;
             GroundBuffer->P.ChunkZ = 0;
         
-            for(int32 TileIndexY = ChunkIndexY * TILES_PER_CHUNK;
-                TileIndexY < TileCountY;
+            for(int32 TileIndexY = 0;
+                TileIndexY < TILES_PER_CHUNK;
                 ++TileIndexY)
             {
-                for(int32 TileIndexX = ChunkIndexX * TILES_PER_CHUNK;
-                    TileIndexX < TileCountX;
+                for(int32 TileIndexX = 0;
+                    TileIndexX < TILES_PER_CHUNK;
                     ++TileIndexX)
                 {
-                    uint32 TileIndex = TileIndexY*TileCountY + TileIndexX;
-                    uint32 *Identity = (uint32 *)MapBitmap->Memory + TileIndex;
+                    int32 X = TileIndexX + (TILES_PER_CHUNK*ChunkIndexX);
+                    int32 Y = (TileIndexY + (TILES_PER_CHUNK*ChunkIndexY))*TileCountY;
+                    if(X < TileCountX)
+                    {
+                        int32 TileIndex = Y + X;
+                        uint32 *Identity = (uint32 *)MapBitmap->Memory + TileIndex;
 
-                    loaded_bitmap *Bitmap = FindTileBitmapByIdentity(GameState->Tiles,
-                                                                     GameState->LoadedTileCount, *Identity);
-                    v2 P = V2i(TileIndexX, TileIndexY) - HalfDim;
+                        loaded_bitmap *Bitmap = FindTileBitmapByIdentity(GameState->Tiles,
+                                                                         GameState->LoadedTileCount, *Identity);
+                        v2 P = -HalfDim + V2(TileSideInMeters*TileIndexX, TileSideInMeters*TileIndexY);//V2(0.0f, 0.0f);//V2i(TileIndexX, TileIndexY) - HalfDim;
                     
-                    PushBitmap(RenderGroup, Bitmap, 1.0f, V3(P, 0.0f));
+                        if(Bitmap)
+                        {
+                            PushBitmap(RenderGroup, Bitmap, TileSideInMeters, V3(P, 0.0f));
+                        }
+                    }
+                    else
+                    {
+                        break;
+                    }
                 }
             }
-
             TiledRenderGroupToOutput(TranState->RenderQueue, RenderGroup, Buffer);
         }
     }    
@@ -453,7 +465,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         v3 WorldChunkDimInMeters = {PixelsToMeters*(real32)GroundBufferWidth,
                                     PixelsToMeters*(real32)GroundBufferHeight,
                                     GameState->TypicalFloorHeight};
-
+        
         InitializeArena(&GameState->WorldArena, Memory->PermanentStorageSize - sizeof(game_state),
                         (uint8 *)Memory->PermanentStorage + sizeof(game_state));
 
@@ -465,7 +477,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         world *World = GameState->World;
         InitializeWorld(World, WorldChunkDimInMeters);
 
-        real32 TileSideInMeters = 1.4f;
+        uint32 TileSideInPixels = 64;
+        real32 TileSideInMeters = TileSideInPixels * PixelsToMeters;
         real32 TileDepthInMeters = GameState->TypicalFloorHeight;
 
         GameState->Border = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "tiles\border.bmp");
@@ -485,13 +498,14 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             GroundBuffer->P = NullPosition();
         }
 
+        
         loaded_bitmap TileSheet = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "tile_sheet.bmp");
         GameState->LoadedTileCount = LoadTileDataAndIdentities(&GameState->WorldArena, GameState->Tiles,
-                                                               &TileSheet, 64);
+                                                               &TileSheet, TileSideInPixels);
 
-        loaded_bitmap MapBitmap = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "map_bitmap.bmp");
+        loaded_bitmap MapBitmap = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "map_bitmap_2.bmp");
 
-        FillGroundChunks(TranState, GameState, &MapBitmap, 64);
+        FillGroundChunks(TranState, GameState, &MapBitmap, TileSideInPixels, TileSideInMeters);
         
         uint32 ScreenBaseX = 0;
         uint32 ScreenBaseY = 0;
