@@ -147,9 +147,6 @@ struct game_state
 
     uint32 LoadedTileCount;
     loaded_tile Tiles[256];
-    
-    uint32 GroundBufferCount;
-    ground_buffer *GroundBuffers;
 
     uint32 LowEntityCount;
     low_entity LowEntities[10];
@@ -159,6 +156,9 @@ struct transient_state
 {
     bool32 IsInitialized;
     memory_arena TranArena;
+    
+    uint32 GroundBufferCount;
+    ground_buffer *GroundBuffers;
 
     platform_work_queue *RenderQueue;
 };
