@@ -266,7 +266,7 @@ FillGroundChunks(transient_state *TranState, game_state *GameState, loaded_bitma
             Buffer->AlignPercentage = V2(0.5f, 0.5f);
             Buffer->WidthOverHeight = 1.0f; 
 
-            render_group *RenderGroup = AllocateRenderGroup(&TranState->TranArena, Megabytes(4));
+            render_group *RenderGroup = AllocateRenderGroup(&TranState->TranArena, Megabytes(1));
             Ortographic(RenderGroup, Buffer->Width, Buffer->Height, Buffer->Width / Width);
             Clear(RenderGroup, V4(1.0f, 0.0f, 0.0f, 1.0f));
 
@@ -421,6 +421,24 @@ LoadTileDataAndIdentities(memory_arena *Arena, loaded_tile *Tiles, loaded_bitmap
     return(LoadedTileCount);
 }
 
+inline bool32
+IsInCameraChunkSpace(world *World, world_position CameraP, rectangle3 CameraBoundsInMeters,
+                     world_position TestP)
+{
+    
+    world_position MinChunkP = MapIntoChunkSpace(World, CameraP,
+                                                 GetMinCorner(CameraBoundsInMeters));
+    world_position MaxChunkP = MapIntoChunkSpace(World, CameraP,
+                                                 GetMaxCorner(CameraBoundsInMeters));
+
+    bool32 Result = ((TestP.ChunkX >= MinChunkP.ChunkX) &&
+                     (TestP.ChunkY >= MinChunkP.ChunkY) &&
+                     (TestP.ChunkX < MaxChunkP.ChunkX) &&
+                     (TestP.ChunkY < MaxChunkP.ChunkY));
+
+    return(Result);
+}
+
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {    
     PlatformAddEntry = Memory->PlatformAddEntry;
@@ -503,7 +521,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         GameState->LoadedTileCount = LoadTileDataAndIdentities(&GameState->WorldArena, GameState->Tiles,
                                                                &TileSheet, TileSideInPixels);
 
-        loaded_bitmap MapBitmap = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "map_bitmap_2.bmp");
+        loaded_bitmap MapBitmap = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "map_bitmap_3.bmp");
 
         FillGroundChunks(TranState, GameState, &MapBitmap, TileSideInPixels, TileSideInMeters);
         
@@ -653,34 +671,15 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     CameraBoundsInMeters.Min.z = -3.0f*GameState->TypicalFloorHeight;
     CameraBoundsInMeters.Max.z =  1.0f*GameState->TypicalFloorHeight;
 
-    // NOTE(casey): Ground chunk rendering
-    for(uint32 GroundBufferIndex = 0;
-        GroundBufferIndex < TranState->GroundBufferCount;
-        ++GroundBufferIndex)
-    {
-        ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
-        if(IsValid(GroundBuffer->P))
-        {
-            loaded_bitmap *Bitmap = &GroundBuffer->Bitmap;
-            v3 Delta = Subtract(GameState->World, &GroundBuffer->P, &GameState->CameraP);        
-            if((Delta.z >= -1.0f) && (Delta.z < 1.0f))
-            {
-                real32 GroundSideInMeters = World->ChunkDimInMeters.x;
-                PushBitmap(RenderGroup, Bitmap, GroundSideInMeters, Delta);
-
-//                PushRectOutline(RenderGroup, Delta, V2(GroundSideInMeters, GroundSideInMeters),
-//                                V4(1.0f, 1.0f, 0.0f, 1.0f));
-            }
-        }
-    }
-
-#if 0
+#if 1
 
     // TODO(paul): Update only updatable ground chunks
     // NOTE(casey): Ground chunk updating
     {
-        world_position MinChunkP = MapIntoChunkSpace(World, GameState->CameraP, GetMinCorner(CameraBoundsInMeters));
-        world_position MaxChunkP = MapIntoChunkSpace(World, GameState->CameraP, GetMaxCorner(CameraBoundsInMeters));
+        world_position MinChunkP = MapIntoChunkSpace(World, GameState->CameraP,
+                                                     GetMinCorner(CameraBoundsInMeters));
+        world_position MaxChunkP = MapIntoChunkSpace(World, GameState->CameraP,
+                                                     GetMaxCorner(CameraBoundsInMeters));
 
         for(int32 ChunkZ = MinChunkP.ChunkZ;
             ChunkZ <= MaxChunkP.ChunkZ;
@@ -697,8 +696,25 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                     world_position ChunkP = CenteredChunkPoint(ChunkX, ChunkY, ChunkZ);
                     v3 Delta = Subtract(GameState->World, &ChunkP, &GameState->CameraP);        
                     real32 GroundSideInMeters = World->ChunkDimInMeters.x;
-                    PushRectOutline(RenderGroup, Delta, V2(GroundSideInMeters, GroundSideInMeters),
-                                    V4(1.0f, 1.0f, 0.0f, 1.0f));
+
+                    // NOTE(casey): Ground chunk rendering
+                    for(uint32 GroundBufferIndex = 0;
+                        GroundBufferIndex < TranState->GroundBufferCount;
+                        ++GroundBufferIndex)
+                    {
+                        ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
+                        if(IsValid(GroundBuffer->P))
+                        {
+                            if(AreInSameChunk(World, &GroundBuffer->P, &ChunkP))
+                            {
+                                loaded_bitmap *Bitmap = &GroundBuffer->Bitmap;
+                                PushBitmap(RenderGroup, Bitmap, GroundSideInMeters, Delta);
+
+                                PushRectOutline(RenderGroup, Delta, V2(GroundSideInMeters, GroundSideInMeters),
+                                                V4(1.0f, 1.0f, 0.0f, 1.0f));
+                            }
+                        }
+                    }
                 }
             }
         }
