@@ -210,6 +210,7 @@ AddCameraPoint(game_state *GameState)
 
     return(Entity);
 }
+
 internal loaded_bitmap *
 FindTileBitmapByIdentity(loaded_tile *Tiles, uint32 TileCount, uint32 Identity)
 {
@@ -421,24 +422,6 @@ LoadTileDataAndIdentities(memory_arena *Arena, loaded_tile *Tiles, loaded_bitmap
     return(LoadedTileCount);
 }
 
-inline bool32
-IsInCameraChunkSpace(world *World, world_position CameraP, rectangle3 CameraBoundsInMeters,
-                     world_position TestP)
-{
-    
-    world_position MinChunkP = MapIntoChunkSpace(World, CameraP,
-                                                 GetMinCorner(CameraBoundsInMeters));
-    world_position MaxChunkP = MapIntoChunkSpace(World, CameraP,
-                                                 GetMaxCorner(CameraBoundsInMeters));
-
-    bool32 Result = ((TestP.ChunkX >= MinChunkP.ChunkX) &&
-                     (TestP.ChunkY >= MinChunkP.ChunkY) &&
-                     (TestP.ChunkX < MaxChunkP.ChunkX) &&
-                     (TestP.ChunkY < MaxChunkP.ChunkY));
-
-    return(Result);
-}
-
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {    
     PlatformAddEntry = Memory->PlatformAddEntry;
@@ -501,11 +484,14 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
         GameState->Border = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "tiles\border.bmp");
         GameState->Source = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "tiles\\structured_art.bmp");
-
-        uint32 GroundBufferWidth = 128; 
-        uint32 GroundBufferHeight = 128;
         
-        TranState->GroundBufferCount = 128;
+        loaded_bitmap TileSheet = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "tile_sheet.bmp");
+        GameState->LoadedTileCount = LoadTileDataAndIdentities(&GameState->WorldArena, GameState->Tiles,
+                                                               &TileSheet, TileSideInPixels);
+
+        loaded_bitmap MapBitmap = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "map_bitmap_3.bmp");
+        
+        TranState->GroundBufferCount = (MapBitmap.Width/TILES_PER_CHUNK)*(MapBitmap.Height/TILES_PER_CHUNK) + 8;
         TranState->GroundBuffers = PushArray(&TranState->TranArena, TranState->GroundBufferCount, ground_buffer);
         for(uint32 GroundBufferIndex = 0;
             GroundBufferIndex < TranState->GroundBufferCount;
@@ -516,12 +502,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             GroundBuffer->P = NullPosition();
         }
 
-        
-        loaded_bitmap TileSheet = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "tile_sheet.bmp");
-        GameState->LoadedTileCount = LoadTileDataAndIdentities(&GameState->WorldArena, GameState->Tiles,
-                                                               &TileSheet, TileSideInPixels);
-
-        loaded_bitmap MapBitmap = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "map_bitmap_3.bmp");
 
         FillGroundChunks(TranState, GameState, &MapBitmap, TileSideInPixels, TileSideInMeters);
         
