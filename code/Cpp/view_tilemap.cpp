@@ -231,6 +231,71 @@ FindTileBitmapByIdentity(loaded_tile *Tiles, uint32 TileCount, uint32 Identity)
     return(Result);
 }
 
+
+internal void
+FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer *GroundBuffer, world_position *ChunkP,
+                loaded_bitmap *MapBitmap, real32 TileSideInMeters)
+{
+    // TODO(casey): Decide what our pushbuffer size is!
+    temporary_memory GroundMemory = BeginTemporaryMemory(&TranState->TranArena);
+
+    loaded_bitmap *Buffer = &GroundBuffer->Bitmap;
+    Buffer->AlignPercentage = V2(0.5f, 0.5f);
+    Buffer->WidthOverHeight = 1.0f; 
+
+    real32 Width = GameState->World->ChunkDimInMeters.x;
+    real32 Height = GameState->World->ChunkDimInMeters.y;
+    Assert(Width == Height);
+    v2 HalfDim = 0.5f*V2(Width, Height);
+
+    render_group *RenderGroup = AllocateRenderGroup(&TranState->TranArena, Megabytes(4));
+    Ortographic(RenderGroup, Buffer->Width, Buffer->Height, Buffer->Width / Width);
+    Clear(RenderGroup, V4(1.0f, 1.0f, 0.0f, 1.0f));
+
+    GroundBuffer->P = *ChunkP;
+
+    int32 TileCountX = MapBitmap->Width;
+    int32 TileCountY = MapBitmap->Height;
+
+    if((ChunkP->ChunkX >= 0) && (ChunkP->ChunkY >= 0))
+    {
+        int32 MinTileX = TILES_PER_CHUNK*ChunkP->ChunkX;
+        int32 MaxTileX = MinTileX + TILES_PER_CHUNK;
+        int32 MinTileY = TILES_PER_CHUNK*ChunkP->ChunkY;
+        int32 MaxTileY = MinTileY + TILES_PER_CHUNK;
+
+        for(int32 TileY = MinTileY;
+            TileY < MaxTileY;
+            ++TileY)
+        {
+            for(int32 TileX = MinTileX;
+                TileX < MaxTileX;
+                ++TileX)
+            {
+                if((TileX < TileCountX) && (TileY < TileCountY))
+                {
+                    uint32 *Identity = (uint32 *)MapBitmap->Memory + TileY*TileCountX + TileX;
+
+                    loaded_bitmap *Bitmap = FindTileBitmapByIdentity(GameState->Tiles,
+                                                                     GameState->LoadedTileCount, *Identity);
+                    real32 X = (real32)(TileX - MinTileX);
+                    real32 Y = (real32)(TileY - MinTileY);
+                    v2 P = -HalfDim + V2(TileSideInMeters*X, TileSideInMeters*Y);
+                    
+                    if(Bitmap)
+                    {
+                        PushBitmap(RenderGroup, Bitmap, TileSideInMeters, V3(P, 0.0f));
+                    }
+                }
+            }
+        }
+    }
+
+    TiledRenderGroupToOutput(TranState->RenderQueue, RenderGroup, Buffer);
+    EndTemporaryMemory(GroundMemory);
+}
+
+
 internal void
 FillGroundChunks(transient_state *TranState, game_state *GameState, loaded_bitmap *MapBitmap, uint32 TileDim,
                  real32 TileSideInMeters)
@@ -285,7 +350,8 @@ FillGroundChunks(transient_state *TranState, game_state *GameState, loaded_bitma
                 {
                     int32 X = TileIndexX + (TILES_PER_CHUNK*ChunkIndexX);
                     int32 Y = (TileIndexY + (TILES_PER_CHUNK*ChunkIndexY))*TileCountY;
-                    if(X < TileCountX)
+
+                    if((X < TileCountX) && (Y < TileCountY))
                     {
                         int32 TileIndex = Y + X;
                         uint32 *Identity = (uint32 *)MapBitmap->Memory + TileIndex;
@@ -305,6 +371,7 @@ FillGroundChunks(transient_state *TranState, game_state *GameState, loaded_bitma
                     }
                 }
             }
+
             TiledRenderGroupToOutput(TranState->RenderQueue, RenderGroup, Buffer);
         }
     }    
@@ -441,18 +508,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     real32 PixelsToMeters = 1.0f / 42.0f;
 
-    // NOTE(casey): Transient initialization
-    Assert(sizeof(transient_state) <= Memory->TransientStorageSize);    
-    transient_state *TranState = (transient_state *)Memory->TransientStorage;
-    if(!TranState->IsInitialized)
-    {
-        InitializeArena(&TranState->TranArena, Memory->TransientStorageSize - sizeof(transient_state),
-                        (uint8 *)Memory->TransientStorage + sizeof(transient_state));
-
-        TranState->RenderQueue = Memory->HighPriorityQueue;
-        
-        TranState->IsInitialized = true;
-    }
+    uint32 TileSideInPixels = 64;
+    real32 TileSideInMeters = TileSideInPixels * PixelsToMeters;
 
     Assert(sizeof(game_state) <= Memory->PermanentStorageSize);    
     game_state *GameState = (game_state *)Memory->PermanentStorage;
@@ -478,8 +535,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         world *World = GameState->World;
         InitializeWorld(World, WorldChunkDimInMeters);
 
-        uint32 TileSideInPixels = 64;
-        real32 TileSideInMeters = TileSideInPixels * PixelsToMeters;
         real32 TileDepthInMeters = GameState->TypicalFloorHeight;
 
         GameState->Border = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "tiles\border.bmp");
@@ -489,21 +544,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         GameState->LoadedTileCount = LoadTileDataAndIdentities(&GameState->WorldArena, GameState->Tiles,
                                                                &TileSheet, TileSideInPixels);
 
-        loaded_bitmap MapBitmap = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "map_bitmap_3.bmp");
-        
-        TranState->GroundBufferCount = (MapBitmap.Width/TILES_PER_CHUNK)*(MapBitmap.Height/TILES_PER_CHUNK) + 8;
-        TranState->GroundBuffers = PushArray(&TranState->TranArena, TranState->GroundBufferCount, ground_buffer);
-        for(uint32 GroundBufferIndex = 0;
-            GroundBufferIndex < TranState->GroundBufferCount;
-            ++GroundBufferIndex)
-        {
-            ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
-            GroundBuffer->Bitmap = MakeEmptyBitmap(&TranState->TranArena, GroundBufferWidth, GroundBufferHeight, false);
-            GroundBuffer->P = NullPosition();
-        }
+        GameState->MapBitmap = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "map_bitmap_4.bmp");
 
-
-        FillGroundChunks(TranState, GameState, &MapBitmap, TileSideInPixels, TileSideInMeters);
+//        FillGroundChunks(TranState, GameState, &MapBitmap, TileSideInPixels, TileSideInMeters);
         
         uint32 ScreenBaseX = 0;
         uint32 ScreenBaseY = 0;
@@ -556,6 +599,31 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         Memory->IsInitialized = true;
     }
 
+
+    // NOTE(casey): Transient initialization
+    Assert(sizeof(transient_state) <= Memory->TransientStorageSize);    
+    transient_state *TranState = (transient_state *)Memory->TransientStorage;
+    if(!TranState->IsInitialized)
+    {
+        InitializeArena(&TranState->TranArena, Memory->TransientStorageSize - sizeof(transient_state),
+                        (uint8 *)Memory->TransientStorage + sizeof(transient_state));
+
+        TranState->RenderQueue = Memory->HighPriorityQueue;
+        
+        // TODO(casey): Pick a real number here!
+        TranState->GroundBufferCount = 128;
+        TranState->GroundBuffers = PushArray(&TranState->TranArena, TranState->GroundBufferCount, ground_buffer);
+        for(uint32 GroundBufferIndex = 0;
+            GroundBufferIndex < TranState->GroundBufferCount;
+            ++GroundBufferIndex)
+        {
+            ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
+            GroundBuffer->Bitmap = MakeEmptyBitmap(&TranState->TranArena, GroundBufferWidth, GroundBufferHeight, false);
+            GroundBuffer->P = NullPosition();
+        }
+        
+        TranState->IsInitialized = true;
+    }
     
     
 #if 0
@@ -651,7 +719,87 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     CameraBoundsInMeters.Min.z = -3.0f*GameState->TypicalFloorHeight;
     CameraBoundsInMeters.Max.z =  1.0f*GameState->TypicalFloorHeight;
 
-#if 1
+    // NOTE(casey): Ground chunk rendering
+    for(uint32 GroundBufferIndex = 0;
+        GroundBufferIndex < TranState->GroundBufferCount;
+        ++GroundBufferIndex)
+    {
+        ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
+        if(IsValid(GroundBuffer->P))
+        {
+            loaded_bitmap *Bitmap = &GroundBuffer->Bitmap;
+            v3 Delta = Subtract(GameState->World, &GroundBuffer->P, &GameState->CameraP);        
+            if((Delta.z >= -1.0f) && (Delta.z < 1.0f))
+            {
+                real32 GroundSideInMeters = World->ChunkDimInMeters.x;
+                PushBitmap(RenderGroup, Bitmap, GroundSideInMeters, Delta);
+
+//                PushRectOutline(RenderGroup, Delta, V2(GroundSideInMeters, GroundSideInMeters),
+//                                V4(1.0f, 1.0f, 0.0f, 1.0f));
+            }
+        }
+    }
+    // NOTE(casey): Ground chunk updating
+    {
+        world_position MinChunkP = MapIntoChunkSpace(World, GameState->CameraP, GetMinCorner(CameraBoundsInMeters));
+        world_position MaxChunkP = MapIntoChunkSpace(World, GameState->CameraP, GetMaxCorner(CameraBoundsInMeters));
+
+        for(int32 ChunkZ = MinChunkP.ChunkZ;
+            ChunkZ <= MaxChunkP.ChunkZ;
+            ++ChunkZ)
+        {
+            for(int32 ChunkY = MinChunkP.ChunkY;
+                ChunkY <= MaxChunkP.ChunkY;
+                ++ChunkY)
+            {
+                for(int32 ChunkX = MinChunkP.ChunkX;
+                    ChunkX <= MaxChunkP.ChunkX;
+                    ++ChunkX)
+                {
+                    world_position ChunkCenterP = CenteredChunkPoint(ChunkX, ChunkY, ChunkZ);
+                    v3 RelP = Subtract(World, &ChunkCenterP, &GameState->CameraP);
+
+                    // TODO(casey): This is super inefficient fix it!
+                    real32 FurthestBufferLengthSq = 0.0f;
+                    ground_buffer *FurthestBuffer = 0;
+                    for(uint32 GroundBufferIndex = 0;
+                        GroundBufferIndex < TranState->GroundBufferCount;
+                        ++GroundBufferIndex)
+                    {
+                        ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
+                        if(AreInSameChunk(World, &GroundBuffer->P, &ChunkCenterP))
+                        {
+                            FurthestBuffer = 0;
+                            break;
+                        }
+                        else if(IsValid(GroundBuffer->P))
+                        {
+                            v3 RelP = Subtract(World, &GroundBuffer->P, &GameState->CameraP);
+                            real32 BufferLengthSq = LengthSq(RelP.xy);
+                            if(FurthestBufferLengthSq < BufferLengthSq)
+                            {
+                                FurthestBufferLengthSq = BufferLengthSq;
+                                FurthestBuffer = GroundBuffer;
+                            }
+                        }
+                        else
+                        {
+                            FurthestBufferLengthSq = Real32Maximum;
+                            FurthestBuffer = GroundBuffer;
+                        }
+                    }
+
+                    if(FurthestBuffer)
+                    {
+                        FillGroundChunk(TranState, GameState, FurthestBuffer, &ChunkCenterP,
+                                        &GameState->MapBitmap, TileSideInMeters);
+                    }
+                }
+            }
+        }
+    }
+
+#if 0
 
     // TODO(paul): Update only updatable ground chunks
     // NOTE(casey): Ground chunk updating

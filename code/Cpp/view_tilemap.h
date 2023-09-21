@@ -137,6 +137,7 @@ struct game_state
     // NOTE(paul): Loading staff
     loaded_bitmap Border;
     loaded_bitmap Source;
+    loaded_bitmap MapBitmap;
     
     real32 TypicalFloorHeight;
 
