@@ -236,7 +236,6 @@ internal void
 FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer *GroundBuffer, world_position *ChunkP,
                 loaded_bitmap *MapBitmap, real32 TileSideInMeters)
 {
-    // TODO(casey): Decide what our pushbuffer size is!
     temporary_memory GroundMemory = BeginTemporaryMemory(&TranState->TranArena);
 
     loaded_bitmap *Buffer = &GroundBuffer->Bitmap;
@@ -610,7 +609,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
         TranState->RenderQueue = Memory->HighPriorityQueue;
         
-        // TODO(casey): Pick a real number here!
         TranState->GroundBufferCount = 128;
         TranState->GroundBuffers = PushArray(&TranState->TranArena, TranState->GroundBufferCount, ground_buffer);
         for(uint32 GroundBufferIndex = 0;
@@ -693,6 +691,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     //
     // NOTE(casey): Render
     //
+
     temporary_memory RenderMemory = BeginTemporaryMemory(&TranState->TranArena);
     
     loaded_bitmap DrawBuffer_ = {};
@@ -734,8 +733,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 real32 GroundSideInMeters = World->ChunkDimInMeters.x;
                 PushBitmap(RenderGroup, Bitmap, GroundSideInMeters, Delta);
 
-//                PushRectOutline(RenderGroup, Delta, V2(GroundSideInMeters, GroundSideInMeters),
-//                                V4(1.0f, 1.0f, 0.0f, 1.0f));
+                PushRectOutline(RenderGroup, Delta, V2(GroundSideInMeters, GroundSideInMeters),
+                                V4(1.0f, 1.0f, 0.0f, 1.0f));
             }
         }
     }
@@ -749,11 +748,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             ++ChunkZ)
         {
             for(int32 ChunkY = MinChunkP.ChunkY;
-                ChunkY <= MaxChunkP.ChunkY;
+                ChunkY <= MaxChunkP.ChunkY + 1;
                 ++ChunkY)
             {
                 for(int32 ChunkX = MinChunkP.ChunkX;
-                    ChunkX <= MaxChunkP.ChunkX;
+                    ChunkX <= MaxChunkP.ChunkX + 1;
                     ++ChunkX)
                 {
                     world_position ChunkCenterP = CenteredChunkPoint(ChunkX, ChunkY, ChunkZ);
