@@ -514,8 +514,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     game_state *GameState = (game_state *)Memory->PermanentStorage;
     if(!Memory->IsInitialized)
     {
-        uint32 TilesPerWidth = 33;
-        uint32 TilesPerHeight = 19;
+        uint32 TilesPerWidth = 30;
+        uint32 TilesPerHeight = 17;
 
         GameState->TypicalFloorHeight = 3.0f;
 
@@ -543,10 +543,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         GameState->LoadedTileCount = LoadTileDataAndIdentities(&GameState->WorldArena, GameState->Tiles,
                                                                &TileSheet, TileSideInPixels);
 
-        GameState->MapBitmap = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "map_bitmap_4.bmp");
+        int32 Width = 15 * 30;
+        int32 Height = 15 * 17;
+            
+        GameState->MapBitmap = MakeEmptyBitmap(&GameState->WorldArena, Width, Height, true);
 
-//        FillGroundChunks(TranState, GameState, &MapBitmap, TileSideInPixels, TileSideInMeters);
-        
         uint32 ScreenBaseX = 0;
         uint32 ScreenBaseY = 0;
         uint32 ScreenBaseZ = 0;
