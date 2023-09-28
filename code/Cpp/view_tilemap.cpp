@@ -211,6 +211,15 @@ AddCameraPoint(game_state *GameState)
     return(Entity);
 }
 
+internal add_low_entity_result
+AddCursor(game_state *GameState)
+{
+    world_position P = GameState->CameraP;
+    add_low_entity_result Entity = AddLowEntity(GameState, EntityType_Cursor, P);
+
+    return(Entity);
+}
+
 internal loaded_bitmap *
 FindTileBitmapByIdentity(loaded_tile *Tiles, uint32 TileCount, uint32 Identity)
 {
@@ -595,6 +604,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                                                    CameraTileY,
                                                    CameraTileZ);
         GameState->CameraP = NewCameraP;
+        GameState->TileChangingProcess = false;
+        AddCursor(GameState);
 
         Memory->IsInitialized = true;
     }
@@ -660,6 +671,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         else
         {
             ConCamera->ddP = {};
+            GameState->CursorddP = {};
 
             if(Controller->IsAnalog)
             {
@@ -684,6 +696,29 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 if(Controller->MoveRight.EndedDown)
                 {
                     ConCamera->ddP.x = 1.0f;
+                }
+
+                // NOTE(casey): Use digital movement tuning
+                if(Controller->ActionUp.EndedDown)
+                {
+                    GameState->CursorddP.y = 1.0f;
+                }
+                if(Controller->ActionDown.EndedDown)
+                {
+                    GameState->CursorddP.y = -1.0f;
+                }
+                if(Controller->ActionLeft.EndedDown)
+                {
+                    GameState->CursorddP.x = -1.0f;
+                }
+                if(Controller->ActionRight.EndedDown)
+                {
+                    GameState->CursorddP.x = 1.0f;
+                }
+
+                if(Controller->ChangeTile.EndedDown)
+                {
+                    GameState->TileChangingProcess = true;
                 }
             }
         }
@@ -863,59 +898,72 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(SimBounds).xy, V4(0.0f, 1.0f, 1.0f, 1));
     PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(SimRegion->Bounds).xy, V4(1.0f, 0.0f, 0.0f, 1));
 
-    for(uint32 EntityIndex = 0;
-        EntityIndex < SimRegion->EntityCount;
-        ++EntityIndex)
+    if(GameState->TileChangingProcess)
     {
-        sim_entity *Entity = SimRegion->Entities + EntityIndex;
-        if(Entity->Updatable)
-        {
-            real32 dt = Input->dtForFrame;
         
-            // TODO(casey): This is incorrect, should be computed after update!!!!
-
-            v3 ddP = {};
-
-            v3 CameraRelativeGroundP = GetEntityGroundPoint(Entity) - CameraP;
-            real32 FadeTopEndZ = 0.75f*GameState->TypicalFloorHeight;
-            real32 FadeTopStartZ = 0.5f*GameState->TypicalFloorHeight;
-            real32 FadeBottomStartZ = -2.0f*GameState->TypicalFloorHeight;
-            real32 FadeBottomEndZ = -2.25f*GameState->TypicalFloorHeight;
-            RenderGroup->GlobalAlpha = 1.0f;
-            if(CameraRelativeGroundP.z > FadeTopStartZ)
+    }
+    else
+    {
+        for(uint32 EntityIndex = 0;
+            EntityIndex < SimRegion->EntityCount;
+            ++EntityIndex)
+        {
+            sim_entity *Entity = SimRegion->Entities + EntityIndex;
+            if(Entity->Updatable)
             {
-                RenderGroup->GlobalAlpha = Clamp01MapToRange(FadeTopEndZ, CameraRelativeGroundP.z, FadeTopStartZ);
-            }
-            else if(CameraRelativeGroundP.z < FadeBottomStartZ)
-            {
-                RenderGroup->GlobalAlpha = Clamp01MapToRange(FadeBottomEndZ, CameraRelativeGroundP.z, FadeBottomStartZ);
-            }
+                real32 dt = Input->dtForFrame;
+        
+                // TODO(casey): This is incorrect, should be computed after update!!!!
 
-            //
-            // NOTE(casey):
-            //
+                v3 ddP = {};
 
-            switch(Entity->Type)
-            {
-                case EntityType_Camera:
+                v3 CameraRelativeGroundP = GetEntityGroundPoint(Entity) - CameraP;
+                real32 FadeTopEndZ = 0.75f*GameState->TypicalFloorHeight;
+                real32 FadeTopStartZ = 0.5f*GameState->TypicalFloorHeight;
+                real32 FadeBottomStartZ = -2.0f*GameState->TypicalFloorHeight;
+                real32 FadeBottomEndZ = -2.25f*GameState->TypicalFloorHeight;
+                RenderGroup->GlobalAlpha = 1.0f;
+                if(CameraRelativeGroundP.z > FadeTopStartZ)
                 {
-                    for(uint32 ControlIndex = 0;
-                        ControlIndex < ArrayCount(GameState->ControlledHeroes);
-                        ++ControlIndex)
-                    {
-                        controlled_camera *ConCamera = GameState->ControlledHeroes + ControlIndex;
-                        if(Entity->StorageIndex == ConCamera->CameraIndex)
-                        {
-                            MoveEntity(GameState, SimRegion, Entity, Input->dtForFrame, V3(ConCamera->ddP, 0.0f));
-                        }
-                    }
-                } break;
-            }
+                    RenderGroup->GlobalAlpha = Clamp01MapToRange(FadeTopEndZ, CameraRelativeGroundP.z, FadeTopStartZ);
+                }
+                else if(CameraRelativeGroundP.z < FadeBottomStartZ)
+                {
+                    RenderGroup->GlobalAlpha = Clamp01MapToRange(FadeBottomEndZ, CameraRelativeGroundP.z, FadeBottomStartZ);
+                }
 
-            RenderGroup->Transform.OffsetP = GetEntityGroundPoint(Entity);
+                //
+                // NOTE(casey):
+                //
+
+                switch(Entity->Type)
+                {
+                    case EntityType_Camera:
+                    {
+                        for(uint32 ControlIndex = 0;
+                            ControlIndex < ArrayCount(GameState->ControlledHeroes);
+                            ++ControlIndex)
+                        {
+                            controlled_camera *ConCamera = GameState->ControlledHeroes + ControlIndex;
+                            if(Entity->StorageIndex == ConCamera->CameraIndex)
+                            {
+                                MoveEntity(GameState, SimRegion, Entity, Input->dtForFrame, V3(ConCamera->ddP, 0.0f));
+                            }
+                        }
+                    } break;
+
+                    case EntityType_Cursor:
+                    {
+                        MoveEntity(GameState, SimRegion, Entity, Input->dtForFrame, V3(GameState->CursorddP, 0.0f));
+                        PushRect(RenderGroup, V3(0, 0, 0), V2(0.5f, 0.5f), V4(1, 0, 0, 1));
+                    } break;
+                }
+
+                RenderGroup->Transform.OffsetP = GetEntityGroundPoint(Entity);
+            }
         }
     }
-
+    
     RenderGroup->GlobalAlpha = 1.0f;
     
     TiledRenderGroupToOutput(TranState->RenderQueue, RenderGroup, DrawBuffer);

@@ -145,12 +145,15 @@ struct game_state
     world_position CameraP;
 
     controlled_camera ControlledHeroes[ArrayCount(((game_input *)0)->Controllers)];
-
+    v2 CursorddP;
+    
     uint32 LoadedTileCount;
     loaded_tile Tiles[256];
 
     uint32 LowEntityCount;
     low_entity LowEntities[10];
+
+    bool32 TileChangingProcess;
 };
 
 struct transient_state
