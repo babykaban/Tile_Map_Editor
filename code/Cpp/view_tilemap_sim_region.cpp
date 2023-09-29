@@ -172,13 +172,10 @@ EndSim(sim_region *Region, game_state *GameState)
 }
 
 internal void
-MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entity *Entity, real32 dt, v3 ddP)
+MoveEntity(sim_entity *Entity, real32 dt, v3 ddP)
 {
-    world *World = SimRegion->World;
-
     if(true)
     {
-        // TODO(casey): Valid acceleration passed in!
         real32 ddPLength = LengthSq(ddP);
         if(ddPLength > 1.0f)
         {
@@ -188,7 +185,6 @@ MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entity *Entity, rea
 
     ddP *= 100.0f;
 
-    // TODO(casey): ODE here!
     v3 Drag = -5.0f * Entity->dP;
     Drag.z = 0.0f;
     ddP += Drag;
@@ -198,4 +194,5 @@ MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entity *Entity, rea
 
     Entity->dP = ddP * dt + Entity->dP;
     Entity->P += PlayerDelta;
+    Entity->P.z = 0.0f;
 }

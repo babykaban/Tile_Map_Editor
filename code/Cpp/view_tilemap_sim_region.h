@@ -11,7 +11,6 @@ enum entity_type
 {
     EntityType_Null,
     EntityType_Camera,
-    EntityType_Cursor,
 };
 
 struct sim_entity
@@ -25,7 +24,6 @@ struct sim_entity
     entity_type Type;
     v3 P;
     v3 dP;
-    int32  dAbsTileZ;
 };
 
 struct sim_entity_hash

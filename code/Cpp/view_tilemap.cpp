@@ -211,15 +211,6 @@ AddCameraPoint(game_state *GameState)
     return(Entity);
 }
 
-internal add_low_entity_result
-AddCursor(game_state *GameState)
-{
-    world_position P = GameState->CameraP;
-    add_low_entity_result Entity = AddLowEntity(GameState, EntityType_Cursor, P);
-
-    return(Entity);
-}
-
 internal loaded_bitmap *
 FindTileBitmapByIdentity(loaded_tile *Tiles, uint32 TileCount, uint32 Identity)
 {
@@ -258,7 +249,7 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
 
     render_group *RenderGroup = AllocateRenderGroup(&TranState->TranArena, Megabytes(4));
     Ortographic(RenderGroup, Buffer->Width, Buffer->Height, Buffer->Width / Width);
-    Clear(RenderGroup, V4(1.0f, 1.0f, 0.0f, 1.0f));
+    Clear(RenderGroup, V4(1.0f, 0.0f, 1.0f, 1.0f));
 
     GroundBuffer->P = *ChunkP;
 
@@ -404,6 +395,9 @@ MakeEmptyBitmap(memory_arena *Arena, int32 Width, int32 Height, bool32 ClearToZe
 
     Result.Width = Width;
     Result.Height = Height;
+    Result.AlignPercentage = V2(0.5f, 0.5f);
+    Result.WidthOverHeight = SafeRatio0((real32)Result.Width, (real32)Result.Height);
+    
     Result.Pitch = Result.Width*BITMAP_BYTES_PER_PIXEL;
     int32 TotalBitmapSize = Width*Height*BITMAP_BYTES_PER_PIXEL;
     Result.Memory = PushSize(Arena, TotalBitmapSize);
@@ -555,8 +549,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         int32 Width = 15 * 30;
         int32 Height = 15 * 17;
             
-        GameState->MapBitmap = MakeEmptyBitmap(&GameState->WorldArena, Width, Height, true);
-
+//        GameState->MapBitmap = MakeEmptyBitmap(&GameState->WorldArena, Width, Height, true);
+        GameState->MapBitmap = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "map_bitmap_6.bmp");
         uint32 ScreenBaseX = 0;
         uint32 ScreenBaseY = 0;
         uint32 ScreenBaseZ = 0;
@@ -605,7 +599,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                                                    CameraTileZ);
         GameState->CameraP = NewCameraP;
         GameState->TileChangingProcess = false;
-        AddCursor(GameState);
 
         Memory->IsInitialized = true;
     }
@@ -697,7 +690,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 {
                     ConCamera->ddP.x = 1.0f;
                 }
-
+#if 0
                 // NOTE(casey): Use digital movement tuning
                 if(Controller->ActionUp.EndedDown)
                 {
@@ -715,7 +708,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 {
                     GameState->CursorddP.x = 1.0f;
                 }
-
+#endif
                 if(Controller->ChangeTile.EndedDown)
                 {
                     GameState->TileChangingProcess = true;
@@ -947,15 +940,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                             controlled_camera *ConCamera = GameState->ControlledHeroes + ControlIndex;
                             if(Entity->StorageIndex == ConCamera->CameraIndex)
                             {
-                                MoveEntity(GameState, SimRegion, Entity, Input->dtForFrame, V3(ConCamera->ddP, 0.0f));
+                                MoveEntity(Entity, Input->dtForFrame, V3(ConCamera->ddP, 0.0f));
                             }
                         }
-                    } break;
-
-                    case EntityType_Cursor:
-                    {
-                        MoveEntity(GameState, SimRegion, Entity, Input->dtForFrame, V3(GameState->CursorddP, 0.0f));
-                        PushRect(RenderGroup, V3(0, 0, 0), V2(0.5f, 0.5f), V4(1, 0, 0, 1));
                     } break;
                 }
 
@@ -963,10 +950,14 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             }
         }
     }
+
+    // NOTE(paul): Draw enviroment map
+    PushBitmap(RenderGroup, &GameState->MapBitmap, 2.0f, V3(10.0f, 10.0f, 0.0f), V4(1, 0, 0, 1));
     
     RenderGroup->GlobalAlpha = 1.0f;
     
     TiledRenderGroupToOutput(TranState->RenderQueue, RenderGroup, DrawBuffer);
+    DrawBitmap(DrawBuffer, &GameState->MapBitmap, 0.0f, 0.0f);
 
     EndSim(SimRegion, GameState);
     EndTemporaryMemory(SimMemory);
