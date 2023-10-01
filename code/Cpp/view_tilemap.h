@@ -138,6 +138,7 @@ struct game_state
     loaded_bitmap Border;
     loaded_bitmap Source;
     loaded_bitmap MapBitmap;
+    loaded_bitmap InValidTile;
     
     real32 TypicalFloorHeight;
 

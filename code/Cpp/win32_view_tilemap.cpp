@@ -730,7 +730,7 @@ WinMain(HINSTANCE Instance,
 {
     win32_state Win32State = {};
 
-    win32_thread_info ThreadInfo[1];
+    win32_thread_info ThreadInfo[5];
 
     platform_work_queue Queue = {};
 
@@ -787,8 +787,8 @@ WinMain(HINSTANCE Instance,
        1024 + 128 = 1152
     */
     
-    Win32ResizeDIBSection(&GlobalBackbuffer, 960, 540);
-//    Win32ResizeDIBSection(&GlobalBackbuffer, 1920, 1080);
+//    Win32ResizeDIBSection(&GlobalBackbuffer, 960, 540);
+    Win32ResizeDIBSection(&GlobalBackbuffer, 1920, 1080);
 //    Win32ResizeDIBSection(&GlobalBackbuffer, 1279, 719);
     
     WindowClass.style = CS_HREDRAW|CS_VREDRAW;
