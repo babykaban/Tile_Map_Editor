@@ -491,6 +491,38 @@ LoadTileDataAndIdentities(memory_arena *Arena, loaded_tile *Tiles, loaded_bitmap
     return(LoadedTileCount);
 }
 
+internal void
+DrawMiniMap(loaded_bitmap *Buffer, loaded_bitmap *Map, loaded_tile *Tiles, uint32 TileCount)
+{
+    uint32 ProjectionTileDim = 60;
+    for(int32 Y = 0;
+        Y < Map->Height;
+        ++Y)
+    {
+        for(int32 X = 0;
+            X < Map->Height;
+            ++X)
+        {
+            uint32 TileIndex = Y*Map->Width + X;
+            uint32 *Pixel = (uint32 *)Map->Memory + TileIndex;
+
+            loaded_bitmap *TileBitmap = FindTileBitmapByIdentity(Tiles, TileCount, *Pixel);
+            if(TileBitmap)
+            {
+                real32 RealX = (real32)(Buffer->Width - X*ProjectionTileDim);
+                real32 RealY = (real32)(Buffer->Height - Y*ProjectionTileDim);
+                DrawBitmap(Buffer, TileBitmap, RealX, RealY);
+            }
+            else
+            {
+
+            }
+        }
+    }
+
+    
+}
+
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {    
     PlatformAddEntry = Memory->PlatformAddEntry;
@@ -512,6 +544,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     uint32 TileSideInPixels = 64;
     real32 TileSideInMeters = TileSideInPixels * PixelsToMeters;
+
+    int32 MapWidthInTiles = 15 * 30;
+    int32 MapHeightInTiles = 15 * 17;
 
     Assert(sizeof(game_state) <= Memory->PermanentStorageSize);    
     game_state *GameState = (game_state *)Memory->PermanentStorage;
@@ -545,12 +580,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         loaded_bitmap TileSheet = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "tile_sheet.bmp");
         GameState->LoadedTileCount = LoadTileDataAndIdentities(&GameState->WorldArena, GameState->Tiles,
                                                                &TileSheet, TileSideInPixels);
-
-        int32 Width = 15 * 30;
-        int32 Height = 15 * 17;
             
-//        GameState->MapBitmap = MakeEmptyBitmap(&GameState->WorldArena, Width, Height, true);
-        GameState->MapBitmap = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "map_bitmap_6.bmp");
+        GameState->MapBitmap = MakeEmptyBitmap(&GameState->WorldArena, MapWidthInTiles, MapHeightInTiles, true);
+//        GameState->MapBitmap = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "map_bitmap_6.bmp");
         uint32 ScreenBaseX = 0;
         uint32 ScreenBaseY = 0;
         uint32 ScreenBaseZ = 0;
@@ -951,13 +983,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         }
     }
 
-    // NOTE(paul): Draw enviroment map
-    PushBitmap(RenderGroup, &GameState->MapBitmap, 2.0f, V3(10.0f, 10.0f, 0.0f), V4(1, 0, 0, 1));
     
     RenderGroup->GlobalAlpha = 1.0f;
     
     TiledRenderGroupToOutput(TranState->RenderQueue, RenderGroup, DrawBuffer);
-    DrawBitmap(DrawBuffer, &GameState->MapBitmap, 0.0f, 0.0f);
+    //DrawMiniMap();
 
     EndSim(SimRegion, GameState);
     EndTemporaryMemory(SimMemory);
