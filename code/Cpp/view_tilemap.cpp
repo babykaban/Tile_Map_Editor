@@ -429,45 +429,29 @@ DrawChunkIdentities(render_group *RenderGroup, game_state *GameState, transient_
     int32 TileCountX = Map->Width;
     int32 TileCountY = Map->Height;
 
-#if 0
     if((ChunkP.ChunkX >= 0) && (ChunkP.ChunkY >= 0))
     {
         int32 TileX = TILES_PER_CHUNK*ChunkP.ChunkX;
         int32 TileY = TILES_PER_CHUNK*ChunkP.ChunkY;
-
-        int32 MinTileX = ;
-        int32 MaxTileX = MinTileX + TILES_PER_CHUNK;
-        int32 MinTileY = ;
-        int32 MaxTileY = MinTileY + TILES_PER_CHUNK;
-
-        for(int32 TileY = MinTileY;
-            TileY < MaxTileY;
-            ++TileY)
+#if 0
+        if((TileX < TileCountX) && (TileY < TileCountY))
         {
-            for(int32 TileX = MinTileX;
-                TileX < MaxTileX;
-                ++TileX)
-            {
-                if((TileX < TileCountX) && (TileY < TileCountY))
-                {
-                    uint32 *Identity = (uint32 *)Map->Memory + TileY*TileCountX + TileX;
+            uint32 *Identity = (uint32 *)Map->Memory + TileY*TileCountX + TileX;
 
-                    loaded_bitmap *Bitmap = FindTileBitmapByIdentity(GameState->Tiles,
-                                                                     GameState->LoadedTileCount, *Identity);
-                    real32 X = (real32)(TileX - MinTileX);
-                    real32 Y = (real32)(TileY - MinTileY);
-                    v2 P = -HalfDim + V2(TileSideInMeters*X, TileSideInMeters*Y);
+            loaded_bitmap *Bitmap = FindTileBitmapByIdentity(GameState->Tiles,
+                                                             GameState->LoadedTileCount, *Identity);
+            real32 X = (real32)(TileX - MinTileX);
+            real32 Y = (real32)(TileY - MinTileY);
+            v2 P = -HalfDim + V2(TileSideInMeters*X, TileSideInMeters*Y);
                     
-                    if(Bitmap)
-                    {
-                        PushBitmap(RenderGroup, Bitmap, TileSideInMeters, V3(P, 0.0f));
-                    }
-                }
+            if(Bitmap)
+            {
+                PushRect(render_group *Group, v3 Offset, v2 Dim, v4 Color = V4(1, 1, 1, 1))
+                    PushBitmap(RenderGroup, Bitmap, TileSideInMeters, V3(P, 0.0f));
             }
         }
+#endif
     }
-#endif    
-//    PushBitmap(RenderGroup, &GameState->Border, 15.0f, Offset);
 }
 
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
@@ -487,7 +471,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     uint32 GroundBufferWidth = 256; 
     uint32 GroundBufferHeight = 256;
 
-    real32 PixelsToMeters = 1.0f / 42.0f;
+    real32 PixelsToMeters = 1.0f / 64.0f;
 
     uint32 TileSideInPixels = 64;
     real32 TileSideInMeters = TileSideInPixels * PixelsToMeters;
@@ -504,10 +488,10 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
         GameState->TypicalFloorHeight = 3.0f;
 
-        v3 WorldChunkDimInMeters = {PixelsToMeters*(real32)GroundBufferWidth,
-                                    PixelsToMeters*(real32)GroundBufferHeight,
+        v3 WorldChunkDimInMeters = {TILES_PER_CHUNK * TileSideInMeters,
+                                    TILES_PER_CHUNK * TileSideInMeters,
                                     GameState->TypicalFloorHeight};
-        
+
         InitializeArena(&GameState->WorldArena, Memory->PermanentStorageSize - sizeof(game_state),
                         (uint8 *)Memory->PermanentStorage + sizeof(game_state));
 
@@ -594,7 +578,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
         TranState->RenderQueue = Memory->HighPriorityQueue;
         
-        TranState->GroundBufferCount = 128;
+        TranState->GroundBufferCount = 256;
         TranState->GroundBuffers = PushArray(&TranState->TranArena, TranState->GroundBufferCount, ground_buffer);
         for(uint32 GroundBufferIndex = 0;
             GroundBufferIndex < TranState->GroundBufferCount;
@@ -921,7 +905,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                             if(Entity->StorageIndex == ConCamera->CameraIndex)
                             {
                                 MoveEntity(Entity, Input->dtForFrame, V3(ConCamera->ddP, 0.0f));
-                                PushBitmap(RenderGroup, &GameState->InValidTile, 1.0f, V3(0, 0, 0));
+                                PushBitmap(RenderGroup, &GameState->InValidTile, 0.1f, V3(0, 0, 0));
                             }
                         }
                     } break;
