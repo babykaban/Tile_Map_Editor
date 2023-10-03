@@ -183,9 +183,9 @@ MoveEntity(sim_entity *Entity, real32 dt, v3 ddP)
         }
     }
 
-    ddP *= 100.0f;
+    ddP *= 150.0f;
 
-    v3 Drag = -5.0f * Entity->dP;
+    v3 Drag = -15.0f * Entity->dP;
     Drag.z = 0.0f;
     ddP += Drag;
     

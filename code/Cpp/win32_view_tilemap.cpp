@@ -412,16 +412,6 @@ Win32MainWindowCallback(HWND Window,
 }
 
 internal void
-Win32ProcessKeyboardMessage(game_button_state *NewState, bool32 IsDown)
-{
-    if(NewState->EndedDown != IsDown)
-    {
-        NewState->EndedDown = IsDown;
-        ++NewState->HalfTransitionCount;
-    }
-}
-
-internal void
 Win32GetInputFileLocation(win32_state *State, bool32 InputStream,
                           int SlotIndex, int DestCount, char *Dest)
 {
@@ -460,6 +450,16 @@ ToggleFullscreen(HWND Window)
         SetWindowPos(Window, 0, 0, 0, 0, 0,
                      SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
                      SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+    }
+}
+
+internal void
+Win32ProcessKeyboardMessage(game_button_state *NewState, bool32 IsDown)
+{
+    if(NewState->EndedDown != IsDown)
+    {
+        NewState->EndedDown = IsDown;
+        ++NewState->HalfTransitionCount;
     }
 }
 
@@ -857,9 +857,11 @@ WinMain(HINSTANCE Instance,
             // into game transient and cache transient, and only the
             // former need be saved for state playback.
             Win32State.TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
+
             Win32State.GameMemoryBlock = VirtualAlloc(BaseAddress, (size_t)Win32State.TotalSize,
                                                       MEM_RESERVE|MEM_COMMIT,
                                                       PAGE_READWRITE);
+
             GameMemory.PermanentStorage = Win32State.GameMemoryBlock;
             GameMemory.TransientStorage = ((uint8 *)GameMemory.PermanentStorage +
                                            GameMemory.PermanentStorageSize);

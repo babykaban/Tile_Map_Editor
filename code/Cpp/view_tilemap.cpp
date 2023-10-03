@@ -409,7 +409,7 @@ LoadTileDataAndIdentities(memory_arena *Arena, loaded_tile *Tiles, loaded_bitmap
 }
 
 internal void
-DrawChunkIdentities(render_group *RenderGroup, game_state *GameState, transient_state *TranState, v3 Offset)
+DrawTileIdentity(render_group *RenderGroup, game_state *GameState, transient_state *TranState, v3 Offset)
 {
     loaded_bitmap *Map = &GameState->MapBitmap;
 
@@ -429,29 +429,144 @@ DrawChunkIdentities(render_group *RenderGroup, game_state *GameState, transient_
     int32 TileCountX = Map->Width;
     int32 TileCountY = Map->Height;
 
+    real32 TileOffsetX = ChunkP.Offset_.x;
+    real32 TileOffsetY = ChunkP.Offset_.y;
     if((ChunkP.ChunkX >= 0) && (ChunkP.ChunkY >= 0))
     {
         int32 TileX = TILES_PER_CHUNK*ChunkP.ChunkX;
         int32 TileY = TILES_PER_CHUNK*ChunkP.ChunkY;
-#if 0
-        if((TileX < TileCountX) && (TileY < TileCountY))
-        {
-            uint32 *Identity = (uint32 *)Map->Memory + TileY*TileCountX + TileX;
 
-            loaded_bitmap *Bitmap = FindTileBitmapByIdentity(GameState->Tiles,
-                                                             GameState->LoadedTileCount, *Identity);
-            real32 X = (real32)(TileX - MinTileX);
-            real32 Y = (real32)(TileY - MinTileY);
-            v2 P = -HalfDim + V2(TileSideInMeters*X, TileSideInMeters*Y);
-                    
-            if(Bitmap)
+        // TODO(paul): Find more efficient way of doing this
+        if((TileOffsetX > 0.0f) && (TileOffsetY > 0.0f))
+        {
+            if(TileOffsetX > 1.0f)
             {
-                PushRect(render_group *Group, v3 Offset, v2 Dim, v4 Color = V4(1, 1, 1, 1))
-                    PushBitmap(RenderGroup, Bitmap, TileSideInMeters, V3(P, 0.0f));
+                TileX += 3;
+            }
+            else
+            {
+                TileX += 2;
+            }
+
+            if(TileOffsetY > 1.0f)
+            {
+                TileY += 3;
+            }
+            else
+            {
+                TileY += 2;
             }
         }
-#endif
+        else if((TileOffsetX > 0.0f) && (TileOffsetY < 0.0f))
+        {
+            if(TileOffsetX > 1.0f)
+            {
+                TileX += 3;
+            }
+            else
+            {
+                TileX += 2;
+            }
+
+            if(TileOffsetY < -1.0f)
+            {
+                TileY += 0;
+            }
+            else
+            {
+                TileY += 1;
+            }
+        }
+        else if((TileOffsetX < 0) && (TileOffsetY > 0))
+        {
+            if(TileOffsetX < -1.0f)
+            {
+                TileX += 0;
+            }
+            else
+            {
+                TileX += 1;
+            }
+
+            if(TileOffsetY > 1.0f)
+            {
+                TileY += 3;
+            }
+            else
+            {
+                TileY += 2;
+            }
+        }
+        else
+        {
+            if(TileOffsetX < -1.0f)
+            {
+                TileX += 0;
+            }
+            else
+            {
+                TileX += 1;
+            }
+
+            if(TileOffsetY < -1.0f)
+            {
+                TileY += 0;
+            }
+            else
+            {
+                TileY += 1;
+            }
+        }
+
+        uint32 *Identity = (uint32 *)Map->Memory + TileY*TileCountX + TileX;
+
+        v4 Color = (1.0f / 255.0f)*V4((real32)(((*Identity >> 16) & 0xFF)),
+                                      (real32)(((*Identity >> 8) & 0xFF)),
+                                      (real32)(((*Identity >> 0) & 0xFF)),
+                                      (real32)(((*Identity >> 24) & 0xFF)));
+        
+        PushRect(RenderGroup, Offset, V2(1.0f, 1.0f), Color);
     }
+}
+
+internal void
+ShowTileMenu(render_group *RenderGroup, game_state *GameState, v2 WindowDim)
+{
+    v2 HalfWindowDim = 0.5f*WindowDim;
+    PushRectOutline(RenderGroup, V3(0.0f, 0.0f, 0.0f), WindowDim, V4(1, 0, 0, 1));
+    PushRect(RenderGroup, V3(0.0f, 0.0f, 0.0f), WindowDim, V4(0, 0, 1, 1));
+
+    real32 TileDim = 1.0f;
+    real32 TileOffsetX = 0.0f;
+    real32 TileOffsetY = 0.0f;
+    for(uint32 TileIndex = 0;
+        TileIndex < GameState->LoadedTileCount;
+        ++TileIndex)
+    {
+        v2 TileOffset = -HalfWindowDim + V2(TileOffsetX, TileOffsetY);
+        v3 CursorOffset = V3(TileOffset, 0.0f) + 0.5f*V3(TileDim, TileDim, 0.0f);
+        loaded_tile *Tile = GameState->Tiles + TileIndex;
+        PushBitmap(RenderGroup, &Tile->Bitmap, TileDim, V3(TileOffset, 0.0f));
+
+        if(GameState->Cursor.TileIndex == TileIndex)
+        {
+            PushRectOutline(RenderGroup, CursorOffset, V2(TileDim, TileDim),
+                            V4(1, 1, 1, 1), 0.015f);
+        }
+
+        if((TileOffsetX) > WindowDim.x)
+        {
+            TileOffsetY += TileDim;
+            TileOffsetX = 0.0f;
+        }
+        else
+        {
+            TileOffsetX += TileDim;
+        }
+
+    }
+
+
 }
 
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
@@ -611,8 +726,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     //
     // NOTE(casey): 
     //
+
     for(int ControllerIndex = 0;
-        ControllerIndex < ArrayCount(Input->Controllers);
+        ControllerIndex < 1;//ArrayCount(Input->Controllers);
         ++ControllerIndex)
     {
         game_controller_input *Controller = GetController(Input, ControllerIndex);
@@ -628,8 +744,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         else
         {
             ConCamera->ddP = {};
-            GameState->CursorddP = {};
-
+            GameState->Cursor.Direction = CursorDirection_Null;
+            
             if(Controller->IsAnalog)
             {
                 // NOTE(casey): Use analog movement tuning
@@ -654,28 +770,33 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 {
                     ConCamera->ddP.x = 1.0f;
                 }
-#if 0
+
                 // NOTE(casey): Use digital movement tuning
                 if(Controller->ActionUp.EndedDown)
                 {
-                    GameState->CursorddP.y = 1.0f;
+                    GameState->Cursor.Direction = CursorDirection_Up;
                 }
                 if(Controller->ActionDown.EndedDown)
                 {
-                    GameState->CursorddP.y = -1.0f;
+                    GameState->Cursor.Direction = CursorDirection_Down;
                 }
                 if(Controller->ActionLeft.EndedDown)
                 {
-                    GameState->CursorddP.x = -1.0f;
+                    GameState->Cursor.Direction = CursorDirection_Left;
                 }
                 if(Controller->ActionRight.EndedDown)
                 {
-                    GameState->CursorddP.x = 1.0f;
+                    GameState->Cursor.Direction = CursorDirection_Right;
                 }
-#endif
+
                 if(Controller->ChangeTile.EndedDown)
                 {
                     GameState->TileChangingProcess = true;
+                }
+
+                if(Controller->Back.EndedDown)
+                {
+                    GameState->TileChangingProcess = false;
                 }
             }
         }
@@ -791,56 +912,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         }
     }
 
-#if 0
-
-    // TODO(paul): Update only updatable ground chunks
-    // NOTE(casey): Ground chunk updating
-    {
-        world_position MinChunkP = MapIntoChunkSpace(World, GameState->CameraP,
-                                                     GetMinCorner(CameraBoundsInMeters));
-        world_position MaxChunkP = MapIntoChunkSpace(World, GameState->CameraP,
-                                                     GetMaxCorner(CameraBoundsInMeters));
-
-        for(int32 ChunkZ = MinChunkP.ChunkZ;
-            ChunkZ <= MaxChunkP.ChunkZ;
-            ++ChunkZ)
-        {
-            for(int32 ChunkY = MinChunkP.ChunkY;
-                ChunkY <= MaxChunkP.ChunkY;
-                ++ChunkY)
-            {
-                for(int32 ChunkX = MinChunkP.ChunkX;
-                    ChunkX <= MaxChunkP.ChunkX;
-                    ++ChunkX)
-                {
-                    world_position ChunkP = CenteredChunkPoint(ChunkX, ChunkY, ChunkZ);
-                    v3 Delta = Subtract(GameState->World, &ChunkP, &GameState->CameraP);        
-                    real32 GroundSideInMeters = World->ChunkDimInMeters.x;
-
-                    // NOTE(casey): Ground chunk rendering
-                    for(uint32 GroundBufferIndex = 0;
-                        GroundBufferIndex < TranState->GroundBufferCount;
-                        ++GroundBufferIndex)
-                    {
-                        ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
-                        if(IsValid(GroundBuffer->P))
-                        {
-                            if(AreInSameChunk(World, &GroundBuffer->P, &ChunkP))
-                            {
-                                loaded_bitmap *Bitmap = &GroundBuffer->Bitmap;
-                                PushBitmap(RenderGroup, Bitmap, GroundSideInMeters, Delta);
-
-                                PushRectOutline(RenderGroup, Delta, V2(GroundSideInMeters, GroundSideInMeters),
-                                                V4(1.0f, 1.0f, 0.0f, 1.0f));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-#endif    
-
     // TODO(paul): Maybe make sim region for a whole map??
     v3 SimBoundsExpansion = {15.0f, 15.0f, 0.0f};
     rectangle3 SimBounds = AddRadiusTo(CameraBoundsInMeters, SimBoundsExpansion);
@@ -857,7 +928,46 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     if(GameState->TileChangingProcess)
     {
+        v2 WindowDim = V2(20.0f, 12.0f);
+        int32 TilesToMoveUpOrDown = (int32)WindowDim.x;
         
+        switch(GameState->Cursor.Direction)
+        {
+            case CursorDirection_Null:
+            {
+            } break;
+
+            case CursorDirection_Up:
+            {
+                GameState->Cursor.TileIndex += TilesToMoveUpOrDown;
+            } break;
+
+            case CursorDirection_Down:
+            {
+                GameState->Cursor.TileIndex -= TilesToMoveUpOrDown;
+            } break;
+
+            case CursorDirection_Left:
+            {
+                GameState->Cursor.TileIndex -= 1;
+            } break;
+
+            case CursorDirection_Right:
+            {
+                GameState->Cursor.TileIndex += 1;
+            } break;
+        }
+
+        if(GameState->Cursor.TileIndex < 0)
+        {
+            GameState->Cursor.TileIndex = 0;
+        }
+        if(GameState->Cursor.TileIndex > GameState->LoadedTileCount)
+        {
+            GameState->Cursor.TileIndex = GameState->LoadedTileCount - 1;
+        }
+        
+        ShowTileMenu(RenderGroup, GameState, WindowDim);
     }
     else
     {
@@ -918,11 +1028,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     
     RenderGroup->GlobalAlpha = 1.0f;
-
-    v3 Offset = V3(-DrawBuffer->Width*PixelsToMeters - 1.5f,
-                   DrawBuffer->Height*PixelsToMeters + 0.5f,
-                   0.0f); 
-    DrawChunkIdentities(RenderGroup, GameState, TranState, Offset);
+    
+    DrawTileIdentity(RenderGroup, GameState, TranState, V3(-11.0f, 6.0f, 0.0f));
 
     TiledRenderGroupToOutput(TranState->RenderQueue, RenderGroup, DrawBuffer);
 

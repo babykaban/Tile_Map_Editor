@@ -151,6 +151,7 @@ enum
     /* 2 */DebugCycleCounter_DrawRectangleSlowly,
     /* 3 */DebugCycleCounter_ProcessPixel,
     /* 4 */DebugCycleCounter_DrawRectangleQuickly,
+    /* 5 */DebugCycleCounter_KeyPress,
     DebugCycleCounter_Count,
 };
     

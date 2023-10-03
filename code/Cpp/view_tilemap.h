@@ -129,6 +129,22 @@ struct loaded_tile
     loaded_bitmap Bitmap;
 };
 
+enum change_direction
+{
+    CursorDirection_Null,
+
+    CursorDirection_Up,
+    CursorDirection_Down,
+    CursorDirection_Left,
+    CursorDirection_Right,
+};
+
+struct change_cursor
+{
+    change_direction Direction;
+    uint32 TileIndex;
+};
+
 struct game_state
 {
     memory_arena WorldArena;
@@ -140,13 +156,14 @@ struct game_state
     loaded_bitmap MapBitmap;
     loaded_bitmap InValidTile;
     
+    change_cursor Cursor;
+
     real32 TypicalFloorHeight;
 
     uint32 CameraFollowingEntityIndex;
     world_position CameraP;
 
     controlled_camera ControlledHeroes[ArrayCount(((game_input *)0)->Controllers)];
-    v2 CursorddP;
     
     uint32 LoadedTileCount;
     loaded_tile Tiles[256];
