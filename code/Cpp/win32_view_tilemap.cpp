@@ -517,7 +517,7 @@ Win32ProcessPendingMessages(win32_state *State, game_controller_input *KeyboardC
                     }
                     else if(VKCode == 'T')
                     {
-                        Win32ProcessKeyboardMessage(&KeyboardController->ChangeTile, IsDown);
+                        Win32ProcessKeyboardMessage(&KeyboardController->OpenTileMenu, IsDown);
                     }
                     else if(VKCode == VK_UP)
                     {
@@ -543,6 +543,10 @@ Win32ProcessPendingMessages(win32_state *State, game_controller_input *KeyboardC
                     else if(VKCode == VK_SPACE)
                     {
                         Win32ProcessKeyboardMessage(&KeyboardController->Start, IsDown);
+                    }
+                    else if(VKCode == VK_RETURN)
+                    {
+                        Win32ProcessKeyboardMessage(&KeyboardController->ChangeTile, IsDown, true);
                     }
 #if VIEW_TILEMAP_INTERNAL
                     else if(VKCode == 'P')
@@ -732,7 +736,7 @@ WinMain(HINSTANCE Instance,
 {
     win32_state Win32State = {};
 
-    win32_thread_info ThreadInfo[5];
+    win32_thread_info ThreadInfo[1];
 
     platform_work_queue Queue = {};
 
@@ -789,8 +793,8 @@ WinMain(HINSTANCE Instance,
        1024 + 128 = 1152
     */
     
-//    Win32ResizeDIBSection(&GlobalBackbuffer, 960, 540);
-    Win32ResizeDIBSection(&GlobalBackbuffer, 1920, 1080);
+    Win32ResizeDIBSection(&GlobalBackbuffer, 960, 540);
+//    Win32ResizeDIBSection(&GlobalBackbuffer, 1920, 1080);
 //    Win32ResizeDIBSection(&GlobalBackbuffer, 1279, 719);
     
     WindowClass.style = CS_HREDRAW|CS_VREDRAW;

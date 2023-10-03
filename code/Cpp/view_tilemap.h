@@ -142,7 +142,7 @@ enum change_direction
 struct change_cursor
 {
     change_direction Direction;
-    uint32 TileIndex;
+    int32 TileIndex;
 };
 
 struct game_state
@@ -162,16 +162,18 @@ struct game_state
 
     uint32 CameraFollowingEntityIndex;
     world_position CameraP;
+    uint32 TileIndexInMap;
 
     controlled_camera ControlledHeroes[ArrayCount(((game_input *)0)->Controllers)];
     
-    uint32 LoadedTileCount;
+    int32 LoadedTileCount;
     loaded_tile Tiles[256];
 
     uint32 LowEntityCount;
     low_entity LowEntities[10];
 
     bool32 TileChangingProcess;
+    bool32 ChangeTile;
 };
 
 struct transient_state

@@ -518,8 +518,9 @@ DrawTileIdentity(render_group *RenderGroup, game_state *GameState, transient_sta
             }
         }
 
-        uint32 *Identity = (uint32 *)Map->Memory + TileY*TileCountX + TileX;
-
+        GameState->TileIndexInMap = TileY*TileCountX + TileX;
+        uint32 *Identity = (uint32 *)Map->Memory + GameState->TileIndexInMap;
+        
         v4 Color = (1.0f / 255.0f)*V4((real32)(((*Identity >> 16) & 0xFF)),
                                       (real32)(((*Identity >> 8) & 0xFF)),
                                       (real32)(((*Identity >> 0) & 0xFF)),
@@ -539,7 +540,7 @@ ShowTileMenu(render_group *RenderGroup, game_state *GameState, v2 WindowDim)
     real32 TileDim = 1.0f;
     real32 TileOffsetX = 0.0f;
     real32 TileOffsetY = 0.0f;
-    for(uint32 TileIndex = 0;
+    for(int32 TileIndex = 0;
         TileIndex < GameState->LoadedTileCount;
         ++TileIndex)
     {
@@ -565,8 +566,24 @@ ShowTileMenu(render_group *RenderGroup, game_state *GameState, v2 WindowDim)
         }
 
     }
+}
 
+inline void
+ResetGroundBuffers(transient_state *TranState)
+{
+    for(uint32 GroundBufferIndex = 0;
+        GroundBufferIndex < TranState->GroundBufferCount;
+        ++GroundBufferIndex)
+    {
+        ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
+        GroundBuffer->P = NullPosition();            
+    }        
+}
 
+internal void
+ChangeGroundTileTexture(game_state *GameState)
+{
+//    loaded_bitmap *Map = GameState->
 }
 
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
@@ -629,7 +646,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                                                                &TileSheet, TileSideInPixels);
             
 //        GameState->MapBitmap = MakeEmptyBitmap(&GameState->WorldArena, MapWidthInTiles, MapHeightInTiles, true);
-        GameState->MapBitmap = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "screen00.bmp");
+        GameState->MapBitmap = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "map_bitmap_3.bmp");
         uint32 ScreenBaseX = 0;
         uint32 ScreenBaseY = 0;
         uint32 ScreenBaseZ = 0;
@@ -711,13 +728,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 #if 0
     if(Input->ExecutableReloaded)
     {
-        for(uint32 GroundBufferIndex = 0;
-            GroundBufferIndex < TranState->GroundBufferCount;
-            ++GroundBufferIndex)
-        {
-            ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
-            GroundBuffer->P = NullPosition();            
-        }        
+        ResetGroundBuffers(TranState);
     }
 #endif    
 
@@ -789,7 +800,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                     GameState->Cursor.Direction = CursorDirection_Right;
                 }
 
-                if(Controller->ChangeTile.EndedDown)
+                if(Controller->OpenTileMenu.EndedDown)
                 {
                     GameState->TileChangingProcess = true;
                 }
@@ -797,6 +808,15 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 if(Controller->Back.EndedDown)
                 {
                     GameState->TileChangingProcess = false;
+                }
+
+                if(GameState->TileChangingProcess)
+                {
+                    if((Controller->ChangeTile.EndedDown) &&
+                       !(GameState->ChangeTile))
+                    {
+                        GameState->ChangeTile = true;
+                    }
                 }
             }
         }
@@ -968,6 +988,14 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         }
         
         ShowTileMenu(RenderGroup, GameState, WindowDim);
+
+        if(GameState->ChangeTile)
+        {
+            ChangeGroundTileTexture(GameState);
+            ResetGroundBuffers(TranState);
+            GameState->ChangeTile = false;
+            GameState->TileChangingProcess = false;
+        }
     }
     else
     {
@@ -1015,7 +1043,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                             if(Entity->StorageIndex == ConCamera->CameraIndex)
                             {
                                 MoveEntity(Entity, Input->dtForFrame, V3(ConCamera->ddP, 0.0f));
-                                PushBitmap(RenderGroup, &GameState->InValidTile, 0.1f, V3(0, 0, 0));
+                                PushRect(RenderGroup, V3(0, 0, 0), V2(0.1f, 0.1f), V4(1, 0, 0, 1));
                             }
                         }
                     } break;
