@@ -454,10 +454,11 @@ ToggleFullscreen(HWND Window)
 }
 
 internal void
-Win32ProcessKeyboardMessage(game_button_state *NewState, bool32 IsDown)
+Win32ProcessKeyboardMessage(game_button_state *NewState, bool32 IsDown, bool32 Reset = false)
 {
     if(NewState->EndedDown != IsDown)
     {
+        NewState->Reset = Reset;
         NewState->EndedDown = IsDown;
         ++NewState->HalfTransitionCount;
     }
@@ -476,8 +477,8 @@ Win32ProcessPendingMessages(win32_state *State, game_controller_input *KeyboardC
                 GlobalRunning = false;
             } break;
             
-            case WM_SYSKEYDOWN:
             case WM_SYSKEYUP:
+            case WM_SYSKEYDOWN:
             case WM_KEYDOWN:
             case WM_KEYUP:
             {
@@ -520,19 +521,20 @@ Win32ProcessPendingMessages(win32_state *State, game_controller_input *KeyboardC
                     }
                     else if(VKCode == VK_UP)
                     {
-                        Win32ProcessKeyboardMessage(&KeyboardController->ActionUp, IsDown);
+                        Win32ProcessKeyboardMessage(&KeyboardController->ActionUp, IsDown, true);
                     }
                     else if(VKCode == VK_LEFT)
                     {
-                        Win32ProcessKeyboardMessage(&KeyboardController->ActionLeft, IsDown);
+                        Win32ProcessKeyboardMessage(&KeyboardController->ActionLeft, IsDown, true);
                     }
                     else if(VKCode == VK_DOWN)
                     {
-                        Win32ProcessKeyboardMessage(&KeyboardController->ActionDown, IsDown);
+                        Win32ProcessKeyboardMessage(&KeyboardController->ActionDown, IsDown, true);
                     }
                     else if(VKCode == VK_RIGHT)
                     {
-                        Win32ProcessKeyboardMessage(&KeyboardController->ActionRight, IsDown);
+                        Win32ProcessKeyboardMessage(&KeyboardController->ActionRight, IsDown, true);
+                        OutputDebugStringA("Pressed\n");
                     }
                     else if(VKCode == VK_ESCAPE)
                     {
@@ -902,8 +904,11 @@ WinMain(HINSTANCE Instance,
                         ButtonIndex < ArrayCount(NewKeyboardController->Buttons);
                         ++ButtonIndex)
                     {
-                        NewKeyboardController->Buttons[ButtonIndex].EndedDown =
-                            OldKeyboardController->Buttons[ButtonIndex].EndedDown;
+                        if(!(OldKeyboardController->Buttons[ButtonIndex].Reset))
+                        {
+                            NewKeyboardController->Buttons[ButtonIndex].EndedDown =
+                                OldKeyboardController->Buttons[ButtonIndex].EndedDown;
+                        }
                     }
 
                     Win32ProcessPendingMessages(&Win32State, NewKeyboardController);
@@ -937,7 +942,7 @@ WinMain(HINSTANCE Instance,
                         if(Game.UpdateAndRender)
                         {
                             Game.UpdateAndRender(&Thread, &GameMemory, NewInput, &Buffer);
-                            HandleDebugCycleCounters(&GameMemory);
+//                            HandleDebugCycleCounters(&GameMemory);
                         }
                 
                         win32_window_dimension Dimension = Win32GetWindowDimension(Window);

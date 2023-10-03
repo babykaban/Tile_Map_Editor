@@ -203,6 +203,7 @@ typedef struct game_button_state
 {
     int HalfTransitionCount;
     bool32 EndedDown;
+    bool32 Reset;
 } game_button_state;
 
 typedef struct game_controller_input
