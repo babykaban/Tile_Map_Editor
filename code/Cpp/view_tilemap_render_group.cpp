@@ -1258,7 +1258,7 @@ GetRenderEntityBasisP(render_transform *Transform, v3 OriginalP)
 {
     entity_basis_p_result Result = {};
 
-    v3 P = V3(OriginalP.xy, 0.0f) + Transform->OffsetP;
+    v3 P = V3(OriginalP.xy, 0.0f);// + Transform->OffsetP;
 
     if(Transform->Ortographic)
     {

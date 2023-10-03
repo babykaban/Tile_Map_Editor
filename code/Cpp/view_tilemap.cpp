@@ -409,17 +409,24 @@ LoadTileDataAndIdentities(memory_arena *Arena, loaded_tile *Tiles, loaded_bitmap
 }
 
 internal void
-DrawTileIdentity(render_group *RenderGroup, game_state *GameState, transient_state *TranState, v3 Offset)
+DrawTileIdentityAndBitmap(render_group *RenderGroup, game_state *GameState, transient_state *TranState, v3 Offset)
 {
     loaded_bitmap *Map = &GameState->MapBitmap;
 
     world_position ChunkP = {};
+    low_entity *Low = GetLowEntity(GameState, GameState->CameraFollowingEntityIndex);
+    world_position TestP = GameState->CameraP; 
+    if(Low)
+    {
+        TestP = Low->P;
+    }
+
     for(uint32 GroundBufferIndex = 0;
         GroundBufferIndex < TranState->GroundBufferCount;
         ++GroundBufferIndex)
     {
         ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
-        if(AreInSameChunk(GameState->World, &GameState->CameraP, &GroundBuffer->P))
+        if(AreInSameChunk(GameState->World, &TestP, &GroundBuffer->P))
         {
             ChunkP = GameState->CameraP;
             break;
@@ -520,13 +527,17 @@ DrawTileIdentity(render_group *RenderGroup, game_state *GameState, transient_sta
 
         GameState->TileIndexInMap = TileY*TileCountX + TileX;
         uint32 *Identity = (uint32 *)Map->Memory + GameState->TileIndexInMap;
-        
+        loaded_bitmap *Bitmap = FindTileBitmapByIdentity(GameState->Tiles, GameState->LoadedTileCount, *Identity);
         v4 Color = (1.0f / 255.0f)*V4((real32)(((*Identity >> 16) & 0xFF)),
                                       (real32)(((*Identity >> 8) & 0xFF)),
                                       (real32)(((*Identity >> 0) & 0xFF)),
                                       (real32)(((*Identity >> 24) & 0xFF)));
         
         PushRect(RenderGroup, Offset, V2(1.0f, 1.0f), Color);
+        if(Bitmap)
+        {
+            PushBitmap(RenderGroup, Bitmap, 1.0f, Offset + V3(1.0f, -0.5f, 0.0f));
+        }
     }
 }
 
@@ -583,7 +594,11 @@ ResetGroundBuffers(transient_state *TranState)
 internal void
 ChangeGroundTileTexture(game_state *GameState)
 {
-//    loaded_bitmap *Map = GameState->
+    loaded_bitmap *Map = &GameState->MapBitmap;
+    loaded_tile *Tile = GameState->Tiles + GameState->Cursor.TileIndex;
+
+    uint32 *TileToChange = (uint32 *)Map->Memory + GameState->TileIndexInMap;
+    *TileToChange = Tile->Identity;
 }
 
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
@@ -1043,7 +1058,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                             if(Entity->StorageIndex == ConCamera->CameraIndex)
                             {
                                 MoveEntity(Entity, Input->dtForFrame, V3(ConCamera->ddP, 0.0f));
-                                PushRect(RenderGroup, V3(0, 0, 0), V2(0.1f, 0.1f), V4(1, 0, 0, 1));
+                                PushRect(RenderGroup, Entity->P, V2(0.1f, 0.1f), V4(1, 0, 0, 1));
                             }
                         }
                     } break;
@@ -1057,7 +1072,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     
     RenderGroup->GlobalAlpha = 1.0f;
     
-    DrawTileIdentity(RenderGroup, GameState, TranState, V3(-11.0f, 6.0f, 0.0f));
+    DrawTileIdentityAndBitmap(RenderGroup, GameState, TranState, V3(-11.0f, 6.0f, 0.0f));
 
     TiledRenderGroupToOutput(TranState->RenderQueue, RenderGroup, DrawBuffer);
 
