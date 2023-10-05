@@ -145,6 +145,13 @@ struct change_cursor
     int32 TileIndex;
 };
 
+struct map_bitmap
+{
+    bitmap_header Header;
+    loaded_bitmap Bitmap;
+    uint32 BitmapSize;
+};
+
 struct game_state
 {
     memory_arena WorldArena;
@@ -153,7 +160,7 @@ struct game_state
     // NOTE(paul): Loading staff
     loaded_bitmap Border;
     loaded_bitmap Source;
-    loaded_bitmap MapBitmap;
+    map_bitmap MapBitmap;
     loaded_bitmap InValidTile;
     
     change_cursor Cursor;

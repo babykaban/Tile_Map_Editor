@@ -16,32 +16,6 @@
 #include <stdio.h>
 #endif
 
-#pragma pack(push, 1)
-struct bitmap_header
-{
-    uint16 FileType;
-    uint32 FileSize;
-    uint16 Reserved1;
-    uint16 Reserved2;
-    uint32 BitmapOffset;
-    uint32 Size;
-    int32 Width;
-    int32 Height;
-    uint16 Planes;
-    uint16 BitsPerPixel;
-    uint32 Compression;
-    uint32 SizeOfBitmap;
-    int32 HorzResolution;
-    int32 VertResolution;
-    uint32 ColorsUsed;
-    uint32 ColorsImportant;
-
-    uint32 RedMask;
-    uint32 GreenMask;
-    uint32 BlueMask;
-};
-#pragma pack(pop)
-
 inline v2
 TopDownAlign(loaded_bitmap *Bitmap, v2 Align)
 {
@@ -53,16 +27,47 @@ TopDownAlign(loaded_bitmap *Bitmap, v2 Align)
     return(Align);
 }
 
+internal void
+DEBUGWriteBMP(transient_state *TranState, thread_context *Thread, debug_platform_write_entire_file *WriteEntireFile, char *FileName,
+              bitmap_header *Header, void *BitmapMemory, uint32 BitmapMemorySize)
+{
+    temporary_memory WriteMemory = BeginTemporaryMemory(&TranState->TranArena);
+
+    uint32 ContentSize = sizeof(bitmap_header) + BitmapMemorySize;
+    void *Content = PushSize(&TranState->TranArena, ContentSize);
+
+    MemoryCopy(Content, Header, sizeof(bitmap_header));
+    MemoryCopy((uint8 *)Content + sizeof(bitmap_header), BitmapMemory, BitmapMemorySize);
+
+    WriteEntireFile(Thread, FileName, ContentSize, Content);
+    
+    EndTemporaryMemory(WriteMemory);
+}
+
+internal void
+SaveMap(transient_state *TranState, thread_context *Thread, debug_platform_write_entire_file *WriteEntireFile,
+        char *FileName, map_bitmap *MapBitmap)
+{
+    DEBUGWriteBMP(TranState, Thread, WriteEntireFile, FileName,
+                  &MapBitmap->Header, MapBitmap->Bitmap.Memory, MapBitmap->BitmapSize);
+}
+
 internal loaded_bitmap
 DEBUGLoadBMP(thread_context *Thread, debug_platform_read_entire_file *ReadEntireFile, char *FileName,
-             int32 AlignX, int32 TopDownAlignY)
+             int32 AlignX, int32 TopDownAlignY, bitmap_header *HeaderDest = 0, bool32 SaveHeader = false)
 {
     loaded_bitmap Result = {};
-    
+
     debug_read_file_result ReadResult = ReadEntireFile(Thread, FileName);    
     if(ReadResult.ContentsSize != 0)
     {
         bitmap_header *Header = (bitmap_header *)ReadResult.Contents;
+
+        if(SaveHeader)
+        {
+            *HeaderDest = *Header;
+        }
+        
         uint32 *Pixels = (uint32 *)((uint8 *)ReadResult.Contents + Header->BitmapOffset);
         Result.Memory = Pixels;
         Result.Width = Header->Width;
@@ -147,10 +152,20 @@ DEBUGLoadBMP(thread_context *Thread, debug_platform_read_entire_file *ReadEntire
 internal loaded_bitmap
 DEBUGLoadBMP(thread_context *Thread, debug_platform_read_entire_file *ReadEntireFile, char *FileName)
 {
-    loaded_bitmap Result = DEBUGLoadBMP(Thread, ReadEntireFile, FileName, 0, 0);
+    loaded_bitmap Result = DEBUGLoadBMP(Thread, ReadEntireFile, FileName, 0, 0, false);
     Result.AlignPercentage = V2(0.5f, 0.5f);
 
     return(Result);
+}
+
+inline void
+LoadMap(game_state *GameState, thread_context *Thread, debug_platform_read_entire_file *ReadEntireFile, char *FileName)
+{
+    map_bitmap *MapBitmap = &GameState->MapBitmap;
+
+    bitmap_header *Header = &MapBitmap->Header;
+    MapBitmap->Bitmap = DEBUGLoadBMP(Thread, ReadEntireFile, FileName, 0, 0, Header, true);
+    MapBitmap->BitmapSize = MapBitmap->Bitmap.Height * MapBitmap->Bitmap.Width * BITMAP_BYTES_PER_PIXEL;
 }
 
 struct add_low_entity_result
@@ -411,7 +426,7 @@ LoadTileDataAndIdentities(memory_arena *Arena, loaded_tile *Tiles, loaded_bitmap
 internal void
 DrawTileIdentityAndBitmap(render_group *RenderGroup, game_state *GameState, transient_state *TranState, v3 Offset)
 {
-    loaded_bitmap *Map = &GameState->MapBitmap;
+    loaded_bitmap *Map = &GameState->MapBitmap.Bitmap;
 
     world_position ChunkP = {};
     low_entity *Low = GetLowEntity(GameState, GameState->CameraFollowingEntityIndex);
@@ -594,7 +609,7 @@ ResetGroundBuffers(transient_state *TranState)
 internal void
 ChangeGroundTileTexture(game_state *GameState)
 {
-    loaded_bitmap *Map = &GameState->MapBitmap;
+    loaded_bitmap *Map = &GameState->MapBitmap.Bitmap;
     loaded_tile *Tile = GameState->Tiles + GameState->Cursor.TileIndex;
 
     uint32 *TileToChange = (uint32 *)Map->Memory + GameState->TileIndexInMap;
@@ -661,7 +676,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                                                                &TileSheet, TileSideInPixels);
             
 //        GameState->MapBitmap = MakeEmptyBitmap(&GameState->WorldArena, MapWidthInTiles, MapHeightInTiles, true);
-        GameState->MapBitmap = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "map_bitmap_3.bmp");
+
+        LoadMap(GameState, Thread, Memory->DEBUGPlatformReadEntireFile, "screen00.bmp");
+        
         uint32 ScreenBaseX = 0;
         uint32 ScreenBaseY = 0;
         uint32 ScreenBaseZ = 0;
@@ -940,7 +957,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                     if(FurthestBuffer)
                     {
                         FillGroundChunk(TranState, GameState, FurthestBuffer, &ChunkCenterP,
-                                        &GameState->MapBitmap, TileSideInMeters);
+                                        &GameState->MapBitmap.Bitmap, TileSideInMeters);
                     }
                 }
             }
@@ -1008,6 +1025,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         {
             ChangeGroundTileTexture(GameState);
             ResetGroundBuffers(TranState);
+            SaveMap(TranState, Thread, Memory->DEBUGPlatformWriteEntireFile, "screen00.bmp", &GameState->MapBitmap);
             GameState->ChangeTile = false;
             GameState->TileChangingProcess = false;
         }

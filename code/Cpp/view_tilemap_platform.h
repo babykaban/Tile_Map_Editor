@@ -115,6 +115,22 @@ SafeTruncateUInt64(uint64 Value)
     return(Result);
 }
 
+inline void *
+MemoryCopy(void *Dest, void *Source, uint32 Size)
+{
+    uint8 *Dst = (uint8 *)Dest;
+    uint8 *Src = (uint8 *)Source;
+
+    for(uint32 MemoryIndex = 0;
+        MemoryIndex < Size;
+        ++MemoryIndex)
+    {
+        Dst[MemoryIndex] = Src[MemoryIndex];
+    }
+
+    return(Dest);
+}
+    
 typedef struct thread_context
 {
     int Placeholder;
@@ -143,7 +159,11 @@ typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(debug_platform_read_entire_file);
 
 #define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) bool32 name(thread_context *Thread, char *Filename, uint32 MemorySize, void *Memory)
 typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(debug_platform_write_entire_file);
-
+#if 0
+    void combineBMPHeaderAndMemory(const BMPHeader *header, const void *bitmapMemory,
+                               size_t bitmapMemorySize, void **combinedMemory, size_t *combinedSize) {
+    memcpy((uint8_t *)(*combinedMemory) + sizeof(BMPHeader), bitmapMemory, bitmapMemorySize);
+#endif
 enum
 {
     /* 0 */DebugCycleCounter_GameUpdateAndRender,
