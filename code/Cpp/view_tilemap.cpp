@@ -428,130 +428,133 @@ DrawTileIdentityAndBitmap(render_group *RenderGroup, game_state *GameState, tran
 {
     loaded_bitmap *Map = &GameState->MapBitmap.Bitmap;
 
-    world_position ChunkP = {};
-    low_entity *Low = GetLowEntity(GameState, GameState->CameraFollowingEntityIndex);
-    world_position TestP = GameState->CameraP; 
-    if(Low)
+    if(Map->Memory)
     {
-        TestP = Low->P;
-    }
-
-    for(uint32 GroundBufferIndex = 0;
-        GroundBufferIndex < TranState->GroundBufferCount;
-        ++GroundBufferIndex)
-    {
-        ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
-        if(AreInSameChunk(GameState->World, &TestP, &GroundBuffer->P))
+        world_position ChunkP = {};
+        low_entity *Low = GetLowEntity(GameState, GameState->CameraFollowingEntityIndex);
+        world_position TestP = GameState->CameraP; 
+        if(Low)
         {
-            ChunkP = GameState->CameraP;
-            break;
+            TestP = Low->P;
         }
-    }
-
-    int32 TileCountX = Map->Width;
-    int32 TileCountY = Map->Height;
-
-    real32 TileOffsetX = ChunkP.Offset_.x;
-    real32 TileOffsetY = ChunkP.Offset_.y;
-    if((ChunkP.ChunkX >= 0) && (ChunkP.ChunkY >= 0))
-    {
-        int32 TileX = TILES_PER_CHUNK*ChunkP.ChunkX;
-        int32 TileY = TILES_PER_CHUNK*ChunkP.ChunkY;
-
-        // TODO(paul): Find more efficient way of doing this
-        if((TileOffsetX > 0.0f) && (TileOffsetY > 0.0f))
+            
+        for(uint32 GroundBufferIndex = 0;
+            GroundBufferIndex < TranState->GroundBufferCount;
+            ++GroundBufferIndex)
         {
-            if(TileOffsetX > 1.0f)
+            ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
+            if(AreInSameChunk(GameState->World, &TestP, &GroundBuffer->P))
             {
-                TileX += 3;
-            }
-            else
-            {
-                TileX += 2;
-            }
-
-            if(TileOffsetY > 1.0f)
-            {
-                TileY += 3;
-            }
-            else
-            {
-                TileY += 2;
-            }
-        }
-        else if((TileOffsetX > 0.0f) && (TileOffsetY < 0.0f))
-        {
-            if(TileOffsetX > 1.0f)
-            {
-                TileX += 3;
-            }
-            else
-            {
-                TileX += 2;
-            }
-
-            if(TileOffsetY < -1.0f)
-            {
-                TileY += 0;
-            }
-            else
-            {
-                TileY += 1;
-            }
-        }
-        else if((TileOffsetX < 0) && (TileOffsetY > 0))
-        {
-            if(TileOffsetX < -1.0f)
-            {
-                TileX += 0;
-            }
-            else
-            {
-                TileX += 1;
-            }
-
-            if(TileOffsetY > 1.0f)
-            {
-                TileY += 3;
-            }
-            else
-            {
-                TileY += 2;
-            }
-        }
-        else
-        {
-            if(TileOffsetX < -1.0f)
-            {
-                TileX += 0;
-            }
-            else
-            {
-                TileX += 1;
-            }
-
-            if(TileOffsetY < -1.0f)
-            {
-                TileY += 0;
-            }
-            else
-            {
-                TileY += 1;
+                ChunkP = TestP;
+                break;
             }
         }
 
-        GameState->TileIndexInMap = TileY*TileCountX + TileX;
-        uint32 *Identity = (uint32 *)Map->Memory + GameState->TileIndexInMap;
-        loaded_bitmap *Bitmap = FindTileBitmapByIdentity(GameState->Tiles, GameState->LoadedTileCount, *Identity);
-        v4 Color = (1.0f / 255.0f)*V4((real32)(((*Identity >> 16) & 0xFF)),
-                                      (real32)(((*Identity >> 8) & 0xFF)),
-                                      (real32)(((*Identity >> 0) & 0xFF)),
-                                      (real32)(((*Identity >> 24) & 0xFF)));
+        int32 TileCountX = Map->Width;
+        int32 TileCountY = Map->Height;
+
+        real32 TileOffsetX = ChunkP.Offset_.x;
+        real32 TileOffsetY = ChunkP.Offset_.y;
+        if((ChunkP.ChunkX >= 0) && (ChunkP.ChunkY >= 0))
+        {
+            int32 TileX = TILES_PER_CHUNK*ChunkP.ChunkX;
+            int32 TileY = TILES_PER_CHUNK*ChunkP.ChunkY;
+
+            // TODO(paul): Find more efficient way of doing this
+            if((TileOffsetX > 0.0f) && (TileOffsetY > 0.0f))
+            {
+                if(TileOffsetX > 1.0f)
+                {
+                    TileX += 3;
+                }
+                else
+                {
+                    TileX += 2;
+                }
+
+                if(TileOffsetY > 1.0f)
+                {
+                    TileY += 3;
+                }
+                else
+                {
+                    TileY += 2;
+                }
+            }
+            else if((TileOffsetX > 0.0f) && (TileOffsetY < 0.0f))
+            {
+                if(TileOffsetX > 1.0f)
+                {
+                    TileX += 3;
+                }
+                else
+                {
+                    TileX += 2;
+                }
+
+                if(TileOffsetY < -1.0f)
+                {
+                    TileY += 0;
+                }
+                else
+                {
+                    TileY += 1;
+                }
+            }
+            else if((TileOffsetX < 0) && (TileOffsetY > 0))
+            {
+                if(TileOffsetX < -1.0f)
+                {
+                    TileX += 0;
+                }
+                else
+                {
+                    TileX += 1;
+                }
+
+                if(TileOffsetY > 1.0f)
+                {
+                    TileY += 3;
+                }
+                else
+                {
+                    TileY += 2;
+                }
+            }
+            else
+            {
+                if(TileOffsetX < -1.0f)
+                {
+                    TileX += 0;
+                }
+                else
+                {
+                    TileX += 1;
+                }
+
+                if(TileOffsetY < -1.0f)
+                {
+                    TileY += 0;
+                }
+                else
+                {
+                    TileY += 1;
+                }
+            }
+
+            GameState->TileIndexInMap = TileY*TileCountX + TileX;
+            uint32 *Identity = (uint32 *)Map->Memory + GameState->TileIndexInMap;
+            loaded_bitmap *Bitmap = FindTileBitmapByIdentity(GameState->Tiles, GameState->LoadedTileCount, *Identity);
+            v4 Color = (1.0f / 255.0f)*V4((real32)(((*Identity >> 16) & 0xFF)),
+                                          (real32)(((*Identity >> 8) & 0xFF)),
+                                          (real32)(((*Identity >> 0) & 0xFF)),
+                                          (real32)(((*Identity >> 24) & 0xFF)));
         
-        PushRect(RenderGroup, Offset, V2(1.0f, 1.0f), Color);
-        if(Bitmap)
-        {
-            PushBitmap(RenderGroup, Bitmap, 1.0f, Offset + V3(1.0f, -0.5f, 0.0f));
+            PushRect(RenderGroup, Offset, V2(1.0f, 1.0f), Color);
+            if(Bitmap)
+            {
+                PushBitmap(RenderGroup, Bitmap, 1.0f, Offset + V3(1.0f, -0.5f, 0.0f));
+            }
         }
     }
 }
@@ -677,7 +680,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             
 //        GameState->MapBitmap = MakeEmptyBitmap(&GameState->WorldArena, MapWidthInTiles, MapHeightInTiles, true);
 
-        LoadMap(GameState, Thread, Memory->DEBUGPlatformReadEntireFile, "screen00.bmp");
+        LoadMap(GameState, Thread, Memory->DEBUGPlatformReadEntireFile, "map_bitmap_2.bmp");
         
         uint32 ScreenBaseX = 0;
         uint32 ScreenBaseY = 0;

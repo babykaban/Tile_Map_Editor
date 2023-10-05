@@ -164,7 +164,7 @@ EndSim(sim_region *Region, game_state *GameState)
             world_position NewCameraP = GameState->CameraP;
 
             NewCameraP.ChunkZ = Stored->P.ChunkZ;
-            NewCameraP = Stored->P;
+//            NewCameraP = Stored->P;
 
             GameState->CameraP = NewCameraP;
         }
