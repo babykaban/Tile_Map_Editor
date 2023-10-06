@@ -169,6 +169,10 @@ struct game_state
 
     uint32 CameraFollowingEntityIndex;
     world_position CameraP;
+
+    world_position CameraBoundsMin;
+    world_position CameraBoundsMax;
+    
     uint32 TileIndexInMap;
 
     controlled_camera ControlledHeroes[ArrayCount(((game_input *)0)->Controllers)];

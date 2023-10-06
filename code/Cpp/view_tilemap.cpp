@@ -159,13 +159,23 @@ DEBUGLoadBMP(thread_context *Thread, debug_platform_read_entire_file *ReadEntire
 }
 
 inline void
-LoadMap(game_state *GameState, thread_context *Thread, debug_platform_read_entire_file *ReadEntireFile, char *FileName)
+LoadMapAndCameraBounds(game_state *GameState, thread_context *Thread, debug_platform_read_entire_file *ReadEntireFile, char *FileName)
 {
     map_bitmap *MapBitmap = &GameState->MapBitmap;
 
     bitmap_header *Header = &MapBitmap->Header;
     MapBitmap->Bitmap = DEBUGLoadBMP(Thread, ReadEntireFile, FileName, 0, 0, Header, true);
     MapBitmap->BitmapSize = MapBitmap->Bitmap.Height * MapBitmap->Bitmap.Width * BITMAP_BYTES_PER_PIXEL;
+
+    GameState->CameraBoundsMin.ChunkX = 0;
+    GameState->CameraBoundsMin.ChunkY = 0;
+    GameState->CameraBoundsMin.ChunkZ = 0;
+    GameState->CameraBoundsMin.Offset_ = V3(-2.0f, -2.0f, 0.0f);
+    
+    GameState->CameraBoundsMax.ChunkX = MapBitmap->Bitmap.Width / TILES_PER_CHUNK;
+    GameState->CameraBoundsMax.ChunkY = MapBitmap->Bitmap.Height / TILES_PER_CHUNK;
+    GameState->CameraBoundsMax.ChunkZ = 0;
+    GameState->CameraBoundsMin.Offset_ = V3(2.0f, 2.0f, 0.0f);
 }
 
 struct add_low_entity_result
@@ -677,10 +687,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         loaded_bitmap TileSheet = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "tile_sheet.bmp");
         GameState->LoadedTileCount = LoadTileDataAndIdentities(&GameState->WorldArena, GameState->Tiles,
                                                                &TileSheet, TileSideInPixels);
-            
-//        GameState->MapBitmap = MakeEmptyBitmap(&GameState->WorldArena, MapWidthInTiles, MapHeightInTiles, true);
 
-        LoadMap(GameState, Thread, Memory->DEBUGPlatformReadEntireFile, "map_bitmap_2.bmp");
+        LoadMapAndCameraBounds(GameState, Thread, Memory->DEBUGPlatformReadEntireFile, "screen00.bmp");
         
         uint32 ScreenBaseX = 0;
         uint32 ScreenBaseY = 0;
@@ -721,8 +729,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         }
         
         world_position NewCameraP = {};
-        uint32 CameraTileX = ScreenBaseX*TilesPerWidth + TilesPerWidth/2;
-        uint32 CameraTileY = ScreenBaseY*TilesPerHeight + TilesPerHeight/2;
+        uint32 CameraTileX = ScreenBaseX*TilesPerWidth + TilesPerWidth / 4 + 1;
+        uint32 CameraTileY = ScreenBaseY*TilesPerHeight + TilesPerHeight / 4;
         uint32 CameraTileZ = ScreenBaseZ;
         NewCameraP = ChunkPositionFromTilePosition(GameState->World,
                                                    CameraTileX,
@@ -902,8 +910,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 real32 GroundSideInMeters = World->ChunkDimInMeters.x;
                 PushBitmap(RenderGroup, Bitmap, GroundSideInMeters, Delta);
 
-                PushRectOutline(RenderGroup, Delta, V2(GroundSideInMeters, GroundSideInMeters),
-                                V4(1.0f, 1.0f, 0.0f, 1.0f));
+//                PushRectOutline(RenderGroup, Delta, V2(GroundSideInMeters, GroundSideInMeters),
+//                                V4(1.0f, 1.0f, 0.0f, 1.0f));
             }
         }
     }
@@ -976,7 +984,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                                      SimCenterP, SimBounds, Input->dtForFrame);
     v3 CameraP = Subtract(World, &GameState->CameraP, &SimCenterP);
     
-    PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(ScreenBounds), V4(1.0f, 1.0f, 0.0f, 1));
+//    PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(ScreenBounds), V4(1.0f, 1.0f, 0.0f, 1));
 //    PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(CameraBoundsInMeters).xy, V4(1.0f, 1.0f, 1.0f, 1));
     PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(SimBounds).xy, V4(0.0f, 1.0f, 1.0f, 1));
     PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(SimRegion->Bounds).xy, V4(1.0f, 0.0f, 0.0f, 1));
@@ -1028,7 +1036,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         {
             ChangeGroundTileTexture(GameState);
             ResetGroundBuffers(TranState);
-            SaveMap(TranState, Thread, Memory->DEBUGPlatformWriteEntireFile, "screen00.bmp", &GameState->MapBitmap);
+            SaveMap(TranState, Thread, Memory->DEBUGPlatformWriteEntireFile, "map_bitmap_1 .bmp", &GameState->MapBitmap);
             GameState->ChangeTile = false;
             GameState->TileChangingProcess = false;
         }
@@ -1098,7 +1106,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     TiledRenderGroupToOutput(TranState->RenderQueue, RenderGroup, DrawBuffer);
 
     
-    EndSim(SimRegion, GameState);
+    EndSim(SimRegion, GameState, CameraBoundsInMeters);
     EndTemporaryMemory(SimMemory);
     EndTemporaryMemory(RenderMemory);
     

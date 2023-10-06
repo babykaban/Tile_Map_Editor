@@ -141,7 +141,7 @@ BeginSim(memory_arena *SimArena, game_state *GameState, world *World, world_posi
 }
 
 internal void
-EndSim(sim_region *Region, game_state *GameState)
+EndSim(sim_region *Region, game_state *GameState, rectangle3 CameraBoundsInMeters)
 {
     // TODO(casey): Maybe don't take a game state here, low entities should be stored
     // in the world?
@@ -162,9 +162,27 @@ EndSim(sim_region *Region, game_state *GameState)
         if(Entity->StorageIndex == GameState->CameraFollowingEntityIndex)
         {
             world_position NewCameraP = GameState->CameraP;
-
             NewCameraP.ChunkZ = Stored->P.ChunkZ;
-//            NewCameraP = Stored->P;
+
+            world_position MinChunkP = MapIntoChunkSpace(GameState->World, Stored->P,
+                                                         GetMinCorner(CameraBoundsInMeters));
+
+            world_position MaxChunkP = MapIntoChunkSpace(GameState->World, Stored->P,
+                                                         GetMaxCorner(CameraBoundsInMeters));
+
+            if((MinChunkP.ChunkX >= GameState->CameraBoundsMin.ChunkX) &&
+               (MaxChunkP.ChunkX <= GameState->CameraBoundsMax.ChunkX))
+            {
+                NewCameraP.ChunkX = Stored->P.ChunkX;
+                NewCameraP.Offset_.x = Stored->P.Offset_.x;
+            }
+
+            if((MinChunkP.ChunkY >= GameState->CameraBoundsMin.ChunkY) &&
+               (MaxChunkP.ChunkY <= GameState->CameraBoundsMax.ChunkY))
+            {
+                NewCameraP.ChunkY = Stored->P.ChunkY;
+                NewCameraP.Offset_.y = Stored->P.Offset_.y;
+            }
 
             GameState->CameraP = NewCameraP;
         }
