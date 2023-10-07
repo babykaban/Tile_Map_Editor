@@ -171,14 +171,14 @@ EndSim(sim_region *Region, game_state *GameState, rectangle3 CameraBoundsInMeter
                                                          GetMaxCorner(CameraBoundsInMeters));
 
             if((MinChunkP.ChunkX >= GameState->CameraBoundsMin.ChunkX) &&
-               (MaxChunkP.ChunkX <= GameState->CameraBoundsMax.ChunkX))
+               (MaxChunkP.ChunkX < GameState->CameraBoundsMax.ChunkX))
             {
                 NewCameraP.ChunkX = Stored->P.ChunkX;
                 NewCameraP.Offset_.x = Stored->P.Offset_.x;
             }
 
             if((MinChunkP.ChunkY >= GameState->CameraBoundsMin.ChunkY) &&
-               (MaxChunkP.ChunkY <= GameState->CameraBoundsMax.ChunkY))
+               (MaxChunkP.ChunkY < GameState->CameraBoundsMax.ChunkY))
             {
                 NewCameraP.ChunkY = Stored->P.ChunkY;
                 NewCameraP.Offset_.y = Stored->P.Offset_.y;
@@ -201,7 +201,7 @@ MoveEntity(sim_entity *Entity, real32 dt, v3 ddP)
         }
     }
 
-    ddP *= 150.0f;
+    ddP *= 120.0f;
 
     v3 Drag = -15.0f * Entity->dP;
     Drag.z = 0.0f;

@@ -736,7 +736,7 @@ WinMain(HINSTANCE Instance,
 {
     win32_state Win32State = {};
 
-    win32_thread_info ThreadInfo[1];
+    win32_thread_info ThreadInfo[5];
 
     platform_work_queue Queue = {};
 

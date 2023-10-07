@@ -131,24 +131,6 @@ def remove_tile():
 
     show_tiles_info()
 
-def write_array_for_cpp():
-    # Open the binary file in write mode
-    with open("C:\\Paul\\Projects\\Tile_Map_Editor\\data\\output_0.bin", "wb") as file:
-        for tile in tiles_array:
-            numbers = []
-            color = rgb_to_hex_with_alpha((tile["color"][0], tile["color"][1], tile["color"][2]), 255)
- 
-            numbers.append(tile["index"])
-            numbers.append(color)
-
-            for number in numbers:
-                # Pack the number as a 4-byte signed integer (change the format if needed)
-                binary_data = struct.pack("I", number)
-                # Write the binary data to the file
-                file.write(binary_data)
-        
-
-
 def clear_frame(frame):
     for widget in frame.winfo_children():
         widget.destroy()
@@ -163,15 +145,14 @@ def show_tiles_info():
     info_color_label_r = ctk.CTkLabel(information_frame, width=50, text="RED")
     info_color_lable_g = ctk.CTkLabel(information_frame, width=50, text="GREEN")
     info_color_label_b = ctk.CTkLabel(information_frame, width=50, text="BLUE")
-    info_z_coord_label = ctk.CTkLabel(information_frame, width=50, text="ZCOORD")
     info_name_label = ctk.CTkLabel(information_frame, width=50, text="NAME")
+
     info_label.grid(row=0, column=0, columnspan=7)
     info_index_label.grid(row=1, column=0, sticky="W")
     info_color_label_r.grid(row=1, column=1, sticky="W")
     info_color_lable_g.grid(row=1, column=2, sticky="W")
     info_color_label_b.grid(row=1, column=3, sticky="W")
-    info_z_coord_label.grid(row=1, column=4, sticky="W")
-    info_name_label.grid(row=1, column=5, sticky="W")
+    info_name_label.grid(row=1, column=4, sticky="W")
 
 
     i = 0
@@ -195,8 +176,6 @@ def show_tiles_info():
         canvas.grid(row=2+i, column=6, stick="W")
         
         i += 1
-    
-    write_array_for_cpp()
 
 # Take Tiles Info
 get_tiles()

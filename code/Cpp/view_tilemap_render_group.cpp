@@ -1273,7 +1273,7 @@ GetRenderEntityBasisP(render_transform *Transform, v3 OriginalP)
         real32 DistanceAboveTarget = Transform->DistanceAboveTarget;
 
 #if 0
-        DistanceAboveTarget += 20.0f;
+        DistanceAboveTarget -= 5.0f;
 #endif
     
         real32 DistanceToPZ = (DistanceAboveTarget - P.z);

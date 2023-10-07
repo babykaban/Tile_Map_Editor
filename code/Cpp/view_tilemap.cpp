@@ -688,7 +688,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         GameState->LoadedTileCount = LoadTileDataAndIdentities(&GameState->WorldArena, GameState->Tiles,
                                                                &TileSheet, TileSideInPixels);
 
-        LoadMapAndCameraBounds(GameState, Thread, Memory->DEBUGPlatformReadEntireFile, "screen00.bmp");
+        // NOTE(paul): LoadMap and Set camera bounds
+        LoadMapAndCameraBounds(GameState, Thread, Memory->DEBUGPlatformReadEntireFile, "map_bitmap.bmp");
         
         uint32 ScreenBaseX = 0;
         uint32 ScreenBaseY = 0;
@@ -1036,7 +1037,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         {
             ChangeGroundTileTexture(GameState);
             ResetGroundBuffers(TranState);
-            SaveMap(TranState, Thread, Memory->DEBUGPlatformWriteEntireFile, "map_bitmap_1 .bmp", &GameState->MapBitmap);
+            SaveMap(TranState, Thread, Memory->DEBUGPlatformWriteEntireFile, "map_bitmap.bmp", &GameState->MapBitmap);
             GameState->ChangeTile = false;
             GameState->TileChangingProcess = false;
         }
