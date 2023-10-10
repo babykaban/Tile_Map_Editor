@@ -166,16 +166,29 @@ LoadMapAndCameraBounds(game_state *GameState, thread_context *Thread, debug_plat
     bitmap_header *Header = &MapBitmap->Header;
     MapBitmap->Bitmap = DEBUGLoadBMP(Thread, ReadEntireFile, FileName, 0, 0, Header, true);
     MapBitmap->BitmapSize = MapBitmap->Bitmap.Height * MapBitmap->Bitmap.Width * BITMAP_BYTES_PER_PIXEL;
+    
+    GameState->RotationAndFlipState = PushArray(&GameState->WorldArena,
+                                                MapBitmap->Bitmap.Height * MapBitmap->Bitmap.Width,
+                                                uint8);
+#if 0
+    loaded_bitmap *Bitmap = &MapBitmap->Bitmap;
+    for(int32 I = 0;
+        I < MapBitmap->Bitmap.Height * MapBitmap->Bitmap.Width;
+        ++I)
+    {
+        uint32 *Pixel = (uint32 *)Bitmap->Memory + I;
+        *Pixel |= 0x0f000000;
+        *Pixel &= 0xfffffff8;
+    }
+#endif
 
     GameState->CameraBoundsMin.ChunkX = 0;
     GameState->CameraBoundsMin.ChunkY = 0;
     GameState->CameraBoundsMin.ChunkZ = 0;
-    GameState->CameraBoundsMin.Offset_ = V3(-2.0f, -2.0f, 0.0f);
     
     GameState->CameraBoundsMax.ChunkX = MapBitmap->Bitmap.Width / TILES_PER_CHUNK;
     GameState->CameraBoundsMax.ChunkY = MapBitmap->Bitmap.Height / TILES_PER_CHUNK;
     GameState->CameraBoundsMax.ChunkZ = 0;
-    GameState->CameraBoundsMin.Offset_ = V3(2.0f, 2.0f, 0.0f);
 }
 
 struct add_low_entity_result
@@ -190,7 +203,7 @@ ChunkPositionFromTilePosition(world *World, int32 AbsTileX, int32 AbsTileY, int3
 {
     world_position BasePos = {};
 
-    real32 TileSideInMeters = 1.4f;
+    real32 TileSideInMeters = 1.0f;
     real32 TileDepthInMeters = 3.0f;
     
     v3 TileDim = V3(TileSideInMeters, TileSideInMeters, TileDepthInMeters);
@@ -246,9 +259,10 @@ FindTileBitmapByIdentity(loaded_tile *Tiles, uint32 TileCount, uint32 Identity)
         ++TileIndex)
     {
         loaded_tile *Tile = Tiles + TileIndex;
-        if(Tile->Identity == Identity)
+        int32 IdentityDiff = Identity - Tile->Identity;
+        if((IdentityDiff < 6) && (IdentityDiff >= 0))
         {
-            Result = &Tile->Bitmap;
+            Result = Tile->Bitmap + IdentityDiff;
             break;
         }
     }
@@ -371,6 +385,40 @@ GetEntityGroundPoint(sim_entity *Entity)
     return(Result);
 }
 
+inline void
+LoadRotatedAndFlipedVersion(memory_arena *Arena, loaded_tile *Tile)
+{
+    for(uint32 TileType = 1;
+        TileType < ArrayCount(Tile->Bitmap);
+        ++TileType)
+    {
+        loaded_bitmap *Bitmap = Tile->Bitmap + TileType;
+        switch(TileType)
+        {
+            case RotationFlipState_RotateOnce:
+            {
+                for()
+                {
+                }
+
+            } break;
+
+            case RotationFlipState_RotateTwice:
+            case RotationFlipState_FlipedVerticaly:
+            {
+            } break;
+
+            case RotationFlipState_RotateThrice:
+            {
+            } break;
+
+            case RotationFlipState_FlipedHorizontaly:
+            {
+            } break;
+        };
+    }
+};
+
 internal uint32
 LoadTileDataAndIdentities(memory_arena *Arena, loaded_tile *Tiles, loaded_bitmap *TileSheet, int32 TileDim)
 {
@@ -390,8 +438,8 @@ LoadTileDataAndIdentities(memory_arena *Arena, loaded_tile *Tiles, loaded_bitmap
             ++TileX)
         {
             loaded_tile *Tile = Tiles + LoadedTileCount;
-            Tile->Bitmap = MakeEmptyBitmap(Arena, TileDim, TileDim);
-            loaded_bitmap *Bitmap = &Tile->Bitmap;
+            Tile->Bitmap[0] = MakeEmptyBitmap(Arena, TileDim, TileDim);
+            loaded_bitmap *Bitmap = Tile->Bitmap + 0;
             Bitmap->WidthOverHeight = SafeRatio0((real32)Bitmap->Width, (real32)Bitmap->Height);
             Bitmap->AlignPercentage = V2(0.0f, 0.0f);
             ++LoadedTileCount;
@@ -417,7 +465,7 @@ LoadTileDataAndIdentities(memory_arena *Arena, loaded_tile *Tiles, loaded_bitmap
                 {
                     *Dest = *Source;
 
-                    ColorSum += (uint64)*Dest;
+                    ColorSum += *Dest;
                     ++Dest;
                     ++Source;
                 }
@@ -426,7 +474,10 @@ LoadTileDataAndIdentities(memory_arena *Arena, loaded_tile *Tiles, loaded_bitmap
                 SourceRow += TileSheet->Pitch;
             }
 
+            LoadRotatedAndFlipedVersion(Arena, Tile);
+            
             Tile->Identity = (uint32)(ColorSum / (TileDim*TileDim));
+            Tile->Identity &= 0xfffffff8;
         }
     }
 
@@ -586,7 +637,7 @@ ShowTileMenu(render_group *RenderGroup, game_state *GameState, v2 WindowDim)
         v2 TileOffset = -HalfWindowDim + V2(TileOffsetX, TileOffsetY);
         v3 CursorOffset = V3(TileOffset, 0.0f) + 0.5f*V3(TileDim, TileDim, 0.0f);
         loaded_tile *Tile = GameState->Tiles + TileIndex;
-        PushBitmap(RenderGroup, &Tile->Bitmap, TileDim, V3(TileOffset, 0.0f));
+        PushBitmap(RenderGroup, Tile->Bitmap + 0, TileDim, V3(TileOffset, 0.0f));
 
         if(GameState->Cursor.TileIndex == TileIndex)
         {
@@ -619,7 +670,7 @@ ResetGroundBuffers(transient_state *TranState)
     }        
 }
 
-internal void
+inline void
 ChangeGroundTileTexture(game_state *GameState)
 {
     loaded_bitmap *Map = &GameState->MapBitmap.Bitmap;
@@ -628,6 +679,7 @@ ChangeGroundTileTexture(game_state *GameState)
     uint32 *TileToChange = (uint32 *)Map->Memory + GameState->TileIndexInMap;
     *TileToChange = Tile->Identity;
 }
+
 
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {    
@@ -643,16 +695,13 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     Assert((&Input->Controllers[0].Terminator - &Input->Controllers[0].Buttons[0]) ==
            (ArrayCount(Input->Controllers[0].Buttons)));
 
-    uint32 GroundBufferWidth = 256; 
-    uint32 GroundBufferHeight = 256;
+    uint32 GroundBufferWidth = 512; 
+    uint32 GroundBufferHeight = 512;
 
     real32 PixelsToMeters = 1.0f / 64.0f;
 
     uint32 TileSideInPixels = 64;
     real32 TileSideInMeters = TileSideInPixels * PixelsToMeters;
-
-    int32 MapWidthInTiles = 15 * 30;
-    int32 MapHeightInTiles = 15 * 17;
 
     Assert(sizeof(game_state) <= Memory->PermanentStorageSize);    
     game_state *GameState = (game_state *)Memory->PermanentStorage;
@@ -730,8 +779,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         }
         
         world_position NewCameraP = {};
-        uint32 CameraTileX = ScreenBaseX*TilesPerWidth + TilesPerWidth / 4 + 1;
-        uint32 CameraTileY = ScreenBaseY*TilesPerHeight + TilesPerHeight / 4;
+        uint32 CameraTileX = ScreenBaseX*TilesPerWidth + TilesPerWidth / 4 + 3;
+        uint32 CameraTileY = ScreenBaseY*TilesPerHeight + TilesPerHeight / 4 + 3;
         uint32 CameraTileZ = ScreenBaseZ;
         NewCameraP = ChunkPositionFromTilePosition(GameState->World,
                                                    CameraTileX,
@@ -926,11 +975,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             ++ChunkZ)
         {
             for(int32 ChunkY = MinChunkP.ChunkY;
-                ChunkY <= MaxChunkP.ChunkY + 1;
+                ChunkY <= MaxChunkP.ChunkY;
                 ++ChunkY)
             {
                 for(int32 ChunkX = MinChunkP.ChunkX;
-                    ChunkX <= MaxChunkP.ChunkX + 1;
+                    ChunkX <= MaxChunkP.ChunkX;
                     ++ChunkX)
                 {
                     world_position ChunkCenterP = CenteredChunkPoint(ChunkX, ChunkY, ChunkZ);
@@ -985,7 +1034,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                                      SimCenterP, SimBounds, Input->dtForFrame);
     v3 CameraP = Subtract(World, &GameState->CameraP, &SimCenterP);
     
-//    PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(ScreenBounds), V4(1.0f, 1.0f, 0.0f, 1));
+    PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(ScreenBounds), V4(1.0f, 1.0f, 0.0f, 1));
 //    PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(CameraBoundsInMeters).xy, V4(1.0f, 1.0f, 1.0f, 1));
     PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(SimBounds).xy, V4(0.0f, 1.0f, 1.0f, 1));
     PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(SimRegion->Bounds).xy, V4(1.0f, 0.0f, 0.0f, 1));

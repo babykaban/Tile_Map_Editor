@@ -123,10 +123,21 @@ struct ground_buffer
     loaded_bitmap Bitmap;
 };
 
+enum rotation_flip_state
+{
+    RotationFlipState_Null,
+
+    RotationFlipState_RotateOnce,
+    RotationFlipState_RotateTwice,
+    RotationFlipState_RotateThrice,
+    RotationFlipState_FlipedHorizontaly,
+    RotationFlipState_FlipedVerticaly,
+};
+
 struct loaded_tile
 {
     uint32 Identity;
-    loaded_bitmap Bitmap;
+    loaded_bitmap Bitmap[6];
 };
 
 enum change_direction
@@ -161,6 +172,9 @@ struct game_state
     loaded_bitmap Border;
     loaded_bitmap Source;
     map_bitmap MapBitmap;
+    uint32 *Map;
+    uint8 *RotationAndFlipState;
+
     loaded_bitmap InValidTile;
     
     change_cursor Cursor;
