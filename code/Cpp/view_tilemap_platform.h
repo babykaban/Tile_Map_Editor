@@ -235,7 +235,7 @@ typedef struct game_controller_input
     
     union
     {
-        game_button_state Buttons[14];
+        game_button_state Buttons[16];
         struct
         {
             game_button_state MoveUp;
@@ -250,6 +250,8 @@ typedef struct game_controller_input
 
             game_button_state OpenTileMenu;
             game_button_state ChangeTile;
+            game_button_state Rotate;
+            game_button_state Flip;
             
             game_button_state LeftShoulder;
             game_button_state RightShoulder;

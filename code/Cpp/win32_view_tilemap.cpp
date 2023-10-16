@@ -519,6 +519,14 @@ Win32ProcessPendingMessages(win32_state *State, game_controller_input *KeyboardC
                     {
                         Win32ProcessKeyboardMessage(&KeyboardController->OpenTileMenu, IsDown);
                     }
+                    else if(VKCode == 'R')
+                    {
+                        Win32ProcessKeyboardMessage(&KeyboardController->Rotate, IsDown, true);
+                    }
+                    else if(VKCode == 'F')
+                    {
+                        Win32ProcessKeyboardMessage(&KeyboardController->Flip, IsDown, true);
+                    }
                     else if(VKCode == VK_UP)
                     {
                         Win32ProcessKeyboardMessage(&KeyboardController->ActionUp, IsDown, true);

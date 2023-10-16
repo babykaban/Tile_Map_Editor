@@ -254,16 +254,22 @@ FindTileBitmapByIdentity(loaded_tile *Tiles, uint32 TileCount, uint32 Identity)
 {
     loaded_bitmap *Result = 0;
 
+    bool32 Found = false;
     for(uint32 TileIndex = 0;
         TileIndex < TileCount;
         ++TileIndex)
     {
         loaded_tile *Tile = Tiles + TileIndex;
-        int32 IdentityDiff = Identity - Tile->Identity;
-        if((IdentityDiff < 6) && (IdentityDiff >= 0))
+        for(uint32 TileTypeIndex = 0;
+            TileTypeIndex < ArrayCount(Tile->Identity);
+            ++TileTypeIndex)
         {
-            Result = Tile->Bitmap + IdentityDiff;
-            break;
+            uint32 TileIdentity = Tile->Identity[TileTypeIndex];
+            if(TileIdentity == Identity)
+            {
+                Result = Tile->Bitmap + TileTypeIndex;
+                break;
+            }
         }
     }
     
@@ -385,43 +391,10 @@ GetEntityGroundPoint(sim_entity *Entity)
     return(Result);
 }
 
-inline void
-LoadRotatedAndFlipedVersion(memory_arena *Arena, loaded_tile *Tile)
-{
-    for(uint32 TileType = 1;
-        TileType < ArrayCount(Tile->Bitmap);
-        ++TileType)
-    {
-        loaded_bitmap *Bitmap = Tile->Bitmap + TileType;
-        switch(TileType)
-        {
-            case RotationFlipState_RotateOnce:
-            {
-                for()
-                {
-                }
-
-            } break;
-
-            case RotationFlipState_RotateTwice:
-            case RotationFlipState_FlipedVerticaly:
-            {
-            } break;
-
-            case RotationFlipState_RotateThrice:
-            {
-            } break;
-
-            case RotationFlipState_FlipedHorizontaly:
-            {
-            } break;
-        };
-    }
-};
-
 internal uint32
-LoadTileDataAndIdentities(memory_arena *Arena, loaded_tile *Tiles, loaded_bitmap *TileSheet, int32 TileDim)
+LoadTileDataAndIdentities(memory_arena *Arena, loaded_tile *Tiles, loaded_bitmap *TileSheets, int32 TileDim)
 {
+    loaded_bitmap *TileSheet = TileSheets + 0;
     Assert(TileSheet->Width == TileSheet->Height);
 
     uint32 TileCountX = (TileSheet->Width / TileDim);
@@ -432,52 +405,62 @@ LoadTileDataAndIdentities(memory_arena *Arena, loaded_tile *Tiles, loaded_bitmap
         TileY < TileCountY;
         ++TileY)
     {
-    
         for(uint32 TileX = 0;
             TileX < TileCountX;
             ++TileX)
         {
             loaded_tile *Tile = Tiles + LoadedTileCount;
-            Tile->Bitmap[0] = MakeEmptyBitmap(Arena, TileDim, TileDim);
-            loaded_bitmap *Bitmap = Tile->Bitmap + 0;
-            Bitmap->WidthOverHeight = SafeRatio0((real32)Bitmap->Width, (real32)Bitmap->Height);
-            Bitmap->AlignPercentage = V2(0.0f, 0.0f);
-            ++LoadedTileCount;
-
-            int32 MinX = TileX * TileDim;
-            int32 MinY = TileY * TileDim;
-            int32 MaxX = MinX + TileDim;
-            int32 MaxY = MinY + TileDim;
-
-            uint8 *SourceRow = ((uint8 *)TileSheet->Memory + MinX*BITMAP_BYTES_PER_PIXEL + MinY*TileSheet->Pitch);
-    
-            uint8 *DestRow = (uint8 *)Bitmap->Memory;
             uint64 ColorSum = 0;
-            for(int Y = MinY;
-                Y < MaxY;
-                ++Y)
+            for(uint32 TileSheetIndex = 0;
+                TileSheetIndex < 6;
+                ++TileSheetIndex)
             {
-                uint32 *Dest = (uint32 *)DestRow;
-                uint32 *Source = (uint32 *)SourceRow;
-                for(int X = MinX;
-                    X < MaxX;
-                    ++X)
+                loaded_bitmap *TileSheet = TileSheets + TileSheetIndex;
+
+                Tile->Bitmap[TileSheetIndex] = MakeEmptyBitmap(Arena, TileDim, TileDim);
+                loaded_bitmap *Bitmap = Tile->Bitmap + TileSheetIndex;
+                uint32 *Identity = Tile->Identity + TileSheetIndex;
+                Bitmap->WidthOverHeight = SafeRatio0((real32)Bitmap->Width, (real32)Bitmap->Height);
+                Bitmap->AlignPercentage = V2(0.0f, 0.0f);
+
+                int32 MinX = TileX * TileDim;
+                int32 MinY = TileY * TileDim;
+                int32 MaxX = MinX + TileDim;
+                int32 MaxY = MinY + TileDim;
+
+                uint8 *SourceRow = ((uint8 *)TileSheet->Memory + MinX*BITMAP_BYTES_PER_PIXEL + MinY*TileSheet->Pitch);
+    
+                uint8 *DestRow = (uint8 *)Bitmap->Memory;
+                for(int Y = MinY;
+                    Y < MaxY;
+                    ++Y)
                 {
-                    *Dest = *Source;
+                    uint32 *Dest = (uint32 *)DestRow;
+                    uint32 *Source = (uint32 *)SourceRow;
+                    for(int X = MinX;
+                        X < MaxX;
+                        ++X)
+                    {
+                        *Dest = *Source;
 
-                    ColorSum += *Dest;
-                    ++Dest;
-                    ++Source;
+                        if(TileSheetIndex == 0)
+                        {
+                            ColorSum += *Dest;
+                        }
+
+                        ++Dest;
+                        ++Source;
+                    }
+
+                    DestRow += Bitmap->Pitch;
+                    SourceRow += TileSheet->Pitch;
                 }
-
-                DestRow += Bitmap->Pitch;
-                SourceRow += TileSheet->Pitch;
-            }
-
-            LoadRotatedAndFlipedVersion(Arena, Tile);
             
-            Tile->Identity = (uint32)(ColorSum / (TileDim*TileDim));
-            Tile->Identity &= 0xfffffff8;
+                *Identity = (uint32)(ColorSum / (TileDim*TileDim));
+                *Identity &= 0xfffffff8;
+                *Identity += TileSheetIndex;
+            }
+            ++LoadedTileCount;
         }
     }
 
@@ -637,7 +620,7 @@ ShowTileMenu(render_group *RenderGroup, game_state *GameState, v2 WindowDim)
         v2 TileOffset = -HalfWindowDim + V2(TileOffsetX, TileOffsetY);
         v3 CursorOffset = V3(TileOffset, 0.0f) + 0.5f*V3(TileDim, TileDim, 0.0f);
         loaded_tile *Tile = GameState->Tiles + TileIndex;
-        PushBitmap(RenderGroup, Tile->Bitmap + 0, TileDim, V3(TileOffset, 0.0f));
+        PushBitmap(RenderGroup, Tile->Bitmap, TileDim, V3(TileOffset, 0.0f));
 
         if(GameState->Cursor.TileIndex == TileIndex)
         {
@@ -677,7 +660,53 @@ ChangeGroundTileTexture(game_state *GameState)
     loaded_tile *Tile = GameState->Tiles + GameState->Cursor.TileIndex;
 
     uint32 *TileToChange = (uint32 *)Map->Memory + GameState->TileIndexInMap;
-    *TileToChange = Tile->Identity;
+    *TileToChange = Tile->Identity[0];
+}
+
+inline void
+ChangeGroundTileTexture(game_state *GameState, bool32 Flip, bool32 Rotate)
+{
+    loaded_bitmap *Map = &GameState->MapBitmap.Bitmap;
+
+    uint32 *TileToChange = (uint32 *)Map->Memory + GameState->TileIndexInMap;
+    uint32 CheckForRotationOrFlip = *TileToChange & 0x00000007;
+    uint32 DefaultIdentity = *TileToChange & 0xfffffff8;
+    
+    if(Flip)
+    {
+        if(CheckForRotationOrFlip == 4)
+        {
+            *TileToChange = DefaultIdentity + 5;
+        }
+        else if(CheckForRotationOrFlip == 5)
+        {
+            *TileToChange = DefaultIdentity;
+        }
+        else
+        {
+            *TileToChange = DefaultIdentity + 4;
+        }
+    }
+
+    if(Rotate)
+    {
+        if(CheckForRotationOrFlip == 1)
+        {
+            *TileToChange = DefaultIdentity + 2;
+        }
+        else if(CheckForRotationOrFlip == 2)
+        {
+            *TileToChange = DefaultIdentity + 3;
+        }
+        else if(CheckForRotationOrFlip == 3)
+        {
+            *TileToChange = DefaultIdentity;
+        }
+        else
+        {
+            *TileToChange = DefaultIdentity + 1;
+        }
+    }
 }
 
 
@@ -732,10 +761,16 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         GameState->Border = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "grass.bmp");
         GameState->Source = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "tiles\\structured_art.bmp");
         GameState->InValidTile = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "invalid_tile.bmp");
-        
-        loaded_bitmap TileSheet = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "tile_sheet.bmp");
+
+        loaded_bitmap TileSheets[6];
+        TileSheets[0] = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "tile_sheet.bmp");
+        TileSheets[1] = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "tile_sheet_rot1.bmp");
+        TileSheets[2] = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "tile_sheet_rot2.bmp");
+        TileSheets[3] = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "tile_sheet_rot3.bmp");
+        TileSheets[4] = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "tile_sheet_flipV.bmp");
+        TileSheets[5] = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "tile_sheet_flipH.bmp");
         GameState->LoadedTileCount = LoadTileDataAndIdentities(&GameState->WorldArena, GameState->Tiles,
-                                                               &TileSheet, TileSideInPixels);
+                                                               TileSheets, TileSideInPixels);
 
         // NOTE(paul): LoadMap and Set camera bounds
         LoadMapAndCameraBounds(GameState, Thread, Memory->DEBUGPlatformReadEntireFile, "map_bitmap.bmp");
@@ -896,6 +931,16 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 if(Controller->OpenTileMenu.EndedDown)
                 {
                     GameState->TileChangingProcess = true;
+                }
+
+                if(Controller->Rotate.EndedDown)
+                {
+                    ConCamera->RotateTile = true;
+                }
+
+                if(Controller->Flip.EndedDown)
+                {
+                    ConCamera->FlipTile = true;
                 }
 
                 if(Controller->Back.EndedDown)
@@ -1134,6 +1179,23 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                             ++ControlIndex)
                         {
                             controlled_camera *ConCamera = GameState->ControlledHeroes + ControlIndex;
+
+                            if(ConCamera->RotateTile)
+                            {
+                                ChangeGroundTileTexture(GameState, false, true);
+                                ResetGroundBuffers(TranState);
+                                SaveMap(TranState, Thread, Memory->DEBUGPlatformWriteEntireFile, "map_bitmap.bmp", &GameState->MapBitmap);
+                                ConCamera->RotateTile = false;
+                            }
+
+                            if(ConCamera->FlipTile)
+                            {
+                                ChangeGroundTileTexture(GameState, true, false);
+                                ResetGroundBuffers(TranState);
+                                SaveMap(TranState, Thread, Memory->DEBUGPlatformWriteEntireFile, "map_bitmap.bmp", &GameState->MapBitmap);
+                                ConCamera->FlipTile = false;
+                            }
+
                             if(Entity->StorageIndex == ConCamera->CameraIndex)
                             {
                                 MoveEntity(Entity, Input->dtForFrame, V3(ConCamera->ddP, 0.0f));

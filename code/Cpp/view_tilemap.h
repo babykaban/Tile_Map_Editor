@@ -114,6 +114,9 @@ struct controlled_camera
     uint32 CameraIndex;
     // NOTE(casey): These are the controller requests for simulation
     v2 ddP;
+
+    bool32 RotateTile;
+    bool32 FlipTile;
 };
 
 struct ground_buffer
@@ -136,7 +139,7 @@ enum rotation_flip_state
 
 struct loaded_tile
 {
-    uint32 Identity;
+    uint32 Identity[6];
     loaded_bitmap Bitmap[6];
 };
 
