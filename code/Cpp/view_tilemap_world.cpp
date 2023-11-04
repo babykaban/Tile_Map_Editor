@@ -3,7 +3,6 @@
    $Date: $
    $Revision: $
    $Creator: Casey Muratori $
-   $Notice: (C) Copyright 2014 by Molly Rocket, Inc. All Rights Reserved. $
    ======================================================================== */
 
 #define TILE_CHUNK_SAFE_MARGIN (INT32_MAX / 64) 

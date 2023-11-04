@@ -3,7 +3,6 @@
    $Date: $
    $Revision: $
    $Creator: Casey Muratori $
-   $Notice: (C) Copyright 2014 by Molly Rocket, Inc. All Rights Reserved. $
    ======================================================================== */
 
 #define InvalidP V3(100000.0f, 100000.0f, 100000.0f)

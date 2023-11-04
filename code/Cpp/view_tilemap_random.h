@@ -4,7 +4,6 @@
    $Date: $
    $Revision: $
    $Creator: Casey Muratori $
-   $Notice: (C) Copyright 2014 by Molly Rocket, Inc. All Rights Reserved. $
    ======================================================================== */
 
 #define MaxRandomNumber 0x05f5c21f
