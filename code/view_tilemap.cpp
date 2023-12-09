@@ -393,11 +393,11 @@ GetEntityGroundPoint(sim_entity *Entity)
 internal uint32
 LoadTileDataAndIdentities(memory_arena *Arena, loaded_tile *Tiles, loaded_bitmap *TileSheets, int32 TileDim)
 {
-    loaded_bitmap *TileSheet = TileSheets + 0;
-    Assert(TileSheet->Width == TileSheet->Height);
+    loaded_bitmap *TileSheet0 = TileSheets + 0;
+    Assert(TileSheet0->Width == TileSheet0->Height);
 
-    uint32 TileCountX = (TileSheet->Width / TileDim);
-    uint32 TileCountY = (TileSheet->Height / TileDim);
+    uint32 TileCountX = (TileSheet0->Width / TileDim);
+    uint32 TileCountY = (TileSheet0->Height / TileDim);
 
     uint32 LoadedTileCount = 0; 
     for(uint32 TileY = 0;
@@ -1044,7 +1044,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                         }
                         else if(IsValid(GroundBuffer->P))
                         {
-                            v3 RelP = Subtract(World, &GroundBuffer->P, &GameState->CameraP);
+                            RelP = Subtract(World, &GroundBuffer->P, &GameState->CameraP);
                             real32 BufferLengthSq = LengthSq(RelP.xy);
                             if(FurthestBufferLengthSq < BufferLengthSq)
                             {

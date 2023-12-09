@@ -290,17 +290,17 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Col
                   YMin*Buffer->Pitch);
 
     BEGIN_TIMED_BLOCK(ProcessPixel);
-    for(int Y = YMin;
-        Y <= YMax;
-        ++Y)
+    for(int YIterator = YMin;
+        YIterator <= YMax;
+        ++YIterator)
     {
         uint32 *Pixel = (uint32 *)Row;
-        for(int X = XMin;
-            X <= XMax;
-            ++X)
+        for(int XIterator = XMin;
+            XIterator <= XMax;
+            ++XIterator)
         {
 #if 1
-            v2 PixelP = V2i(X, Y);
+            v2 PixelP = V2i(XIterator, YIterator);
             v2 d = PixelP - Origin;
 
             real32 Edge0 = Inner(d, -Perp(XAxis));
@@ -311,8 +311,8 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Col
             if((Edge0 < 0) && (Edge1 < 0) && (Edge2 < 0) && (Edge3 < 0))
             {
 #if 1
-                v2 ScreenSpaceUV = {InvWidthMax*(real32)X, FixedCastY};
-                real32 ZDiff = PixelsToMeters*((real32)Y - OriginY);
+                v2 ScreenSpaceUV = {InvWidthMax*(real32)XIterator, FixedCastY};
+                real32 ZDiff = PixelsToMeters*((real32)YIterator - OriginY);
 #else
                 v2 ScreenSpaceUV = {InvWidthMax*(real32)X, InvHeightMax*(real32)Y};
                 real32 ZDiff = 0.0f;
