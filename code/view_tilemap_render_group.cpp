@@ -221,10 +221,8 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Col
                     environment_map *Bottom,
                     real32 PixelsToMeters)
 {
-    BEGIN_TIMED_BLOCK(DrawRectangleSlowly)
-
-        // NOTE(casey): Premultiply color up front
-        Color.rgb *= Color.a;
+    // NOTE(casey): Premultiply color up front
+    Color.rgb *= Color.a;
     
     real32 XAxisLength = Length(XAxis);
     real32 YAxisLength = Length(YAxis);
@@ -289,7 +287,6 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Col
                   XMin*BITMAP_BYTES_PER_PIXEL +
                   YMin*Buffer->Pitch);
 
-    BEGIN_TIMED_BLOCK(ProcessPixel);
     for(int YIterator = YMin;
         YIterator <= YMax;
         ++YIterator)
@@ -446,9 +443,6 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Col
         
         Row += Buffer->Pitch;
     }
-    END_TIMED_BLOCK_COUNTED(ProcessPixel, (XMax - XMin + 1)*(YMax - YMin + 1));
-
-    END_TIMED_BLOCK(DrawRectangleSlowly);
 }
 
 internal void
@@ -456,8 +450,6 @@ DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Co
                      loaded_bitmap *Texture, real32 PixelsToMeters,
                      rectangle2i ClipRect, bool32 Even)
 {
-    BEGIN_TIMED_BLOCK(DrawRectangleQuickly);
-    
     // NOTE(casey): Premultiply color up front
     Color.rgb *= Color.a;
     
@@ -576,8 +568,7 @@ DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Co
         int MaxY = FillRect.MaxY;
         int MinX = FillRect.MinX;
         int MaxX = FillRect.MaxX;
-    
-        BEGIN_TIMED_BLOCK(ProcessPixel);
+
         for(int Y = MinY;
             Y < MaxY;
             Y += 2)
@@ -791,10 +782,7 @@ DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Co
 
             Row += RowAdvance;
         }
-        END_TIMED_BLOCK_COUNTED(ProcessPixel, GetClampedRectArea(FillRect) / 2);
     }
-
-    END_TIMED_BLOCK(DrawRectangleQuickly);
 }
 
 internal void
@@ -927,20 +915,6 @@ ChangeSaturation(loaded_bitmap *Buffer, real32 Level)
     }
 }
 
-#if 0
-inline void
-DrawRectangleOutline(loaded_bitmap *Buffer, v2 vMin, v2 vMax, v3 Color, real32 R = 2.0f)
-{
-    // NOTE(casey): Top and bottom
-    DrawRectangle(Buffer, V2(vMin.x - R, vMin.y - R), V2(vMax.x + R, vMin.y + R), V4(Color, 1.0f));
-    DrawRectangle(Buffer, V2(vMin.x - R, vMax.y - R), V2(vMax.x + R, vMax.y + R), V4(Color, 1.0f));
-
-    // NOTE(casey): Left and right
-    DrawRectangle(Buffer, V2(vMin.x - R, vMin.y - R), V2(vMin.x + R, vMax.y + R), V4(Color, 1.0f));
-    DrawRectangle(Buffer, V2(vMax.x - R, vMin.y - R), V2(vMax.x + R, vMax.y + R), V4(Color, 1.0f));
-}
-#endif
-
 internal void
 DrawMatte(loaded_bitmap *Buffer, loaded_bitmap *Bitmap,
           real32 RealX, real32 RealY, real32 CAlpha = 1.0f)
@@ -1026,8 +1000,6 @@ internal void
 RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputTarget,
                     rectangle2i ClipRect, bool32 Even)
 {
-    BEGIN_TIMED_BLOCK(RenderGroupToOutput)
-
     real32 NullPixelsToMeters = 1.0f;
     
     for(uint32 BaseAddress = 0;
@@ -1057,16 +1029,10 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputTarget,
             {
                 render_entry_bitmap *Entry = (render_entry_bitmap *)Data;
                 Assert(Entry->Bitmap);
-#if 0
-//                DrawBitmap(OutputTarget, Entry->Bitmap, P.x, P.y, Entry->Color.a);
-                DrawRectangleSlowly(OutputTarget, Entry->P,
-                                    V2(Entry->Size.x, 0), V2(0, Entry->Size.y), Entry->Color,
-                                    Entry->Bitmap, 0, 0, 0, 0, NullPixelsToMeters);
-#else
+
                 DrawRectangleQuickly(OutputTarget, Entry->P,
                                      V2(Entry->Size.x, 0), V2(0, Entry->Size.y), Entry->Color,
                                      Entry->Bitmap, NullPixelsToMeters, ClipRect, Even);
-#endif
 
                 BaseAddress += sizeof(*Entry);
             } break;
@@ -1080,50 +1046,9 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputTarget,
                 BaseAddress += sizeof(*Entry);
             } break;
 
-            case RenderGroupEntryType_render_entry_coordinate_system:
-            {
-                render_entry_coordinate_system *Entry = (render_entry_coordinate_system *)Data;
-#if 0
-                v2 vMax = Entry->Origin + Entry->XAxis + Entry->YAxis;
-                DrawRectangleSlowly(OutputTarget, Entry->Origin, Entry->XAxis, Entry->YAxis,
-                                    Entry->Color, Entry->Texture, Entry->NormalMap,
-                                    Entry->Top, Entry->Middle, Entry->Bottom,
-                                    PixelsToMeters);
-
-                v4 Color = {1, 0, 0, 1};
-                v2 Dim = {2, 2};
-
-                v2 P = Entry->Origin;
-                DrawRectangle(OutputTarget, P - Dim, P + Dim, Color);
-
-                P = Entry->Origin + Entry->XAxis;
-                DrawRectangle(OutputTarget, P - Dim, P + Dim, Color);
-
-                P = Entry->Origin + Entry->YAxis;
-                DrawRectangle(OutputTarget, P - Dim, P + Dim, Color);
-
-                DrawRectangle(OutputTarget, vMax - Dim, vMax + Dim, Color);
-
-#if 0                
-                for(uint32 PIndex = 0;
-                    PIndex < ArrayCount(Entry->Points);
-                    ++PIndex)
-                {
-                    v2 P = Entry->Points[PIndex];
-                    P = Entry->Origin + P.x*Entry->XAxis + P.y*Entry->YAxis;
-                    DrawRectangle(OutputTarget, P - Dim, P + Dim,
-                                  Entry->Color.r, Entry->Color.g, Entry->Color.b);
-                }
-#endif                
-#endif
-                BaseAddress += sizeof(*Entry);
-            } break;
-
             InvalidDefaultCase;
         }
     }
-
-    END_TIMED_BLOCK(RenderGroupToOutput)
 }
 
 struct tile_render_work
@@ -1145,8 +1070,8 @@ internal void
 TiledRenderGroupToOutput(platform_work_queue *RenderQueue,
                          render_group *RenderGroup, loaded_bitmap *OutputTarget)
 {
-    int const TileCountX = 9;
-    int const TileCountY = 9;
+    int const TileCountX = 4;
+    int const TileCountY = 4;
     tile_render_work WorkArray[TileCountX*TileCountY];
 
     Assert(((uintptr)OutputTarget->Memory & 15) == 0);
@@ -1187,32 +1112,74 @@ TiledRenderGroupToOutput(platform_work_queue *RenderQueue,
             Work->OutputTarget = OutputTarget;
             Work->ClipRect = ClipRect;
 #if 1
-            PlatformAddEntry(RenderQueue, DoTiledRenderWork, Work);
+            Platform.AddEntry(RenderQueue, DoTiledRenderWork, Work);
 #else
             DoTiledRenderWork(RenderQueue, Work);
 #endif
         }
     }
 
-    PlatformCompleteAllWork(RenderQueue);
+    Platform.CompleteAllWork(RenderQueue);
 }
 
 internal render_group *
-AllocateRenderGroup(memory_arena *Arena, uint32 MaxPushBufferSize)
+AllocateRenderGroup(game_assets *Assets, memory_arena *Arena, uint32 MaxPushBufferSize,
+                    b32 RendersInBackground)
 {
     render_group *Result = PushStruct(Arena, render_group);
+
+    if(MaxPushBufferSize == 0)
+    {
+        MaxPushBufferSize = (uint32)GetArenaSizeRemaining(Arena);
+    }
+
+    // TODO(casey): Safe cast from memory_index to uint32
     Result->PushBufferBase = (uint8 *)PushSize(Arena, MaxPushBufferSize);
     
     Result->MaxPushBufferSize = MaxPushBufferSize;
     Result->PushBufferSize = 0;
 
+    Result->Assets = Assets;
     Result->GlobalAlpha = 1.0f;
+
+    Result->GenerationID = 0;
 
     // NOTE(casey): Default transform
     Result->Transform.OffsetP = V3(0.0f, 0.0f, 0.0f);
     Result->Transform.Scale = 1.0f;
+
+    Result->MissingResourceCount = 0;
+    Result->RendersInBackground = RendersInBackground;
+
+    Result->InsideRender = false;
     
     return(Result);
+}
+
+internal void
+BeginRender(render_group *Group)
+{
+    if(Group)
+    {
+        Assert(!Group->InsideRender);
+        Group->InsideRender = true;
+
+        Group->GenerationID = BeginGeneration(Group->Assets);
+    }
+}
+
+internal void
+EndRender(render_group *Group)
+{
+    if(Group)
+    {
+        Assert(Group->InsideRender);
+        Group->InsideRender = false;
+
+        EndGeneration(Group->Assets, Group->GenerationID);
+        Group->GenerationID = 0;
+        Group->PushBufferSize = 0;
+    }
 }
 
 inline void
@@ -1333,6 +1300,28 @@ PushBitmap(render_group *Group, loaded_bitmap *Bitmap, real32 Height, v3 Offset,
             Entry->Color = Group->GlobalAlpha*Color;
             Entry->Size = Basis.Scale*Size;
         }
+    }
+}
+
+inline void
+PushBitmap(render_group *Group, bitmap_id ID, real32 Height, v3 Offset, v4 Color = V4(1, 1, 1, 1))
+{
+    loaded_bitmap *Bitmap = GetBitmap(Group->Assets, ID, Group->GenerationID);
+    if(Group->RendersInBackground && !Bitmap)
+    {
+        LoadBitmap(Group->Assets, ID, true);
+        Bitmap = GetBitmap(Group->Assets, ID, Group->GenerationID);
+    }
+    
+    if(Bitmap)
+    {
+        PushBitmap(Group, Bitmap, Height, Offset, Color);
+    }
+    else
+    {
+        Assert(!Group->RendersInBackground);
+        LoadBitmap(Group->Assets, ID, false);
+        ++Group->MissingResourceCount;
     }
 }
 

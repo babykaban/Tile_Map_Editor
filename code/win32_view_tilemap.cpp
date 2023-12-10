@@ -595,48 +595,6 @@ Win32ProcessPendingMessages(win32_state *State, game_controller_input *KeyboardC
     }
 }
 
-inline LARGE_INTEGER
-Win32GetWallClock(void)
-{    
-    LARGE_INTEGER Result;
-    QueryPerformanceCounter(&Result);
-    return(Result);
-}
-
-inline real32
-Win32GetSecondsElapsed(LARGE_INTEGER Start, LARGE_INTEGER End)
-{
-    real32 Result = ((real32)(End.QuadPart - Start.QuadPart) /
-                     (real32)GlobalPerfCountFrequency);
-    return(Result);
-}
-
-internal void
-HandleDebugCycleCounters(game_memory *Memory)
-{
-#if VIEW_TILEMAP_INTERNAL
-    OutputDebugStringA("DEBUG CYCLE COUNTS:\n");
-    for(int CounterIndex = 0;
-        CounterIndex < ArrayCount(Memory->Counters);
-        ++CounterIndex)
-    {
-        debug_cycle_counter *Counter = Memory->Counters + CounterIndex;
-        if(Counter->HitCount)
-        {
-            char TextBuffer[256];
-            _snprintf_s(TextBuffer, sizeof(TextBuffer),
-                        "%d: %llu cyc %u hs %llu cyc/hs\n",
-                        CounterIndex, Counter->CycleCount, Counter->HitCount,
-                        Counter->CycleCount / Counter->HitCount);
-            OutputDebugStringA(TextBuffer);
-
-            Counter->HitCount = 0;
-            Counter->CycleCount = 0;
-        }
-    }
-#endif
-}
-
 struct platform_work_queue_entry
 {
     platform_work_queue_callback *Callback;
@@ -708,22 +666,16 @@ Win32CompleteAllWork(platform_work_queue *Queue)
     Queue->CompletionCount = 0;
 }
 
-struct win32_thread_info
-{
-    int LogicalThreadIndex;
-    platform_work_queue *Queue;
-};
-
 DWORD WINAPI
 ThreadProc(LPVOID lpParameter)
 {
-    win32_thread_info *ThreadInfo = (win32_thread_info *)lpParameter;
+    platform_work_queue *Queue = (platform_work_queue *)lpParameter;
     
     for(;;)
     {
-        if(Win32DoNextWorkQueueEntry(ThreadInfo->Queue))
+        if(Win32DoNextWorkQueueEntry(Queue))
         {
-            WaitForSingleObjectEx(ThreadInfo->Queue->SemaphoreHandle, INFINITE, false);
+            WaitForSingleObjectEx(Queue->SemaphoreHandle, INFINITE, false);
         }
     }
 }
@@ -735,6 +687,174 @@ internal PLATFORM_WORK_QUEUE_CALLBACK(DoWorkerWork)
     OutputDebugStringA(Buffer);
 }
 
+internal void
+Win32MakeQueue(platform_work_queue *Queue, uint32 ThreadCount)
+{
+    Queue->CompletionGoal = 0;
+    Queue->CompletionCount = 0;
+
+    Queue->NextEntryToWrite = 0;
+    Queue->NextEntryToRead = 0;
+
+    uint32 InitialCount = 0;
+    Queue->SemaphoreHandle = CreateSemaphoreEx(0, InitialCount, ThreadCount,
+                                              0, 0, SEMAPHORE_ALL_ACCESS);
+    
+    for(uint32 ThreadIndex = 0;
+        ThreadIndex < ThreadCount;
+        ++ThreadIndex)
+    {
+        DWORD ThreadID;
+        HANDLE ThreadHandle = CreateThread(0, 0, ThreadProc, Queue, 0, &ThreadID);
+        CloseHandle(ThreadHandle);
+    }
+}
+
+struct win32_platform_file_handle
+{
+    HANDLE Win32Handle;
+};
+
+struct win32_platform_file_group
+{
+    HANDLE FindHandle;
+    WIN32_FIND_DATAW FindData;    
+};
+
+internal PLATFORM_GET_ALL_FILES_OF_TYPE_BEGIN(Win32GetAllFilesOfTypeBegin)
+{
+    platform_file_group Result = {};
+    win32_platform_file_group *Win32FileGroup = (win32_platform_file_group *)VirtualAlloc(
+        0, sizeof(win32_platform_file_group),
+        MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+    Result.Platform = Win32FileGroup;
+
+    wchar_t *WildCard = L"*.*";
+    switch(Type)
+    {
+        case PlatformFileType_AssetFile:
+        {
+            WildCard = L"*.ssa";
+        } break;
+
+        case PlatformFileType_SavedGameFile:
+        {
+            WildCard = L"*.hhs";
+        } break;
+
+        InvalidDefaultCase;
+    }
+    
+    Result.FileCount = 0;
+
+    WIN32_FIND_DATAW FindData;
+    HANDLE FindHandle = FindFirstFileW(WildCard, &FindData);
+    while(FindHandle != INVALID_HANDLE_VALUE)
+    {
+        ++Result.FileCount;
+
+        if(!FindNextFileW(FindHandle, &FindData))
+        {
+            break;
+        }
+    }
+
+    FindClose(FindHandle);
+
+    Win32FileGroup->FindHandle = FindFirstFileW(WildCard, &Win32FileGroup->FindData);
+    
+    return(Result);
+}
+
+internal PLATFORM_GET_ALL_FILES_OF_TYPE_END(Win32GetAllFilesOfTypeEnd)
+{
+    win32_platform_file_group *Win32FileGroup = (win32_platform_file_group *)FileGroup->Platform;
+    if(Win32FileGroup)
+    {
+        FindClose(Win32FileGroup->FindHandle);
+
+        VirtualFree(Win32FileGroup, 0, MEM_RELEASE);
+    }
+}
+
+internal PLATFORM_OPEN_NEXT_FILE(Win32OpenNextFile)
+{
+    win32_platform_file_group *Win32FileGroup = (win32_platform_file_group *)FileGroup->Platform;
+    platform_file_handle Result = {};
+
+    if(Win32FileGroup->FindHandle != INVALID_HANDLE_VALUE)
+    {
+        // TODO(casey): If we want, someday, make an actual arena used by Win32
+        win32_platform_file_handle *Win32Handle = (win32_platform_file_handle *)VirtualAlloc(
+            0, sizeof(win32_platform_file_handle),
+            MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+        Result.Platform = Win32Handle;
+        
+        if(Win32Handle)
+        {
+            wchar_t *FileName = Win32FileGroup->FindData.cFileName;
+            Win32Handle->Win32Handle = CreateFileW(FileName, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+            Result.NoErrors = (Win32Handle->Win32Handle != INVALID_HANDLE_VALUE);
+        }
+
+        if(!FindNextFileW(Win32FileGroup->FindHandle, &Win32FileGroup->FindData))
+        {
+            FindClose(Win32FileGroup->FindHandle);
+            Win32FileGroup->FindHandle = INVALID_HANDLE_VALUE;
+        }
+    }
+
+    return(Result);
+}
+
+internal PLATFORM_FILE_ERROR(Win32FileError)
+{
+#if HANDMADE_INTERNAL
+    OutputDebugStringA("WIN32 FILE ERROR: ");
+    OutputDebugStringA(Message);
+    OutputDebugStringA("\n");
+#endif
+
+    Handle->NoErrors = false;
+}
+
+internal PLATFORM_READ_DATA_FROM_FILE(Win32ReadDataFromFile)
+{
+    if(PlatformNoFileErrors(Source))
+    {
+        win32_platform_file_handle *Handle = (win32_platform_file_handle *)Source->Platform;
+
+        OVERLAPPED Overlapped = {};
+        Overlapped.Offset = (u32)((Offset >> 0) & 0xFFFFFFFF);
+        Overlapped.OffsetHigh = (u32)((Offset >> 32) & 0xFFFFFFFF);
+
+        uint32 FileSize32 = SafeTruncateUInt64(Size);
+
+        DWORD BytesRead;
+        if(ReadFile(Handle->Win32Handle, Dest, FileSize32, &BytesRead, &Overlapped) &&
+           (FileSize32 == BytesRead))
+        {
+            // NOTE(casey): File read successfully
+        }
+        else
+        {                    
+            Win32FileError(Source, "Read file failed.");
+        }
+    }
+}
+
+internal PLATFORM_ALLOCATE_MEMORY(Win32AllocateMemory)
+{
+    void *Result = VirtualAlloc(0, Size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+
+    return(Result);
+}
+
+internal PLATFORM_DEALLOCATE_MEMORY(Win32DeallocateMemory)
+{
+    VirtualFree(Memory, 0, MEM_RELEASE);
+}
+
 int CALLBACK
 WinMain(HINSTANCE Instance,
         HINSTANCE PrevInstance,
@@ -743,41 +863,12 @@ WinMain(HINSTANCE Instance,
 {
     win32_state Win32State = {};
 
-    win32_thread_info ThreadInfo[5];
+    platform_work_queue HighPriorityQueue;
+    Win32MakeQueue(&HighPriorityQueue, 3);
 
-    platform_work_queue Queue = {};
-
-    uint32 InitialCount = 0;
-    uint32 ThreadCount = ArrayCount(ThreadInfo);
+    platform_work_queue LowPriorityQueue;
+    Win32MakeQueue(&LowPriorityQueue, 2);
     
-    Queue.SemaphoreHandle = CreateSemaphoreEx(0, InitialCount, ThreadCount,
-                                              0, 0, SEMAPHORE_ALL_ACCESS);
-    
-    for(uint32 ThreadIndex = 0;
-        ThreadIndex < ThreadCount;
-        ++ThreadIndex)
-    {
-        win32_thread_info *Info = ThreadInfo + ThreadIndex;
-        Info->Queue = &Queue;
-        Info->LogicalThreadIndex = ThreadIndex;
-
-        DWORD ThreadID;
-        HANDLE ThreadHandle = CreateThread(0, 0, ThreadProc, Info, 0, &ThreadID);
-        CloseHandle(ThreadHandle);
-    }
-
-    Win32AddEntry(&Queue, DoWorkerWork, "String0\n");
-    Win32AddEntry(&Queue, DoWorkerWork, "String1\n");
-    Win32AddEntry(&Queue, DoWorkerWork, "String2\n");
-    Win32AddEntry(&Queue, DoWorkerWork, "String3\n");
-    Win32AddEntry(&Queue, DoWorkerWork, "String4\n");
-
-    Win32CompleteAllWork(&Queue);
-    
-    LARGE_INTEGER PerfCountFrequencyResult;
-    QueryPerformanceFrequency(&PerfCountFrequencyResult);
-    GlobalPerfCountFrequency = PerfCountFrequencyResult.QuadPart;
-
     Win32GetEXEFileName(&Win32State);
 
     char SourceGameCodeDLLFullPath[WIN32_STATE_FILE_NAME_COUNT];
@@ -852,23 +943,25 @@ WinMain(HINSTANCE Instance,
             game_memory GameMemory = {};
             GameMemory.PermanentStorageSize = Megabytes(256);
             GameMemory.TransientStorageSize = Gigabytes(1);
-            GameMemory.HighPriorityQueue = &Queue;
-            GameMemory.PlatformAddEntry = Win32AddEntry;
-            GameMemory.PlatformCompleteAllWork = Win32CompleteAllWork;
-            GameMemory.DEBUGPlatformFreeFileMemory = DEBUGPlatformFreeFileMemory;
-            GameMemory.DEBUGPlatformReadEntireFile = DEBUGPlatformReadEntireFile;
-            GameMemory.DEBUGPlatformWriteEntireFile = DEBUGPlatformWriteEntireFile;
 
+            GameMemory.HighPriorityQueue = &HighPriorityQueue;
+            GameMemory.LowPriorityQueue = &LowPriorityQueue;
+            GameMemory.PlatformAPI.AddEntry = Win32AddEntry;
+            GameMemory.PlatformAPI.CompleteAllWork = Win32CompleteAllWork;
 
-            // TODO(casey): Handle various memory footprints (USING
-            // SYSTEM METRICS)
+            GameMemory.PlatformAPI.GetAllFilesOfTypeBegin = Win32GetAllFilesOfTypeBegin;
+            GameMemory.PlatformAPI.GetAllFilesOfTypeEnd = Win32GetAllFilesOfTypeEnd;
+            GameMemory.PlatformAPI.OpenNextFile = Win32OpenNextFile;
+            GameMemory.PlatformAPI.ReadDataFromFile = Win32ReadDataFromFile;
+            GameMemory.PlatformAPI.FileError = Win32FileError;
 
-            // TODO(casey): Use MEM_LARGE_PAGES and
-            // call adjust token privileges when not on Windows XP?
+            GameMemory.PlatformAPI.AllocateMemory = Win32AllocateMemory;
+            GameMemory.PlatformAPI.DeallocateMemory = Win32DeallocateMemory;
 
-            // TODO(casey): TransientStorage needs to be broken up
-            // into game transient and cache transient, and only the
-            // former need be saved for state playback.
+            GameMemory.PlatformAPI.DEBUGFreeFileMemory = DEBUGPlatformFreeFileMemory;
+            GameMemory.PlatformAPI.DEBUGReadEntireFile = DEBUGPlatformReadEntireFile;
+            GameMemory.PlatformAPI.DEBUGWriteEntireFile = DEBUGPlatformWriteEntireFile;
+
             Win32State.TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
 
             Win32State.GameMemoryBlock = VirtualAlloc(BaseAddress, (size_t)Win32State.TotalSize,

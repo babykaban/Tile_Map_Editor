@@ -20,6 +20,13 @@ SignOf(int32 Value)
     return(Result);
 }
 
+inline r32
+SignOf(r32 Value)
+{
+    r32 Result = (Value >= 0.0f) ? 1.0f : -1.0f;
+    return(Result);
+}
+
 inline real32
 SquareRoot(real32 Real32)
 {

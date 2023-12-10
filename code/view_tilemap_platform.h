@@ -76,6 +76,22 @@ typedef size_t memory_index;
     
 typedef float real32;
 typedef double real64;
+    
+typedef int8 s8;
+typedef int8 s08;
+typedef int16 s16;
+typedef int32 s32;
+typedef int64 s64;
+typedef bool32 b32;
+
+typedef uint8 u8;
+typedef uint8 u08;
+typedef uint16 u16;
+typedef uint32 u32;
+typedef uint64 u64;
+
+typedef real32 r32;
+typedef real64 r64;
 
 #define Real32Maximum FLT_MAX
     
@@ -103,6 +119,9 @@ typedef double real64;
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
 // TODO(casey): swap, min, max ... macros???
 
+#define AlignPow2(Value, Alignment) ((Value + (((Alignment) - 1) & ~((Alignment) - 1))))
+#define Align4(Value) ((Value + 3) & ~3)
+#define Align8(Value) ((Value + 7) & ~7)
 #define Align16(Value) ((Value + 15) & ~15)
     
 inline uint32
@@ -111,6 +130,26 @@ SafeTruncateUInt64(uint64 Value)
     // TODO(casey): Defines for maximum values
     Assert(Value <= 0xFFFFFFFF);
     uint32 Result = (uint32)Value;
+    return(Result);
+}
+    
+inline uint16
+SafeTruncateToUInt16(uint32 Value)
+{
+    // TODO(casey): Defines for maximum values
+    Assert(Value <= 65535);
+    Assert(Value >= 0);
+    uint16 Result = (uint16)Value;
+    return(Result);
+}
+    
+inline int16
+SafeTruncateToInt16(int32 Value)
+{
+    // TODO(casey): Defines for maximum values
+    Assert(Value < 32767);
+    Assert(Value >= -32768);
+    int16 Result = (int16)Value;
     return(Result);
 }
 
@@ -158,38 +197,6 @@ typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(debug_platform_read_entire_file);
 
 #define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) bool32 name(thread_context *Thread, char *Filename, uint32 MemorySize, void *Memory)
 typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(debug_platform_write_entire_file);
-#if 0
-    void combineBMPHeaderAndMemory(const BMPHeader *header, const void *bitmapMemory,
-                               size_t bitmapMemorySize, void **combinedMemory, size_t *combinedSize) {
-    memcpy((uint8_t *)(*combinedMemory) + sizeof(BMPHeader), bitmapMemory, bitmapMemorySize);
-#endif
-enum
-{
-    /* 0 */DebugCycleCounter_GameUpdateAndRender,
-    /* 1 */DebugCycleCounter_RenderGroupToOutput,
-    /* 2 */DebugCycleCounter_DrawRectangleSlowly,
-    /* 3 */DebugCycleCounter_ProcessPixel,
-    /* 4 */DebugCycleCounter_DrawRectangleQuickly,
-    /* 5 */DebugCycleCounter_KeyPress,
-    DebugCycleCounter_Count,
-};
-    
-typedef struct debug_cycle_counter
-{
-    uint64 CycleCount;
-    uint32 HitCount;
-
-} debug_cycle_counter;
-
-extern struct game_memory *DebugGlobalMemory;    
-#if _MSC_VER
-#define BEGIN_TIMED_BLOCK(ID) uint64 StartCycleCount##ID = __rdtsc();
-#define END_TIMED_BLOCK(ID) DebugGlobalMemory->Counters[DebugCycleCounter_##ID].CycleCount += __rdtsc() - StartCycleCount##ID; ++DebugGlobalMemory->Counters[DebugCycleCounter_##ID].HitCount;
-#define END_TIMED_BLOCK_COUNTED(ID, Count) DebugGlobalMemory->Counters[DebugCycleCounter_##ID].CycleCount += __rdtsc() - StartCycleCount##ID; DebugGlobalMemory->Counters[DebugCycleCounter_##ID].HitCount += (Count);
-#else
-#define BEGIN_TIMED_BLOCK(ID)
-#define END_TIMED_BLOCK(ID)
-#endif
     
 #endif
 
@@ -276,13 +283,76 @@ typedef struct game_input
     game_controller_input Controllers[5];
 } game_input;
 
+
+typedef struct platform_file_handle
+{
+    b32 NoErrors;
+    void *Platform;
+} platform_file_handle;
+
+typedef struct platform_file_group
+{
+    u32 FileCount;
+    void *Platform;
+} platform_file_group;
+
+typedef enum platform_file_type
+{
+    PlatformFileType_AssetFile,
+    PlatformFileType_SavedGameFile,
+
+    PlatformFileType_Count,
+} platform_file_type;
+
+#define PLATFORM_GET_ALL_FILES_OF_TYPE_BEGIN(name) platform_file_group name(platform_file_type Type)
+typedef PLATFORM_GET_ALL_FILES_OF_TYPE_BEGIN(platform_get_all_files_of_type_begin);
+
+#define PLATFORM_GET_ALL_FILES_OF_TYPE_END(name) void name(platform_file_group *FileGroup)
+typedef PLATFORM_GET_ALL_FILES_OF_TYPE_END(platform_get_all_files_of_type_end);
+
+#define PLATFORM_OPEN_NEXT_FILE(name) platform_file_handle name(platform_file_group *FileGroup)
+typedef PLATFORM_OPEN_NEXT_FILE(platform_open_next_file);
+
+#define PLATFORM_READ_DATA_FROM_FILE(name) void name(platform_file_handle *Source, u64 Offset, u64 Size, void *Dest)
+typedef PLATFORM_READ_DATA_FROM_FILE(platform_read_data_from_file);
+
+#define PLATFORM_FILE_ERROR(name) void name(platform_file_handle *Handle, char *Message)
+typedef PLATFORM_FILE_ERROR(platform_file_error);
+
+#define PlatformNoFileErrors(Handle) ((Handle)->NoErrors)
+
 struct platform_work_queue;
 #define PLATFORM_WORK_QUEUE_CALLBACK(name) void name(platform_work_queue *Queue, void *Data)
 typedef PLATFORM_WORK_QUEUE_CALLBACK(platform_work_queue_callback);
 
+#define PLATFORM_ALLOCATE_MEMORY(name) void *name(memory_index Size)
+typedef PLATFORM_ALLOCATE_MEMORY(platform_allocate_memory);
+
+#define PLATFORM_DEALLOCATE_MEMORY(name) void name(void *Memory)
+typedef PLATFORM_DEALLOCATE_MEMORY(platform_deallocate_memory);
 
 typedef void platform_add_entry(platform_work_queue *Queue, platform_work_queue_callback *Callback, void *Data);
 typedef void platform_complete_all_work(platform_work_queue *Queue);
+
+typedef struct platform_api
+{
+    platform_add_entry *AddEntry;
+    platform_complete_all_work *CompleteAllWork;
+
+    platform_get_all_files_of_type_begin *GetAllFilesOfTypeBegin;
+    platform_get_all_files_of_type_end *GetAllFilesOfTypeEnd;
+    platform_open_next_file *OpenNextFile;
+    platform_read_data_from_file *ReadDataFromFile;
+    platform_file_error *FileError;
+
+    platform_allocate_memory *AllocateMemory;
+    platform_deallocate_memory *DeallocateMemory;
+    
+    debug_platform_free_file_memory *DEBUGFreeFileMemory;
+    debug_platform_read_entire_file *DEBUGReadEntireFile;
+    debug_platform_write_entire_file *DEBUGWriteEntireFile;
+
+} platform_api;
 
 typedef struct game_memory 
 {
@@ -295,17 +365,9 @@ typedef struct game_memory
     void *TransientStorage; // NOTE(casey): REQUIRED to be cleared to zero at startup
 
     platform_work_queue *HighPriorityQueue;
+    platform_work_queue *LowPriorityQueue;
 
-    platform_add_entry *PlatformAddEntry;
-    platform_complete_all_work *PlatformCompleteAllWork;
-    
-    debug_platform_free_file_memory *DEBUGPlatformFreeFileMemory;
-    debug_platform_read_entire_file *DEBUGPlatformReadEntireFile;
-    debug_platform_write_entire_file *DEBUGPlatformWriteEntireFile;
-
-#if VIEW_TILEMAP_INTERNAL
-    debug_cycle_counter Counters[DebugCycleCounter_Count];
-#endif
+    platform_api PlatformAPI;
 } game_memory;
 
 #define GAME_UPDATE_AND_RENDER(name) void name(thread_context *Thread, game_memory *Memory, game_input *Input, game_offscreen_buffer *Buffer)
@@ -320,6 +382,52 @@ inline game_controller_input *GetController(game_input *Input, int unsigned Cont
     
     game_controller_input *Result = &Input->Controllers[ControllerIndex];
     return(Result);
+}
+
+#define CompletePreviousReadsBeforeFutureReads _ReadBarrier();
+#define CompletePreviousWritesBeforeFutureWrites _WriteBarrier();
+
+inline uint32
+AtomicCompareExchangeUInt32(uint32 volatile *Value, uint32 New, uint32 Expected)
+{
+    uint32 Result = _InterlockedCompareExchange((long *)Value, New, Expected);
+
+    return(Result);
+}
+
+inline uint32
+AtomicAddU32(uint32 volatile *Value, uint32 Addend)
+{
+    // NOTE(casey): Returns the original value _prior_ to adding
+    uint32 Result = _InterlockedExchangeAdd((long *)Value, Addend);
+
+    return(Result);
+}
+
+inline uint64
+AtomicExchangeU64(uint64 volatile *Value, uint64 New)
+{
+    uint64 Result = _InterlockedExchange64((__int64 *)Value, New);
+
+    return(Result);
+}
+
+inline uint64
+AtomicAddU64(uint64 volatile *Value, uint64 Addend)
+{
+    // NOTE(casey): Returns the original value _prior_ to adding
+    uint64 Result = _InterlockedExchangeAdd64((__int64 *)Value, Addend);
+
+    return(Result);
+}
+
+inline u32
+GetThreadID(void)
+{
+    u8 *ThreadLocalStorage = (u8 *)__readgsqword(0x30);
+    u32 ThreadID = *(u32 *)(ThreadLocalStorage + 0x48);
+
+    return(ThreadID);
 }
 
 #ifdef __cplusplus

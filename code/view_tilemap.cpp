@@ -9,186 +9,7 @@
 #include "view_tilemap_render_group.cpp"
 #include "view_tilemap_world.cpp"
 #include "view_tilemap_sim_region.cpp"
-
-#if 1
-// TODO(paul): Learn how to do asset streaming and remove this
-#include <stdio.h>
-#endif
-
-inline v2
-TopDownAlign(loaded_bitmap *Bitmap, v2 Align)
-{
-    Align.y = (real32)(Bitmap->Height - 1) - Align.y;
-
-    Align.x = SafeRatio0(Align.x, (real32)Bitmap->Width);
-    Align.y = SafeRatio0(Align.y, (real32)Bitmap->Height);
-    
-    return(Align);
-}
-
-internal void
-DEBUGWriteBMP(transient_state *TranState, thread_context *Thread, debug_platform_write_entire_file *WriteEntireFile, char *FileName,
-              bitmap_header *Header, void *BitmapMemory, uint32 BitmapMemorySize)
-{
-    temporary_memory WriteMemory = BeginTemporaryMemory(&TranState->TranArena);
-
-    uint32 ContentSize = sizeof(bitmap_header) + BitmapMemorySize;
-    void *Content = PushSize(&TranState->TranArena, ContentSize);
-
-    MemoryCopy(Content, Header, sizeof(bitmap_header));
-    MemoryCopy((uint8 *)Content + sizeof(bitmap_header), BitmapMemory, BitmapMemorySize);
-
-    WriteEntireFile(Thread, FileName, ContentSize, Content);
-    
-    EndTemporaryMemory(WriteMemory);
-}
-
-internal void
-SaveMap(transient_state *TranState, thread_context *Thread, debug_platform_write_entire_file *WriteEntireFile,
-        char *FileName, map_bitmap *MapBitmap)
-{
-    DEBUGWriteBMP(TranState, Thread, WriteEntireFile, FileName,
-                  &MapBitmap->Header, MapBitmap->Bitmap.Memory, MapBitmap->BitmapSize);
-}
-
-internal loaded_bitmap
-DEBUGLoadBMP(thread_context *Thread, debug_platform_read_entire_file *ReadEntireFile, char *FileName,
-             int32 AlignX, int32 TopDownAlignY, bitmap_header *HeaderDest = 0, bool32 SaveHeader = false)
-{
-    loaded_bitmap Result = {};
-
-    debug_read_file_result ReadResult = ReadEntireFile(Thread, FileName);    
-    if(ReadResult.ContentsSize != 0)
-    {
-        bitmap_header *Header = (bitmap_header *)ReadResult.Contents;
-
-        if(SaveHeader)
-        {
-            *HeaderDest = *Header;
-        }
-        
-        uint32 *Pixels = (uint32 *)((uint8 *)ReadResult.Contents + Header->BitmapOffset);
-        Result.Memory = Pixels;
-        Result.Width = Header->Width;
-        Result.Height = Header->Height;
-        Result.AlignPercentage = TopDownAlign(&Result, V2i(AlignX, TopDownAlignY));
-        Result.WidthOverHeight = SafeRatio0((real32)Result.Width, (real32)Result.Height);
-        
-        Assert(Result.Height >= 0);
-        Assert(Header->Compression == 3);
-
-        // NOTE(casey): If you are using this generically for some reason,
-        // please remember that BMP files CAN GO IN EITHER DIRECTION and
-        // the height will be negative for top-down.
-        // (Also, there can be compression, etc., etc... DON'T think this
-        // is complete BMP loading code because it isn't!!)
-
-        // NOTE(casey): Byte order in memory is determined by the Header itself,
-        // so we have to read out the masks and convert the pixels ourselves.
-        uint32 RedMask = Header->RedMask;
-        uint32 GreenMask = Header->GreenMask;
-        uint32 BlueMask = Header->BlueMask;
-        uint32 AlphaMask = ~(RedMask | GreenMask | BlueMask);        
-        
-        bit_scan_result RedScan = FindLeastSignificantSetBit(RedMask);
-        bit_scan_result GreenScan = FindLeastSignificantSetBit(GreenMask);
-        bit_scan_result BlueScan = FindLeastSignificantSetBit(BlueMask);
-        bit_scan_result AlphaScan = FindLeastSignificantSetBit(AlphaMask);
-        
-        Assert(RedScan.Found);
-        Assert(GreenScan.Found);
-        Assert(BlueScan.Found);
-        Assert(AlphaScan.Found);
-
-        int32 RedShiftDown = (int32)RedScan.Index;
-        int32 GreenShiftDown = (int32)GreenScan.Index;
-        int32 BlueShiftDown = (int32)BlueScan.Index;
-        int32 AlphaShiftDown = (int32)AlphaScan.Index;
-        
-        uint32 *SourceDest = Pixels;
-        for(int32 Y = 0;
-            Y < Header->Height;
-            ++Y)
-        {
-            for(int32 X = 0;
-                X < Header->Width;
-                ++X)
-            {
-                uint32 C = *SourceDest;
-
-                v4 Texel  =
-                    {
-                        (real32)((C & RedMask) >> RedShiftDown),
-                        (real32)((C & GreenMask) >> GreenShiftDown),
-                        (real32)((C & BlueMask) >> BlueShiftDown),
-                        (real32)((C & AlphaMask) >> AlphaShiftDown)
-                    };
-
-                Texel = SRGB255ToLinear1(Texel);
-
-#if 1
-                Texel.rgb *= Texel.a;
-#endif
-                Texel = Linear1ToSRGB255(Texel);
-                
-                *SourceDest++ = (((uint32)(Texel.a + 0.5f) << 24) |
-                                 ((uint32)(Texel.r + 0.5f) << 16) |
-                                 ((uint32)(Texel.g + 0.5f) << 8) |
-                                 ((uint32)(Texel.b + 0.5f) << 0));
-            }
-        }
-    }
-
-    Result.Pitch = Result.Width*BITMAP_BYTES_PER_PIXEL;
-#if 0
-    Result.Memory = (uint8 *)Result.Memory + Result.Pitch*(Result.Height - 1);
-    Result.Pitch = -Result.Pitch;
-#endif
-    
-    return(Result);
-}
-
-internal loaded_bitmap
-DEBUGLoadBMP(thread_context *Thread, debug_platform_read_entire_file *ReadEntireFile, char *FileName)
-{
-    loaded_bitmap Result = DEBUGLoadBMP(Thread, ReadEntireFile, FileName, 0, 0, false);
-    Result.AlignPercentage = V2(0.5f, 0.5f);
-
-    return(Result);
-}
-
-inline void
-LoadMapAndCameraBounds(game_state *GameState, thread_context *Thread, debug_platform_read_entire_file *ReadEntireFile, char *FileName)
-{
-    map_bitmap *MapBitmap = &GameState->MapBitmap;
-
-    bitmap_header *Header = &MapBitmap->Header;
-    MapBitmap->Bitmap = DEBUGLoadBMP(Thread, ReadEntireFile, FileName, 0, 0, Header, true);
-    MapBitmap->BitmapSize = MapBitmap->Bitmap.Height * MapBitmap->Bitmap.Width * BITMAP_BYTES_PER_PIXEL;
-    
-    GameState->RotationAndFlipState = PushArray(&GameState->WorldArena,
-                                                MapBitmap->Bitmap.Height * MapBitmap->Bitmap.Width,
-                                                uint8);
-#if 0
-    loaded_bitmap *Bitmap = &MapBitmap->Bitmap;
-    for(int32 I = 0;
-        I < MapBitmap->Bitmap.Height * MapBitmap->Bitmap.Width;
-        ++I)
-    {
-        uint32 *Pixel = (uint32 *)Bitmap->Memory + I;
-        *Pixel |= 0x0f000000;
-        *Pixel &= 0xfffffff8;
-    }
-#endif
-
-    GameState->CameraBoundsMin.ChunkX = 0;
-    GameState->CameraBoundsMin.ChunkY = 0;
-    GameState->CameraBoundsMin.ChunkZ = 0;
-    
-    GameState->CameraBoundsMax.ChunkX = MapBitmap->Bitmap.Width / TILES_PER_CHUNK;
-    GameState->CameraBoundsMax.ChunkY = MapBitmap->Bitmap.Height / TILES_PER_CHUNK;
-    GameState->CameraBoundsMax.ChunkZ = 0;
-}
+#include "view_tilemap_asset.cpp"
 
 struct add_low_entity_result
 {
@@ -248,96 +69,21 @@ AddCameraPoint(game_state *GameState)
     return(Entity);
 }
 
-internal loaded_bitmap *
-FindTileBitmapByIdentity(loaded_tile *Tiles, uint32 TileCount, uint32 Identity)
+inline v3
+GetEntityGroundPoint(sim_entity *Entity, v3 ForEntityP)
 {
-    loaded_bitmap *Result = 0;
+    v3 Result = ForEntityP;
 
-    bool32 Found = false;
-    for(uint32 TileIndex = 0;
-        TileIndex < TileCount;
-        ++TileIndex)
-    {
-        loaded_tile *Tile = Tiles + TileIndex;
-        for(uint32 TileTypeIndex = 0;
-            TileTypeIndex < ArrayCount(Tile->Identity);
-            ++TileTypeIndex)
-        {
-            uint32 TileIdentity = Tile->Identity[TileTypeIndex];
-            if(TileIdentity == Identity)
-            {
-                Result = Tile->Bitmap + TileTypeIndex;
-                break;
-            }
-        }
-    }
-    
     return(Result);
 }
 
-
-internal void
-FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer *GroundBuffer, world_position *ChunkP,
-                loaded_bitmap *MapBitmap, real32 TileSideInMeters)
+inline v3
+GetEntityGroundPoint(sim_entity *Entity)
 {
-    temporary_memory GroundMemory = BeginTemporaryMemory(&TranState->TranArena);
+    v3 Result = GetEntityGroundPoint(Entity, Entity->P);
 
-    loaded_bitmap *Buffer = &GroundBuffer->Bitmap;
-    Buffer->AlignPercentage = V2(0.5f, 0.5f);
-    Buffer->WidthOverHeight = 1.0f; 
-
-    real32 Width = GameState->World->ChunkDimInMeters.x;
-    real32 Height = GameState->World->ChunkDimInMeters.y;
-    Assert(Width == Height);
-    v2 HalfDim = 0.5f*V2(Width, Height);
-
-    render_group *RenderGroup = AllocateRenderGroup(&TranState->TranArena, Megabytes(4));
-    Ortographic(RenderGroup, Buffer->Width, Buffer->Height, Buffer->Width / Width);
-    Clear(RenderGroup, V4(1.0f, 0.0f, 1.0f, 1.0f));
-
-    GroundBuffer->P = *ChunkP;
-
-    int32 TileCountX = MapBitmap->Width;
-    int32 TileCountY = MapBitmap->Height;
-
-    if((ChunkP->ChunkX >= 0) && (ChunkP->ChunkY >= 0))
-    {
-        int32 MinTileX = TILES_PER_CHUNK*ChunkP->ChunkX;
-        int32 MaxTileX = MinTileX + TILES_PER_CHUNK;
-        int32 MinTileY = TILES_PER_CHUNK*ChunkP->ChunkY;
-        int32 MaxTileY = MinTileY + TILES_PER_CHUNK;
-
-        for(int32 TileY = MinTileY;
-            TileY < MaxTileY;
-            ++TileY)
-        {
-            for(int32 TileX = MinTileX;
-                TileX < MaxTileX;
-                ++TileX)
-            {
-                if((TileX < TileCountX) && (TileY < TileCountY))
-                {
-                    uint32 *Identity = (uint32 *)MapBitmap->Memory + TileY*TileCountX + TileX;
-
-                    loaded_bitmap *Bitmap = FindTileBitmapByIdentity(GameState->Tiles,
-                                                                     GameState->LoadedTileCount, *Identity);
-                    real32 X = (real32)(TileX - MinTileX);
-                    real32 Y = (real32)(TileY - MinTileY);
-                    v2 P = -HalfDim + V2(TileSideInMeters*X, TileSideInMeters*Y);
-                    
-                    if(Bitmap)
-                    {
-                        PushBitmap(RenderGroup, Bitmap, TileSideInMeters, V3(P, 0.0f));
-                    }
-                }
-            }
-        }
-    }
-
-    TiledRenderGroupToOutput(TranState->RenderQueue, RenderGroup, Buffer);
-    EndTemporaryMemory(GroundMemory);
+    return(Result);
 }
-
 
 internal void
 ClearBitmap(loaded_bitmap *Bitmap)
@@ -370,356 +116,40 @@ MakeEmptyBitmap(memory_arena *Arena, int32 Width, int32 Height, bool32 ClearToZe
     return(Result);
 }
 
-#if VIEW_TILEMAP_INTERNAL
-game_memory *DebugGlobalMemory;
-#endif
-
-inline v3
-GetEntityGroundPoint(sim_entity *Entity, v3 ForEntityP)
+internal task_with_memory *
+BeginTaskWithMemory(transient_state *TranState)
 {
-    v3 Result = ForEntityP;
-
-    return(Result);
-}
-
-inline v3
-GetEntityGroundPoint(sim_entity *Entity)
-{
-    v3 Result = GetEntityGroundPoint(Entity, Entity->P);
-
-    return(Result);
-}
-
-internal uint32
-LoadTileDataAndIdentities(memory_arena *Arena, loaded_tile *Tiles, loaded_bitmap *TileSheets, int32 TileDim)
-{
-    loaded_bitmap *TileSheet0 = TileSheets + 0;
-    Assert(TileSheet0->Width == TileSheet0->Height);
-
-    uint32 TileCountX = (TileSheet0->Width / TileDim);
-    uint32 TileCountY = (TileSheet0->Height / TileDim);
-
-    uint32 LoadedTileCount = 0; 
-    for(uint32 TileY = 0;
-        TileY < TileCountY;
-        ++TileY)
+    task_with_memory *FoundTask = 0;
+    for(uint32 TaskIndex = 0;
+        TaskIndex < ArrayCount(TranState->Tasks);
+        ++TaskIndex)
     {
-        for(uint32 TileX = 0;
-            TileX < TileCountX;
-            ++TileX)
+        task_with_memory *Task = TranState->Tasks + TaskIndex;
+        if(!Task->BeingUsed)
         {
-            loaded_tile *Tile = Tiles + LoadedTileCount;
-            uint64 ColorSum = 0;
-            for(uint32 TileSheetIndex = 0;
-                TileSheetIndex < 6;
-                ++TileSheetIndex)
-            {
-                loaded_bitmap *TileSheet = TileSheets + TileSheetIndex;
-
-                Tile->Bitmap[TileSheetIndex] = MakeEmptyBitmap(Arena, TileDim, TileDim);
-                loaded_bitmap *Bitmap = Tile->Bitmap + TileSheetIndex;
-                uint32 *Identity = Tile->Identity + TileSheetIndex;
-                Bitmap->WidthOverHeight = SafeRatio0((real32)Bitmap->Width, (real32)Bitmap->Height);
-                Bitmap->AlignPercentage = V2(0.0f, 0.0f);
-
-                int32 MinX = TileX * TileDim;
-                int32 MinY = TileY * TileDim;
-                int32 MaxX = MinX + TileDim;
-                int32 MaxY = MinY + TileDim;
-
-                uint8 *SourceRow = ((uint8 *)TileSheet->Memory + MinX*BITMAP_BYTES_PER_PIXEL + MinY*TileSheet->Pitch);
-    
-                uint8 *DestRow = (uint8 *)Bitmap->Memory;
-                for(int Y = MinY;
-                    Y < MaxY;
-                    ++Y)
-                {
-                    uint32 *Dest = (uint32 *)DestRow;
-                    uint32 *Source = (uint32 *)SourceRow;
-                    for(int X = MinX;
-                        X < MaxX;
-                        ++X)
-                    {
-                        *Dest = *Source;
-
-                        if(TileSheetIndex == 0)
-                        {
-                            ColorSum += *Dest;
-                        }
-
-                        ++Dest;
-                        ++Source;
-                    }
-
-                    DestRow += Bitmap->Pitch;
-                    SourceRow += TileSheet->Pitch;
-                }
-            
-                *Identity = (uint32)(ColorSum / (TileDim*TileDim));
-                *Identity &= 0xfffffff8;
-                *Identity += TileSheetIndex;
-            }
-            ++LoadedTileCount;
+            Task->BeingUsed = true;
+            FoundTask = Task;
+            Task->MemoryFlush = BeginTemporaryMemory(&Task->Arena);
+            break;
         }
     }
 
-    return(LoadedTileCount);
+    return(FoundTask);
 }
 
 internal void
-DrawTileIdentityAndBitmap(render_group *RenderGroup, game_state *GameState, transient_state *TranState, v3 Offset)
+EndTaskWithMemory(task_with_memory *Task)
 {
-    loaded_bitmap *Map = &GameState->MapBitmap.Bitmap;
+    EndTemporaryMemory(Task->MemoryFlush);
 
-    if(Map->Memory)
-    {
-        world_position ChunkP = {};
-        low_entity *Low = GetLowEntity(GameState, GameState->CameraFollowingEntityIndex);
-        world_position TestP = GameState->CameraP; 
-        if(Low)
-        {
-            TestP = Low->P;
-        }
-            
-        for(uint32 GroundBufferIndex = 0;
-            GroundBufferIndex < TranState->GroundBufferCount;
-            ++GroundBufferIndex)
-        {
-            ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
-            if(AreInSameChunk(GameState->World, &TestP, &GroundBuffer->P))
-            {
-                ChunkP = TestP;
-                break;
-            }
-        }
-
-        int32 TileCountX = Map->Width;
-        int32 TileCountY = Map->Height;
-
-        real32 TileOffsetX = ChunkP.Offset_.x;
-        real32 TileOffsetY = ChunkP.Offset_.y;
-        if((ChunkP.ChunkX >= 0) && (ChunkP.ChunkY >= 0))
-        {
-            int32 TileX = TILES_PER_CHUNK*ChunkP.ChunkX;
-            int32 TileY = TILES_PER_CHUNK*ChunkP.ChunkY;
-
-            // TODO(paul): Find more efficient way of doing this
-            if((TileOffsetX > 0.0f) && (TileOffsetY > 0.0f))
-            {
-                if(TileOffsetX > 1.0f)
-                {
-                    TileX += 3;
-                }
-                else
-                {
-                    TileX += 2;
-                }
-
-                if(TileOffsetY > 1.0f)
-                {
-                    TileY += 3;
-                }
-                else
-                {
-                    TileY += 2;
-                }
-            }
-            else if((TileOffsetX > 0.0f) && (TileOffsetY < 0.0f))
-            {
-                if(TileOffsetX > 1.0f)
-                {
-                    TileX += 3;
-                }
-                else
-                {
-                    TileX += 2;
-                }
-
-                if(TileOffsetY < -1.0f)
-                {
-                    TileY += 0;
-                }
-                else
-                {
-                    TileY += 1;
-                }
-            }
-            else if((TileOffsetX < 0) && (TileOffsetY > 0))
-            {
-                if(TileOffsetX < -1.0f)
-                {
-                    TileX += 0;
-                }
-                else
-                {
-                    TileX += 1;
-                }
-
-                if(TileOffsetY > 1.0f)
-                {
-                    TileY += 3;
-                }
-                else
-                {
-                    TileY += 2;
-                }
-            }
-            else
-            {
-                if(TileOffsetX < -1.0f)
-                {
-                    TileX += 0;
-                }
-                else
-                {
-                    TileX += 1;
-                }
-
-                if(TileOffsetY < -1.0f)
-                {
-                    TileY += 0;
-                }
-                else
-                {
-                    TileY += 1;
-                }
-            }
-
-            GameState->TileIndexInMap = TileY*TileCountX + TileX;
-            uint32 *Identity = (uint32 *)Map->Memory + GameState->TileIndexInMap;
-            loaded_bitmap *Bitmap = FindTileBitmapByIdentity(GameState->Tiles, GameState->LoadedTileCount, *Identity);
-            v4 Color = (1.0f / 255.0f)*V4((real32)(((*Identity >> 16) & 0xFF)),
-                                          (real32)(((*Identity >> 8) & 0xFF)),
-                                          (real32)(((*Identity >> 0) & 0xFF)),
-                                          (real32)(((*Identity >> 24) & 0xFF)));
-        
-            PushRect(RenderGroup, Offset, V2(1.0f, 1.0f), Color);
-            if(Bitmap)
-            {
-                PushBitmap(RenderGroup, Bitmap, 1.0f, Offset + V3(1.0f, -0.5f, 0.0f));
-            }
-        }
-    }
+    CompletePreviousWritesBeforeFutureWrites;
+    Task->BeingUsed = false;
 }
-
-internal void
-ShowTileMenu(render_group *RenderGroup, game_state *GameState, v2 WindowDim)
-{
-    v2 HalfWindowDim = 0.5f*WindowDim;
-    PushRectOutline(RenderGroup, V3(0.0f, 0.0f, 0.0f), WindowDim, V4(1, 0, 0, 1));
-    PushRect(RenderGroup, V3(0.0f, 0.0f, 0.0f), WindowDim, V4(0, 0, 1, 1));
-
-    real32 TileDim = 1.0f;
-    real32 TileOffsetX = 0.0f;
-    real32 TileOffsetY = 0.0f;
-    for(int32 TileIndex = 0;
-        TileIndex < GameState->LoadedTileCount;
-        ++TileIndex)
-    {
-        v2 TileOffset = -HalfWindowDim + V2(TileOffsetX, TileOffsetY);
-        v3 CursorOffset = V3(TileOffset, 0.0f) + 0.5f*V3(TileDim, TileDim, 0.0f);
-        loaded_tile *Tile = GameState->Tiles + TileIndex;
-        PushBitmap(RenderGroup, Tile->Bitmap, TileDim, V3(TileOffset, 0.0f));
-
-        if(GameState->Cursor.TileIndex == TileIndex)
-        {
-            PushRectOutline(RenderGroup, CursorOffset, V2(TileDim, TileDim),
-                            V4(1, 1, 1, 1), 0.015f);
-        }
-
-        if((TileOffsetX) > WindowDim.x)
-        {
-            TileOffsetY += TileDim;
-            TileOffsetX = 0.0f;
-        }
-        else
-        {
-            TileOffsetX += TileDim;
-        }
-
-    }
-}
-
-inline void
-ResetGroundBuffers(transient_state *TranState)
-{
-    for(uint32 GroundBufferIndex = 0;
-        GroundBufferIndex < TranState->GroundBufferCount;
-        ++GroundBufferIndex)
-    {
-        ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
-        GroundBuffer->P = NullPosition();            
-    }        
-}
-
-inline void
-ChangeGroundTileTexture(game_state *GameState)
-{
-    loaded_bitmap *Map = &GameState->MapBitmap.Bitmap;
-    loaded_tile *Tile = GameState->Tiles + GameState->Cursor.TileIndex;
-
-    uint32 *TileToChange = (uint32 *)Map->Memory + GameState->TileIndexInMap;
-    *TileToChange = Tile->Identity[0];
-}
-
-inline void
-ChangeGroundTileTexture(game_state *GameState, bool32 Flip, bool32 Rotate)
-{
-    loaded_bitmap *Map = &GameState->MapBitmap.Bitmap;
-
-    uint32 *TileToChange = (uint32 *)Map->Memory + GameState->TileIndexInMap;
-    uint32 CheckForRotationOrFlip = *TileToChange & 0x00000007;
-    uint32 DefaultIdentity = *TileToChange & 0xfffffff8;
-    
-    if(Flip)
-    {
-        if(CheckForRotationOrFlip == 4)
-        {
-            *TileToChange = DefaultIdentity + 5;
-        }
-        else if(CheckForRotationOrFlip == 5)
-        {
-            *TileToChange = DefaultIdentity;
-        }
-        else
-        {
-            *TileToChange = DefaultIdentity + 4;
-        }
-    }
-
-    if(Rotate)
-    {
-        if(CheckForRotationOrFlip == 1)
-        {
-            *TileToChange = DefaultIdentity + 2;
-        }
-        else if(CheckForRotationOrFlip == 2)
-        {
-            *TileToChange = DefaultIdentity + 3;
-        }
-        else if(CheckForRotationOrFlip == 3)
-        {
-            *TileToChange = DefaultIdentity;
-        }
-        else
-        {
-            *TileToChange = DefaultIdentity + 1;
-        }
-    }
-}
-
 
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {    
-    PlatformAddEntry = Memory->PlatformAddEntry;
-    PlatformCompleteAllWork = Memory->PlatformCompleteAllWork;
+    Platform = Memory->PlatformAPI;
 
-#if VIEW_TILEMAP_INTERNAL
-    DebugGlobalMemory = Memory;
-#endif
-
-    BEGIN_TIMED_BLOCK(GameUpdateAndRender)
-                        
     Assert((&Input->Controllers[0].Terminator - &Input->Controllers[0].Buttons[0]) ==
            (ArrayCount(Input->Controllers[0].Buttons)));
 
@@ -756,23 +186,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         InitializeWorld(World, WorldChunkDimInMeters);
 
         real32 TileDepthInMeters = GameState->TypicalFloorHeight;
-
-        GameState->Border = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "grass.bmp");
-        GameState->Source = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "tiles\\structured_art.bmp");
-        GameState->InValidTile = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "invalid_tile.bmp");
-
-        loaded_bitmap TileSheets[6];
-        TileSheets[0] = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "tile_sheet.bmp");
-        TileSheets[1] = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "tile_sheet_rot1.bmp");
-        TileSheets[2] = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "tile_sheet_rot2.bmp");
-        TileSheets[3] = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "tile_sheet_rot3.bmp");
-        TileSheets[4] = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "tile_sheet_flipV.bmp");
-        TileSheets[5] = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "tile_sheet_flipH.bmp");
-        GameState->LoadedTileCount = LoadTileDataAndIdentities(&GameState->WorldArena, GameState->Tiles,
-                                                               TileSheets, TileSideInPixels);
-
-        // NOTE(paul): LoadMap and Set camera bounds
-        LoadMapAndCameraBounds(GameState, Thread, Memory->DEBUGPlatformReadEntireFile, "map_bitmap.bmp");
         
         uint32 ScreenBaseX = 0;
         uint32 ScreenBaseY = 0;
@@ -821,7 +234,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                                                    CameraTileY,
                                                    CameraTileZ);
         GameState->CameraP = NewCameraP;
-        GameState->TileChangingProcess = false;
 
         Memory->IsInitialized = true;
     }
@@ -835,7 +247,20 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         InitializeArena(&TranState->TranArena, Memory->TransientStorageSize - sizeof(transient_state),
                         (uint8 *)Memory->TransientStorage + sizeof(transient_state));
 
-        TranState->RenderQueue = Memory->HighPriorityQueue;
+        TranState->HighPriorityQueue = Memory->HighPriorityQueue;
+        TranState->LowPriorityQueue = Memory->LowPriorityQueue;
+        
+        for(uint32 TaskIndex = 0;
+            TaskIndex < ArrayCount(TranState->Tasks);
+            ++TaskIndex)
+        {
+            task_with_memory *Task = TranState->Tasks + TaskIndex;
+
+            Task->BeingUsed = false;
+            SubArena(&Task->Arena, &TranState->TranArena, Megabytes(1));
+        }
+
+        TranState->Assets = AllocateGameAssets(&TranState->TranArena, Megabytes(16), TranState);
         
         TranState->GroundBufferCount = 256;
         TranState->GroundBuffers = PushArray(&TranState->TranArena, TranState->GroundBufferCount, ground_buffer);
@@ -882,7 +307,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         else
         {
             ConCamera->ddP = {};
-            GameState->Cursor.Direction = CursorDirection_Null;
             
             if(Controller->IsAnalog)
             {
@@ -908,53 +332,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 {
                     ConCamera->ddP.x = 1.0f;
                 }
-
-                // NOTE(casey): Use digital movement tuning
-                if(Controller->ActionUp.EndedDown)
-                {
-                    GameState->Cursor.Direction = CursorDirection_Up;
-                }
-                if(Controller->ActionDown.EndedDown)
-                {
-                    GameState->Cursor.Direction = CursorDirection_Down;
-                }
-                if(Controller->ActionLeft.EndedDown)
-                {
-                    GameState->Cursor.Direction = CursorDirection_Left;
-                }
-                if(Controller->ActionRight.EndedDown)
-                {
-                    GameState->Cursor.Direction = CursorDirection_Right;
-                }
-
-                if(Controller->OpenTileMenu.EndedDown)
-                {
-                    GameState->TileChangingProcess = true;
-                }
-
-                if(Controller->Rotate.EndedDown)
-                {
-                    ConCamera->RotateTile = true;
-                }
-
-                if(Controller->Flip.EndedDown)
-                {
-                    ConCamera->FlipTile = true;
-                }
-
-                if(Controller->Back.EndedDown)
-                {
-                    GameState->TileChangingProcess = false;
-                }
-
-                if(GameState->TileChangingProcess)
-                {
-                    if((Controller->ChangeTile.EndedDown) &&
-                       !(GameState->ChangeTile))
-                    {
-                        GameState->ChangeTile = true;
-                    }
-                }
             }
         }
     }
@@ -973,7 +350,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     DrawBuffer->Memory = Buffer->Memory;
 
     // TODO(casey): Decide what our pushbuffer size is!
-    render_group *RenderGroup = AllocateRenderGroup(&TranState->TranArena, Megabytes(4));
+    render_group *RenderGroup = AllocateRenderGroup(TranState->Assets, &TranState->TranArena, Megabytes(4), false);
+    BeginRender(RenderGroup);
     real32 WidthOfMonitor = 0.635f; // NOTE(casey): Horizontal measurement of monitor in meters
     real32 MetersToPixels = (real32)DrawBuffer->Width*WidthOfMonitor;
     Prespective(RenderGroup, DrawBuffer->Width, DrawBuffer->Height, MetersToPixels, 0.6f, 9.0f);
@@ -1061,8 +439,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
                     if(FurthestBuffer)
                     {
-                        FillGroundChunk(TranState, GameState, FurthestBuffer, &ChunkCenterP,
-                                        &GameState->MapBitmap.Bitmap, TileSideInMeters);
+//                        FillGroundChunk(TranState, GameState, FurthestBuffer, &ChunkCenterP,
+//                                        &GameState->MapBitmap.Bitmap, TileSideInMeters);
                     }
                 }
             }
@@ -1083,139 +461,79 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(SimBounds).xy, V4(0.0f, 1.0f, 1.0f, 1));
     PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(SimRegion->Bounds).xy, V4(1.0f, 0.0f, 0.0f, 1));
 
-    if(GameState->TileChangingProcess)
+    for(uint32 EntityIndex = 0;
+        EntityIndex < SimRegion->EntityCount;
+        ++EntityIndex)
     {
-        v2 WindowDim = V2(20.0f, 12.0f);
-        int32 TilesToMoveUpOrDown = (int32)WindowDim.x;
+        sim_entity *Entity = SimRegion->Entities + EntityIndex;
+        if(Entity->Updatable)
+        {
+            real32 dt = Input->dtForFrame;
         
-        switch(GameState->Cursor.Direction)
-        {
-            case CursorDirection_Null:
+            // TODO(casey): This is incorrect, should be computed after update!!!!
+
+            v3 ddP = {};
+
+            v3 CameraRelativeGroundP = GetEntityGroundPoint(Entity) - CameraP;
+            real32 FadeTopEndZ = 0.75f*GameState->TypicalFloorHeight;
+            real32 FadeTopStartZ = 0.5f*GameState->TypicalFloorHeight;
+            real32 FadeBottomStartZ = -2.0f*GameState->TypicalFloorHeight;
+            real32 FadeBottomEndZ = -2.25f*GameState->TypicalFloorHeight;
+            RenderGroup->GlobalAlpha = 1.0f;
+            if(CameraRelativeGroundP.z > FadeTopStartZ)
             {
-            } break;
-
-            case CursorDirection_Up:
-            {
-                GameState->Cursor.TileIndex += TilesToMoveUpOrDown;
-            } break;
-
-            case CursorDirection_Down:
-            {
-                GameState->Cursor.TileIndex -= TilesToMoveUpOrDown;
-            } break;
-
-            case CursorDirection_Left:
-            {
-                GameState->Cursor.TileIndex -= 1;
-            } break;
-
-            case CursorDirection_Right:
-            {
-                GameState->Cursor.TileIndex += 1;
-            } break;
-        }
-
-        if(GameState->Cursor.TileIndex < 0)
-        {
-            GameState->Cursor.TileIndex = 0;
-        }
-        if(GameState->Cursor.TileIndex > GameState->LoadedTileCount)
-        {
-            GameState->Cursor.TileIndex = GameState->LoadedTileCount - 1;
-        }
-        
-        ShowTileMenu(RenderGroup, GameState, WindowDim);
-
-        if(GameState->ChangeTile)
-        {
-            ChangeGroundTileTexture(GameState);
-            ResetGroundBuffers(TranState);
-            SaveMap(TranState, Thread, Memory->DEBUGPlatformWriteEntireFile, "map_bitmap.bmp", &GameState->MapBitmap);
-            GameState->ChangeTile = false;
-            GameState->TileChangingProcess = false;
-        }
-    }
-    else
-    {
-        for(uint32 EntityIndex = 0;
-            EntityIndex < SimRegion->EntityCount;
-            ++EntityIndex)
-        {
-            sim_entity *Entity = SimRegion->Entities + EntityIndex;
-            if(Entity->Updatable)
-            {
-                real32 dt = Input->dtForFrame;
-        
-                // TODO(casey): This is incorrect, should be computed after update!!!!
-
-                v3 ddP = {};
-
-                v3 CameraRelativeGroundP = GetEntityGroundPoint(Entity) - CameraP;
-                real32 FadeTopEndZ = 0.75f*GameState->TypicalFloorHeight;
-                real32 FadeTopStartZ = 0.5f*GameState->TypicalFloorHeight;
-                real32 FadeBottomStartZ = -2.0f*GameState->TypicalFloorHeight;
-                real32 FadeBottomEndZ = -2.25f*GameState->TypicalFloorHeight;
-                RenderGroup->GlobalAlpha = 1.0f;
-                if(CameraRelativeGroundP.z > FadeTopStartZ)
-                {
-                    RenderGroup->GlobalAlpha = Clamp01MapToRange(FadeTopEndZ, CameraRelativeGroundP.z, FadeTopStartZ);
-                }
-                else if(CameraRelativeGroundP.z < FadeBottomStartZ)
-                {
-                    RenderGroup->GlobalAlpha = Clamp01MapToRange(FadeBottomEndZ, CameraRelativeGroundP.z, FadeBottomStartZ);
-                }
-
-                //
-                // NOTE(casey):
-                //
-
-                switch(Entity->Type)
-                {
-                    case EntityType_Camera:
-                    {
-                        for(uint32 ControlIndex = 0;
-                            ControlIndex < ArrayCount(GameState->ControlledHeroes);
-                            ++ControlIndex)
-                        {
-                            controlled_camera *ConCamera = GameState->ControlledHeroes + ControlIndex;
-
-                            if(ConCamera->RotateTile)
-                            {
-                                ChangeGroundTileTexture(GameState, false, true);
-                                ResetGroundBuffers(TranState);
-                                SaveMap(TranState, Thread, Memory->DEBUGPlatformWriteEntireFile, "map_bitmap.bmp", &GameState->MapBitmap);
-                                ConCamera->RotateTile = false;
-                            }
-
-                            if(ConCamera->FlipTile)
-                            {
-                                ChangeGroundTileTexture(GameState, true, false);
-                                ResetGroundBuffers(TranState);
-                                SaveMap(TranState, Thread, Memory->DEBUGPlatformWriteEntireFile, "map_bitmap.bmp", &GameState->MapBitmap);
-                                ConCamera->FlipTile = false;
-                            }
-
-                            if(Entity->StorageIndex == ConCamera->CameraIndex)
-                            {
-                                MoveEntity(Entity, Input->dtForFrame, V3(ConCamera->ddP, 0.0f));
-                                PushRect(RenderGroup, Entity->P, V2(0.1f, 0.1f), V4(1, 0, 0, 1));
-                            }
-                        }
-                    } break;
-                }
-
-                RenderGroup->Transform.OffsetP = GetEntityGroundPoint(Entity);
+                RenderGroup->GlobalAlpha = Clamp01MapToRange(FadeTopEndZ, CameraRelativeGroundP.z, FadeTopStartZ);
             }
+            else if(CameraRelativeGroundP.z < FadeBottomStartZ)
+            {
+                RenderGroup->GlobalAlpha = Clamp01MapToRange(FadeBottomEndZ, CameraRelativeGroundP.z, FadeBottomStartZ);
+            }
+
+            //
+            // NOTE(casey):
+            //
+
+            switch(Entity->Type)
+            {
+                case EntityType_Camera:
+                {
+                    for(uint32 ControlIndex = 0;
+                        ControlIndex < ArrayCount(GameState->ControlledHeroes);
+                        ++ControlIndex)
+                    {
+                        controlled_camera *ConCamera = GameState->ControlledHeroes + ControlIndex;
+
+                        if(Entity->StorageIndex == ConCamera->CameraIndex)
+                        {
+                            MoveEntity(Entity, Input->dtForFrame, V3(ConCamera->ddP, 0.0f));
+                            PushRect(RenderGroup, Entity->P, V2(0.1f, 0.1f), V4(1, 0, 0, 1));
+                        }
+                    }
+                } break;
+            }
+
+            RenderGroup->Transform.OffsetP = GetEntityGroundPoint(Entity);
         }
     }
 
+    asset_vector MatchVector = {};
+    MatchVector.E[Tag_TileBiomeType] = BiomeType_AncientForest;
+    MatchVector.E[Tag_TileState] = TileState_RightHorizontal0;
+    MatchVector.E[Tag_TileSurface] = TileSurface_0;
+
+    asset_vector WeightVector = {};
+    WeightVector.E[Tag_TileBiomeType] = 1.0f;
+    WeightVector.E[Tag_TileState] = 1.0f;
+    WeightVector.E[Tag_TileSurface] = 1.0f;
+
+    bitmap_id TileBitmapID = GetBestMatchBitmapFrom(TranState->Assets, Asset_Tile, &MatchVector, &WeightVector);
+
+    PushBitmap(RenderGroup, TileBitmapID, 1.0f, V3(0, 0, 0));
     
     RenderGroup->GlobalAlpha = 1.0f;
-    
-    DrawTileIdentityAndBitmap(RenderGroup, GameState, TranState, V3(-11.0f, 6.0f, 0.0f));
 
-    TiledRenderGroupToOutput(TranState->RenderQueue, RenderGroup, DrawBuffer);
-
+    TiledRenderGroupToOutput(TranState->HighPriorityQueue, RenderGroup, DrawBuffer);
+    EndRender(RenderGroup);
     
     EndSim(SimRegion, GameState, CameraBoundsInMeters);
     EndTemporaryMemory(SimMemory);
@@ -1223,6 +541,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     
     CheckArena(&GameState->WorldArena);
     CheckArena(&TranState->TranArena);
-
-    END_TIMED_BLOCK(GameUpdateAndRender)
 }
+
+
+
