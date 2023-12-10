@@ -518,13 +518,13 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     asset_vector MatchVector = {};
     MatchVector.E[Tag_TileBiomeType] = BiomeType_AncientForest;
-    MatchVector.E[Tag_TileState] = TileState_RightHorizontal0;
-    MatchVector.E[Tag_TileSurface] = TileSurface_0;
+    MatchVector.E[Tag_TileState] = TileState_Solid;
+    MatchVector.E[Tag_TileSurface] = TileSurface_3;
 
     asset_vector WeightVector = {};
     WeightVector.E[Tag_TileBiomeType] = 1.0f;
     WeightVector.E[Tag_TileState] = 1.0f;
-    WeightVector.E[Tag_TileSurface] = 1.0f;
+    WeightVector.E[Tag_TileSurface] = 0.5f;
 
     bitmap_id TileBitmapID = GetBestMatchBitmapFrom(TranState->Assets, Asset_Tile, &MatchVector, &WeightVector);
 
