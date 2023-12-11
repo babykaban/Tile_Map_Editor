@@ -471,7 +471,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             PushBitmap(RenderGroup, Bitmap, GroundSideInMeters, V3(Delta, 0));
 
             PushRectOutline(RenderGroup, V3(Delta, 0), V2(GroundSideInMeters, GroundSideInMeters),
-                            V4(1.0f, 1.0f, 0.0f, 1.0f));
+                            V4(1.0f, 1.0f, 0.0f, 1.0f), 0.02f);
         }
     }
 

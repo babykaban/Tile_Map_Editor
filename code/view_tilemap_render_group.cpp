@@ -1070,16 +1070,14 @@ internal void
 TiledRenderGroupToOutput(platform_work_queue *RenderQueue,
                          render_group *RenderGroup, loaded_bitmap *OutputTarget)
 {
-    int const TileCountX = 4;
-    int const TileCountY = 4;
+    int const TileCountX = 8;
+    int const TileCountY = 8;
     tile_render_work WorkArray[TileCountX*TileCountY];
 
     Assert(((uintptr)OutputTarget->Memory & 15) == 0);
     
     int TileWidth = OutputTarget->Width / TileCountX;
     int TileHeight = OutputTarget->Height / TileCountY;
-
-    TileWidth = ((TileWidth + 3) / 4) * 4;
     
     int WorkCount = 0;
     for(int TileY = 0;
@@ -1107,7 +1105,7 @@ TiledRenderGroupToOutput(platform_work_queue *RenderQueue,
             {
                 ClipRect.MaxY = OutputTarget->Height;
             }
-            
+
             Work->RenderGroup = RenderGroup;
             Work->OutputTarget = OutputTarget;
             Work->ClipRect = ClipRect;

@@ -892,9 +892,12 @@ WinMain(HINSTANCE Instance,
        1080 -> 2048 = 2048 - 1080 -> 968 pixels
        1024 + 128 = 1152
     */
+    int MetricX = GetSystemMetrics(SM_CXSCREEN);
+    int MetricY = GetSystemMetrics(SM_CYSCREEN);
     
 //    Win32ResizeDIBSection(&GlobalBackbuffer, 960, 540);
-    Win32ResizeDIBSection(&GlobalBackbuffer, 1920, 1080);
+    // TODO(paul): Find out what to do with this -2 here
+    Win32ResizeDIBSection(&GlobalBackbuffer, MetricX - 2, MetricY);
 //    Win32ResizeDIBSection(&GlobalBackbuffer, 1279, 719);
     
     WindowClass.style = CS_HREDRAW|CS_VREDRAW;
@@ -922,8 +925,6 @@ WinMain(HINSTANCE Instance,
                 0);
         if(Window)
         {
-            int MetricX = GetSystemMetrics(SM_CXSCREEN);
-            int MetricY = GetSystemMetrics(SM_CYSCREEN);
 
 
             
@@ -991,8 +992,6 @@ WinMain(HINSTANCE Instance,
 
                 while(GlobalRunning)
                 {
-                    int Metric0X = GetSystemMetrics(SM_CXMINIMIZED);
-                    int Metric0Y = GetSystemMetrics(SM_CYMINIMIZED);
 
                     NewInput->dtForFrame = TargetSecondsPerFrame;
                     
