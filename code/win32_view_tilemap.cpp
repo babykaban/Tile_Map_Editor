@@ -922,6 +922,11 @@ WinMain(HINSTANCE Instance,
                 0);
         if(Window)
         {
+            int MetricX = GetSystemMetrics(SM_CXSCREEN);
+            int MetricY = GetSystemMetrics(SM_CYSCREEN);
+
+
+            
             // TODO(casey): How do we reliably query on this on Windows?
             int MonitorRefreshHz = 60;
             HDC RefreshDC = GetDC(Window);
@@ -986,6 +991,9 @@ WinMain(HINSTANCE Instance,
 
                 while(GlobalRunning)
                 {
+                    int Metric0X = GetSystemMetrics(SM_CXMINIMIZED);
+                    int Metric0Y = GetSystemMetrics(SM_CYMINIMIZED);
+
                     NewInput->dtForFrame = TargetSecondsPerFrame;
                     
                     NewInput->ExecutableReloaded = false;

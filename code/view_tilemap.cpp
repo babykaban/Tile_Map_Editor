@@ -404,7 +404,10 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     BeginRender(RenderGroup);
     real32 WidthOfMonitor = 0.635f; // NOTE(casey): Horizontal measurement of monitor in meters
     real32 MetersToPixels = (real32)DrawBuffer->Width*WidthOfMonitor;// / 2.0f;
-    Prespective(RenderGroup, DrawBuffer->Width, DrawBuffer->Height, MetersToPixels, 0.6f, 9.0f);
+    real32 FocalLength = 0.6f;
+    real32 DistanceAboveTarget = 9.0f;
+    
+    Prespective(RenderGroup, DrawBuffer->Width, DrawBuffer->Height, MetersToPixels, FocalLength, DistanceAboveTarget);
 
     RenderGroup->Transform.OffsetP = V3(0, 0, 0);
 
