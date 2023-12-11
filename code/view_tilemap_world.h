@@ -16,37 +16,22 @@ struct world_position
     
     int32 ChunkX;
     int32 ChunkY;
-    int32 ChunkZ;
 
     // NOTE(casey): These are the offset from the chunk center
-    v3 Offset_;
-};
-
-// TODO(casey): Could make this just tile_chunk and then allow multiple tile chunks per X/Y/Z
-struct world_entity_block
-{
-    uint32 EntityCount;
-    uint32 LowEntityIndex[16];
-    world_entity_block *Next;
+    v2 Offset_;
 };
 
 struct world_chunk
 {
     int32 ChunkX;
     int32 ChunkY;
-    int32 ChunkZ;
-
-    // TODO(casey): Profile this and determine if a pointer would be better here!
-    world_entity_block FirstBlock;
     
     world_chunk *NextInHash;
 };
 
 struct world
 {
-    v3 ChunkDimInMeters;
-
-    world_entity_block *FirstFree;
+    v2 ChunkDimInMeters;
 
     // TODO(casey): WorldChunkHash should probably switch to pointers IF
     // tile entity  blocks countinue to be stored en masse directly in the tile chunk!

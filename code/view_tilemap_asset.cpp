@@ -560,6 +560,31 @@ GetBestMatchFontFrom(game_assets *Assets, asset_type_id TypeID, asset_vector *Ma
     return(Result);
 }
 
+internal uint32
+GetRandomAssetFrom(game_assets *Assets, asset_type_id TypeID, random_series *Series)
+{
+    uint32 Result = 0;
+
+    asset_type *Type = Assets->AssetTypes + TypeID;
+    if(Type->FirstAssetIndex != Type->OnePastLastAssetIndex)
+    {
+        uint32 Count = (Type->OnePastLastAssetIndex - Type->FirstAssetIndex);
+        uint32 Choice = RandomChoice(Series, Count);
+        Result = Type->FirstAssetIndex + Choice;
+    }
+    
+    return(Result);
+}
+
+inline bitmap_id
+GetRandomBitmapFrom(game_assets *Assets, asset_type_id TypeID, random_series *Series)
+{
+    bitmap_id Result = {};
+    Result.Value = GetRandomAssetFrom(Assets, TypeID, Series);
+
+    return(Result);
+}
+
 internal game_assets *
 AllocateGameAssets(memory_arena *Arena, memory_index Size, transient_state *TranState)
 {

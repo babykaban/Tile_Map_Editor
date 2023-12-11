@@ -174,23 +174,8 @@ Copy(memory_index Size, void *SourceInit, void *DestInit)
 #include "view_tilemap_world.h"
 #include "view_tilemap_sim_region.h"
 #include "view_tilemap_render_group.h"
+#include "view_tilemap_random.h"
 #include "view_tilemap_asset.h"
-
-struct low_entity
-{
-    world_position P;
-    sim_entity Sim;
-};
-
-struct controlled_camera
-{
-    uint32 CameraIndex;
-    // NOTE(casey): These are the controller requests for simulation
-    v2 ddP;
-
-    bool32 RotateTile;
-    bool32 FlipTile;
-};
 
 struct ground_buffer
 {
@@ -204,24 +189,14 @@ struct game_state
     memory_arena WorldArena;
     world *World;
 
-    // NOTE(paul): Loading staff
-    loaded_bitmap Border;
-    loaded_bitmap Source;
-
     real32 TypicalFloorHeight;
 
-    uint32 CameraFollowingEntityIndex;
     world_position CameraP;
 
     world_position CameraBoundsMin;
     world_position CameraBoundsMax;
-    
-    uint32 TileIndexInMap;
 
-    controlled_camera ControlledHeroes[ArrayCount(((game_input *)0)->Controllers)];
-
-    uint32 LowEntityCount;
-    low_entity LowEntities[10];
+    u32 *WorldTilesBuffer;
 };
 
 struct task_with_memory
@@ -247,19 +222,6 @@ struct transient_state
     platform_work_queue *HighPriorityQueue;
     platform_work_queue *LowPriorityQueue;
 };
-
-inline low_entity * 
-GetLowEntity(game_state *GameState, uint32 Index)
-{
-    low_entity *Result = 0;
-
-    if((Index > 0) && (Index < GameState->LowEntityCount))
-    {
-        Result = GameState->LowEntities + Index;
-    }
-
-    return(Result);
-}
 
 global_variable platform_api Platform;
 

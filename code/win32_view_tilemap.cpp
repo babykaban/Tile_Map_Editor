@@ -313,8 +313,8 @@ Win32DisplayBufferInWindow(win32_offscreen_buffer *Buffer,
     }
     else
     {
-        int OffsetX = 10;
-        int OffsetY = 10;
+        int OffsetX = 0;
+        int OffsetY = 0;
 
         PatBlt(DeviceContext, 0, 0, WindowWidth, OffsetY, BLACKNESS);
         PatBlt(DeviceContext, 0, OffsetY + Buffer->Height, WindowWidth, WindowHeight, BLACKNESS);
@@ -492,19 +492,19 @@ Win32ProcessPendingMessages(win32_state *State, game_controller_input *KeyboardC
                 {
                     if(VKCode == 'W')
                     {
-                        Win32ProcessKeyboardMessage(&KeyboardController->MoveUp, IsDown);
+                        Win32ProcessKeyboardMessage(&KeyboardController->MoveUp, IsDown, true);
                     }
                     else if(VKCode == 'A')
                     {
-                        Win32ProcessKeyboardMessage(&KeyboardController->MoveLeft, IsDown);
+                        Win32ProcessKeyboardMessage(&KeyboardController->MoveLeft, IsDown, true);
                     }
                     else if(VKCode == 'S')
                     {
-                        Win32ProcessKeyboardMessage(&KeyboardController->MoveDown, IsDown);
+                        Win32ProcessKeyboardMessage(&KeyboardController->MoveDown, IsDown, true);
                     }
                     else if(VKCode == 'D')
                     {
-                        Win32ProcessKeyboardMessage(&KeyboardController->MoveRight, IsDown);
+                        Win32ProcessKeyboardMessage(&KeyboardController->MoveRight, IsDown, true);
                     }
                     else if(VKCode == 'Q')
                     {
@@ -861,6 +861,8 @@ WinMain(HINSTANCE Instance,
         LPSTR CommandLine,
         int ShowCode)
 {
+    DEBUGGlobalShowCursor = true;
+
     win32_state Win32State = {};
 
     platform_work_queue HighPriorityQueue;

@@ -1239,7 +1239,7 @@ GetRenderEntityBasisP(render_transform *Transform, v3 OriginalP)
         real32 DistanceAboveTarget = Transform->DistanceAboveTarget;
 
 #if 0
-        DistanceAboveTarget += 20.0f;
+        DistanceAboveTarget += 40.0f;
 #endif
     
         real32 DistanceToPZ = (DistanceAboveTarget - P.z);
@@ -1323,6 +1323,25 @@ PushBitmap(render_group *Group, bitmap_id ID, real32 Height, v3 Offset, v4 Color
         LoadBitmap(Group->Assets, ID, false);
         ++Group->MissingResourceCount;
     }
+}
+
+inline loaded_font *
+PushFont(render_group *Group, font_id ID)
+{
+    loaded_font *Font = GetFont(Group->Assets, ID, Group->GenerationID);
+    
+    if(Font)
+    {
+        // NOTE(casey): Nothing to do
+    }
+    else
+    {
+        Assert(!Group->RendersInBackground);
+        LoadFont(Group->Assets, ID, false);
+        ++Group->MissingResourceCount;
+    }
+
+    return(Font);
 }
 
 inline void
