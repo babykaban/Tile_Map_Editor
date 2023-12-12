@@ -184,6 +184,13 @@ struct ground_buffer
     loaded_bitmap Bitmap;
 };
 
+struct tile
+{
+    u32 TileWorldIndex;
+    asset_vector MatchVecor;
+    asset_vector WeightVector;
+};
+
 struct game_state
 {
     memory_arena WorldArena;
@@ -192,11 +199,12 @@ struct game_state
     real32 TypicalFloorHeight;
 
     world_position CameraP;
-
     world_position CameraBoundsMin;
     world_position CameraBoundsMax;
 
-    u32 *WorldTilesBuffer;
+    b32 ViewTile;
+    
+    tile *WorldTiles;
 };
 
 struct task_with_memory

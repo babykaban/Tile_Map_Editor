@@ -6,6 +6,12 @@
    $Creator: Casey Muratori $
    ======================================================================== */
 
+struct tile_position
+{
+    int32 TileX;
+    int32 TileY;
+};
+
 struct world_position
 {
     // TODO(casey): It seems like we have to store ChunkX/Y/Z with each

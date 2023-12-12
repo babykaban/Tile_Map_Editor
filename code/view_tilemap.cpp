@@ -17,6 +17,36 @@ global_variable r32 AtY;
 global_variable r32 FontScale;
 global_variable font_id FontID;
 
+inline tile_position
+TilePositionFromChunkPosition(world_position Pos)
+{
+    tile_position Result = {};
+
+    u32 HalfChunkCount = TILES_PER_CHUNK / 2;
+    Result.TileX = Pos.ChunkX*TILES_PER_CHUNK + HalfChunkCount;
+    Result.TileY = Pos.ChunkY*TILES_PER_CHUNK + HalfChunkCount; 
+
+    if(Pos.Offset_.x > 0.0f)
+    {
+        Result.TileX += CeilReal32ToInt32(Pos.Offset_.x) - 1;
+    }
+    else
+    {
+        Result.TileX += FloorReal32ToInt32(Pos.Offset_.x);
+    }
+
+    if(Pos.Offset_.y > 0.0f)
+    {
+        Result.TileY += CeilReal32ToInt32(Pos.Offset_.y) - 1;
+    }
+    else
+    {
+        Result.TileY += FloorReal32ToInt32(Pos.Offset_.y);
+    }
+
+    return(Result);
+}
+
 inline world_position
 ChunkPositionFromTilePosition(world *World, int32 AbsTileX, int32 AbsTileY,
                               v2 AdditionalOffset = V2(0, 0))
@@ -171,8 +201,8 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
 
     GroundBuffer->P = *ChunkP;
 
-    int32 TileCountX = 1024;
-    int32 TileCountY = 1024;
+    int32 TileCountX = WORLD_WIDTH_TILE_COUNT;
+    int32 TileCountY = WORLD_HEIGHT_TILE_COUNT;
 
     if((ChunkP->ChunkX >= 0) && (ChunkP->ChunkY >= 0))
     {
@@ -191,15 +221,19 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
             {
                 if((TileX < TileCountX) && (TileY < TileCountY))
                 {
+                    u32 TileWorldIdnex = TileY*TileCountX + TileX;
+
                     asset_vector MatchVector = {};
                     MatchVector.E[Tag_TileBiomeType] = BiomeType_AncientForest;
                     MatchVector.E[Tag_TileState] = TileState_Solid;
-                    MatchVector.E[Tag_TileSurface] = TileSurface_0;
+                    MatchVector.E[Tag_TileMainSurface] = TileSurface_0;
+                    MatchVector.E[Tag_TileMergeSurface] = TileSurface_1;
 
                     asset_vector WeightVector = {};
                     WeightVector.E[Tag_TileBiomeType] = 1.0f;
                     WeightVector.E[Tag_TileState] = 1.0f;
-                    WeightVector.E[Tag_TileSurface] = 1.0f;
+                    WeightVector.E[Tag_TileMainSurface] = 1.0f;
+                    WeightVector.E[Tag_TileMergeSurface] = 1.0f;
 
                     bitmap_id TileBitmapID = GetRandomBitmapFrom(RenderGroup->Assets, Asset_Tile, &Series);
 
@@ -218,8 +252,14 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
     EndTemporaryMemory(GroundMemory);
 }
 
-#define WORLD_TILE_WIDTH 512 
-#define WORLD_TILE_HEIGHT 512 
+internal tile *
+GetTileFromChunkPosition(game_state *GameState, world_position *MouseP)
+{
+    tile *Result = 0;
+
+
+    return(Result);
+}
 
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {    
@@ -251,8 +291,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         InitializeArena(&GameState->WorldArena, Memory->PermanentStorageSize - sizeof(game_state),
                         (uint8 *)Memory->PermanentStorage + sizeof(game_state));
 
-        GameState->WorldTilesBuffer = PushArray(&GameState->WorldArena,
-                                                WORLD_TILE_HEIGHT*WORLD_TILE_WIDTH, u32);
+        GameState->WorldTiles =
+            PushArray(&GameState->WorldArena,
+                      WORLD_HEIGHT_TILE_COUNT*WORLD_WIDTH_TILE_COUNT, tile);
         
         GameState->World = PushStruct(&GameState->WorldArena, world);
         world *World = GameState->World;
@@ -296,6 +337,14 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         
         world_position NewCameraP = {};
         GameState->CameraP = NewCameraP;
+
+        GameState->CameraBoundsMin.ChunkX = 0;
+        GameState->CameraBoundsMin.ChunkY = 0;
+    
+        GameState->CameraBoundsMax.ChunkX = WORLD_WIDTH_TILE_COUNT / TILES_PER_CHUNK;
+        GameState->CameraBoundsMax.ChunkY = WORLD_HEIGHT_TILE_COUNT / TILES_PER_CHUNK;
+
+        GameState->ViewTile = false;
 
         Memory->IsInitialized = true;
     }
@@ -352,7 +401,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     // NOTE(casey): 
     //
     game_controller_input *Controller = GetController(Input, 0);
-                
     if(Controller->IsAnalog)
     {
         // NOTE(casey): Use analog movement tuning
@@ -378,6 +426,17 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             NewP.x += 4.0f;
         }
 
+        if(Input->MouseButtons[0].EndedDown)
+        {
+            // TODO(paul): When do I want to change tile and how
+            GameState->ViewTile = true;
+        }
+
+        if(Controller->Back.EndedDown)
+        {
+            GameState->ViewTile = false;
+        }
+        
         GameState->CameraP = MapIntoChunkSpace(World, GameState->CameraP, NewP);
     }
     
@@ -393,8 +452,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     DrawBuffer->Height = Buffer->Height;
     DrawBuffer->Pitch = Buffer->Pitch;
     DrawBuffer->Memory = Buffer->Memory;
-
-    // TODO(casey): Decide what our pushbuffer size is!
 
     render_group *TextRenderGroup = AllocateRenderGroup(TranState->Assets, &TranState->TranArena, Megabytes(4), false);
     BeginRender(TextRenderGroup);
@@ -422,7 +479,15 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     rectangle2 ScreenBounds = GetCameraRectangleAtTarget(RenderGroup);
     rectangle2 CameraBoundsInMeters = RectMinMax(ScreenBounds.Min, ScreenBounds.Max);
 
-        
+    if(GameState->ViewTile)
+    {
+        DEBUGTextLine(TextRenderGroup, "ViewTile: True");
+    }
+    else
+    {
+        DEBUGTextLine(TextRenderGroup, "ViewTile: False");
+    }
+    
     char TextBuffer[256];
     _snprintf_s(TextBuffer, sizeof(TextBuffer),
                 "CameraP in Chunks: X: %d Y: %d, OX: %f, OY: %f",
@@ -433,13 +498,21 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     r32 RenderPixelsToMeters = 1.0f / MetersToPixels;
     r32 MouseX = (Input->MouseX - ScreenCenter.x) * RenderPixelsToMeters;
     r32 MouseY = -(Input->MouseY - ScreenCenter.y) * RenderPixelsToMeters;
-
+    
     v2 P = Unproject(RenderGroup, V2(MouseX, MouseY), 9.0f);
-    world_position MouseP = MapIntoChunkSpace(World, GameState->CameraP, P);
+    world_position MouseChunkP = MapIntoChunkSpace(World, GameState->CameraP, P);
+
+    
+    tile_position MouseTileP = TilePositionFromChunkPosition(MouseChunkP);
+    _snprintf_s(TextBuffer, sizeof(TextBuffer),
+                "MouseP in Tiles: X: %d Y: %d",
+                MouseTileP.TileX, MouseTileP.TileY);
+    DEBUGTextLine(TextRenderGroup, TextBuffer);
+    
     _snprintf_s(TextBuffer, sizeof(TextBuffer),
                 "MouseP in Chunks: X: %d Y: %d, OX: %f, OY: %f",
-                MouseP.ChunkX, MouseP.ChunkY,
-                MouseP.Offset_.x, MouseP.Offset_.y);
+                MouseChunkP.ChunkX, MouseChunkP.ChunkY,
+                MouseChunkP.Offset_.x, MouseChunkP.Offset_.y);
     DEBUGTextLine(TextRenderGroup, TextBuffer);
 
     // NOTE(casey): Ground chunk rendering
@@ -513,13 +586,19 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             }
         }
     }
+
+    if(GameState->ViewTile)
+    {
+//        tile *Tile = GetTileFromChunkPosition(GameState, MouseP);
+//        ShowTile();
+    }
     
     PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(ScreenBounds), V4(1.0f, 1.0f, 0.0f, 1));
-    PushRect(RenderGroup, V3(0, 0, 0), V2(TileSideInMeters, TileSideInMeters), V4(1, 0, 0, 1));
+    PushRect(RenderGroup, V3(0, 0, 0), 0.2f*V2(TileSideInMeters, TileSideInMeters), V4(1, 0, 0, 1));
 
-    v2 Delta = Subtract(World, &GameState->CameraP, &MouseP);
-    PushRect(RenderGroup, V3(-Delta, 0), 0.2f*
-             V2(TileSideInMeters, TileSideInMeters), V4(0, 0, 1, 1));
+    v2 Delta = Subtract(World, &GameState->CameraP, &MouseChunkP);
+    PushRect(RenderGroup, V3(-Delta, 0),
+             0.2f*V2(TileSideInMeters, TileSideInMeters), V4(0, 0, 1, 1));
     
     RenderGroup->GlobalAlpha = 1.0f;
 

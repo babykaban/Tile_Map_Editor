@@ -94,7 +94,8 @@ enum asset_tag_id
 
     Tag_TileBiomeType,
     Tag_TileState,
-    Tag_TileSurface,
+    Tag_TileMainSurface,
+    Tag_TileMergeSurface,
     
     Tag_Count,
 };
