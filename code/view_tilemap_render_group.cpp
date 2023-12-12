@@ -568,21 +568,22 @@ DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Co
         int MaxY = FillRect.MaxY;
         int MinX = FillRect.MinX;
         int MaxX = FillRect.MaxX;
-
+        
         for(int Y = MinY;
             Y < MaxY;
             Y += 2)
         {
             __m128 PixelPy = _mm_set1_ps((real32)Y);
             PixelPy = _mm_sub_ps(PixelPy, Originy_4x); 
-            __m128 PynX = _mm_mul_ps(PixelPy, nXAxisy_4x);
-            __m128 PynY = _mm_mul_ps(PixelPy, nYAxisy_4x);
        
             __m128 PixelPx = _mm_set_ps((real32)(MinX + 3),
                                         (real32)(MinX + 2),
                                         (real32)(MinX + 1),
                                         (real32)(MinX + 0));
             PixelPx = _mm_sub_ps(PixelPx, Originx_4x); 
+
+            __m128 PynX = _mm_mul_ps(PixelPx, nXAxisy_4x);
+            __m128 PynY = _mm_mul_ps(PixelPy, nYAxisy_4x);
             
             __m128i ClipMask = StartClipMask;
                 
@@ -596,7 +597,7 @@ DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Co
 #define Mi(a, i) ((uint32 *)&(a))[i]
 
                 __m128 U = _mm_add_ps(_mm_mul_ps(PixelPx, nXAxisx_4x), PynX);
-                __m128 V = _mm_add_ps(_mm_mul_ps(PixelPx, nYAxisx_4x), PynY);
+                __m128 V = _mm_add_ps(_mm_mul_ps(PixelPy, nYAxisx_4x), PynY);
 
                 __m128i WriteMask = _mm_castps_si128(_mm_and_ps(_mm_and_ps(_mm_cmpge_ps(U, Zero),
                                                                            _mm_cmple_ps(U, One)),
@@ -1070,8 +1071,8 @@ internal void
 TiledRenderGroupToOutput(platform_work_queue *RenderQueue,
                          render_group *RenderGroup, loaded_bitmap *OutputTarget)
 {
-    int const TileCountX = 8;
-    int const TileCountY = 8;
+    int const TileCountX = 4;
+    int const TileCountY = 4;
     tile_render_work WorkArray[TileCountX*TileCountY];
 
     Assert(((uintptr)OutputTarget->Memory & 15) == 0);

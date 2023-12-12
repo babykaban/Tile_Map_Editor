@@ -8,7 +8,7 @@
 #define TILE_CHUNK_SAFE_MARGIN (INT32_MAX / 64) 
 #define TILE_CHUNK_UNINITIALIZED INT32_MAX
 
-#define TILES_PER_CHUNK 8
+#define TILES_PER_CHUNK 4
 
 inline world_position
 NullPosition(void)

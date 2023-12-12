@@ -425,14 +425,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         
     char TextBuffer[256];
     _snprintf_s(TextBuffer, sizeof(TextBuffer),
-                "CameraP: X: %d Y: %d, OX: %f, OY: %f",
+                "CameraP in Chunks: X: %d Y: %d, OX: %f, OY: %f",
                 GameState->CameraP.ChunkX, GameState->CameraP.ChunkY,
                 GameState->CameraP.Offset_.x, GameState->CameraP.Offset_.y);
-    DEBUGTextLine(TextRenderGroup, TextBuffer);
-
-    _snprintf_s(TextBuffer, sizeof(TextBuffer),
-                "MouseP in Pixels: X: %d Y: %d",
-                Input->MouseX, Input->MouseY);
     DEBUGTextLine(TextRenderGroup, TextBuffer);
 
     r32 RenderPixelsToMeters = 1.0f / MetersToPixels;
@@ -440,20 +435,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     r32 MouseY = -(Input->MouseY - ScreenCenter.y) * RenderPixelsToMeters;
 
     v2 P = Unproject(RenderGroup, V2(MouseX, MouseY), 9.0f);
-
     world_position MouseP = MapIntoChunkSpace(World, GameState->CameraP, P);
-    
-    _snprintf_s(TextBuffer, sizeof(TextBuffer),
-                "MouseP in Meters: X: %f Y: %f",
-                MouseX, MouseY);
-
-    DEBUGTextLine(TextRenderGroup, TextBuffer);
-    
     _snprintf_s(TextBuffer, sizeof(TextBuffer),
                 "MouseP in Chunks: X: %d Y: %d, OX: %f, OY: %f",
                 MouseP.ChunkX, MouseP.ChunkY,
                 MouseP.Offset_.x, MouseP.Offset_.y);
-
     DEBUGTextLine(TextRenderGroup, TextBuffer);
 
     // NOTE(casey): Ground chunk rendering

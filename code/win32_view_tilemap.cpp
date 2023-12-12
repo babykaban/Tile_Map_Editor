@@ -269,7 +269,7 @@ Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width, int Height)
         VirtualFree(Buffer->Memory, 0, MEM_RELEASE);
     }
 
-    Buffer->Width = Width;
+    Buffer->Width = Width & ~3;
     Buffer->Height = Height;
 
     int BytesPerPixel = 4;
@@ -289,7 +289,7 @@ Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width, int Height)
     // NOTE(casey): Thank you to Chris Hecker of Spy Party fame
     // for clarifying the deal with StretchDIBits and BitBlt!
     // No more DC for us.
-    Buffer->Pitch = Align16(Width*BytesPerPixel);
+    Buffer->Pitch = Align16(Buffer->Width*BytesPerPixel);
     int BitmapMemorySize = (Buffer->Pitch*Buffer->Height);
     Buffer->Memory = VirtualAlloc(0, BitmapMemorySize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
 
@@ -300,7 +300,6 @@ internal void
 Win32DisplayBufferInWindow(win32_offscreen_buffer *Buffer,
                            HDC DeviceContext, int WindowWidth, int WindowHeight)
 {
-    // TODO(casey): Centering / black bars??
     if((WindowWidth >= Buffer->Width * 2) &&
        (WindowHeight >= Buffer->Height * 2))
     {
@@ -313,19 +312,14 @@ Win32DisplayBufferInWindow(win32_offscreen_buffer *Buffer,
     }
     else
     {
-        int OffsetX = 0;
-        int OffsetY = 0;
+//        int OffsetX = (WindowWidth - Buffer->Width) / 2;
+//        int OffsetY = (WindowHeight - Buffer->Height) / 2;
 
-        PatBlt(DeviceContext, 0, 0, WindowWidth, OffsetY, BLACKNESS);
-        PatBlt(DeviceContext, 0, OffsetY + Buffer->Height, WindowWidth, WindowHeight, BLACKNESS);
-        PatBlt(DeviceContext, 0, 0, OffsetX, WindowHeight, BLACKNESS);
-        PatBlt(DeviceContext, OffsetX + Buffer->Width, 0, WindowWidth, WindowHeight, BLACKNESS);
-    
         // NOTE(casey): For prototyping purposes, we're going to always blit
         // 1-to-1 pixels to make sure we don't introduce artifacts with
         // stretching while we are learning to code the renderer!
         StretchDIBits(DeviceContext,
-                      OffsetX, OffsetY, Buffer->Width, Buffer->Height,
+                      0, 0, WindowWidth, WindowHeight,
                       0, 0, Buffer->Width, Buffer->Height,
                       Buffer->Memory,
                       &Buffer->Info,
@@ -861,7 +855,7 @@ WinMain(HINSTANCE Instance,
         LPSTR CommandLine,
         int ShowCode)
 {
-    DEBUGGlobalShowCursor = true;
+//    DEBUGGlobalShowCursor = true;
 
     win32_state Win32State = {};
 
@@ -895,10 +889,8 @@ WinMain(HINSTANCE Instance,
     int MetricX = GetSystemMetrics(SM_CXSCREEN);
     int MetricY = GetSystemMetrics(SM_CYSCREEN);
     
-//    Win32ResizeDIBSection(&GlobalBackbuffer, 960, 540);
-    // TODO(paul): Find out what to do with this -2 here
-    Win32ResizeDIBSection(&GlobalBackbuffer, MetricX - 2, MetricY);
-//    Win32ResizeDIBSection(&GlobalBackbuffer, 1279, 719);
+    Win32ResizeDIBSection(&GlobalBackbuffer, MetricX, MetricY);
+//    Win32ResizeDIBSection(&GlobalBackbuffer, 1366, 768);
     
     WindowClass.style = CS_HREDRAW|CS_VREDRAW;
     WindowClass.lpfnWndProc = Win32MainWindowCallback;
