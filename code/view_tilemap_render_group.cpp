@@ -464,6 +464,7 @@ DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Co
     
     rectangle2i FillRect = InvertedInfinityRectangle();
 
+    // NOTE(paul): Calculate fillrect boundaries
     v2 P[4] = {Origin, Origin + XAxis, Origin + XAxis + YAxis, Origin + YAxis};
     for(int PIndex = 0;
         PIndex < ArrayCount(P);
@@ -552,6 +553,8 @@ DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Co
         __m128 MaxColorValue = _mm_set1_ps(255.0f*255.0f);
         __m128i TexturePitch_4x = _mm_set1_epi32(Texture->Pitch);
 
+        // TODO(paul): Find out why you need to subtract 2 from height and/or width of
+        // of a texture
 //        __m128 WidthM2 = _mm_set1_ps((real32)(Texture->Width - 2));
 //        __m128 HeightM2 = _mm_set1_ps((real32)(Texture->Height - 2));
 
@@ -615,12 +618,14 @@ DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Co
                     U = _mm_min_ps(_mm_max_ps(U, Zero), One);
                     V = _mm_min_ps(_mm_max_ps(V, Zero), One);
 
+                    // NOTE(paul): Find coordinates in texture
                     __m128 tX = _mm_mul_ps(U, WidthM2);
                     __m128 tY = _mm_mul_ps(V, HeightM2);
 
                     __m128i FetchX_4x = _mm_cvttps_epi32(tX);
                     __m128i FetchY_4x = _mm_cvttps_epi32(tY);
             
+                    // TODO(paul): fX and fY will be always zero???
                     __m128 fX = _mm_sub_ps(tX, _mm_cvtepi32_ps(FetchX_4x));
                     __m128 fY = _mm_sub_ps(tY, _mm_cvtepi32_ps(FetchY_4x));
 
