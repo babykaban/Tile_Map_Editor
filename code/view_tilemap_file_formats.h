@@ -125,6 +125,7 @@ enum asset_type_id
     Asset_FontGlyph,
 
     Asset_Tile,
+    Asset_TestTile,
     //
     // NOTE(casey): Sounds!
     //

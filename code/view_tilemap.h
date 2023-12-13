@@ -171,24 +171,17 @@ Copy(memory_index Size, void *SourceInit, void *DestInit)
 #include "view_tilemap_file_formats.h"
 #include "view_tilemap_intrinsics.h"
 #include "view_tilemap_math.h"
-#include "view_tilemap_world.h"
 #include "view_tilemap_sim_region.h"
 #include "view_tilemap_render_group.h"
 #include "view_tilemap_random.h"
 #include "view_tilemap_asset.h"
+#include "view_tilemap_world.h"
 
 struct ground_buffer
 {
     // NOTE(casey): An invalid P tells us that this ground_buffer has not been filled 
     world_position P; // NOTE(casey): This is the center of the bitmap
     loaded_bitmap Bitmap;
-};
-
-struct tile
-{
-    u32 TileWorldIndex;
-    asset_vector MatchVecor;
-    asset_vector WeightVector;
 };
 
 struct game_state
@@ -203,8 +196,18 @@ struct game_state
     world_position CameraBoundsMax;
 
     b32 ViewTile;
+    u32 BiomeMask;
+    u32 TileStateMask;
+    u32 TileSurfaceMainMask;
+    u32 TileSurfaceMergeMask;
+    // NOTE(paul): 00 - tile_biome_type
+    //             00 - tile_state
+    //             00 - tile_surface(Main)
+    //             00 - tile_surface(Merge) 
+    u32 CurrentTileAttributes;
     
-    tile *WorldTiles;
+    u32 WorldTileCount;
+    world_tile *WorldTiles;
 };
 
 struct task_with_memory

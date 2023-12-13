@@ -552,8 +552,11 @@ DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Co
         __m128 MaxColorValue = _mm_set1_ps(255.0f*255.0f);
         __m128i TexturePitch_4x = _mm_set1_epi32(Texture->Pitch);
 
-        __m128 WidthM2 = _mm_set1_ps((real32)(Texture->Width - 2));
-        __m128 HeightM2 = _mm_set1_ps((real32)(Texture->Height - 2));
+//        __m128 WidthM2 = _mm_set1_ps((real32)(Texture->Width - 2));
+//        __m128 HeightM2 = _mm_set1_ps((real32)(Texture->Height - 2));
+
+        __m128 WidthM2 = _mm_set1_ps((real32)(Texture->Width));
+        __m128 HeightM2 = _mm_set1_ps((real32)(Texture->Height));
     
         uint8 *Row = ((uint8 *)Buffer->Memory +
                       FillRect.MinX*BITMAP_BYTES_PER_PIXEL +
@@ -1110,7 +1113,7 @@ TiledRenderGroupToOutput(platform_work_queue *RenderQueue,
             Work->RenderGroup = RenderGroup;
             Work->OutputTarget = OutputTarget;
             Work->ClipRect = ClipRect;
-#if 1
+#if 0
             Platform.AddEntry(RenderQueue, DoTiledRenderWork, Work);
 #else
             DoTiledRenderWork(RenderQueue, Work);
@@ -1119,6 +1122,25 @@ TiledRenderGroupToOutput(platform_work_queue *RenderQueue,
     }
 
     Platform.CompleteAllWork(RenderQueue);
+}
+
+internal void
+RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputTarget)
+{
+    Assert(((uintptr)OutputTarget->Memory & 15) == 0);
+
+    rectangle2i ClipRect;
+    ClipRect.MinX = 0;
+    ClipRect.MaxX = OutputTarget->Width;
+    ClipRect.MinY = 0;
+    ClipRect.MaxY = OutputTarget->Height;
+
+    tile_render_work Work;
+    Work.RenderGroup = RenderGroup;
+    Work.OutputTarget = OutputTarget;
+    Work.ClipRect = ClipRect;
+
+    DoTiledRenderWork(0, &Work);
 }
 
 internal render_group *

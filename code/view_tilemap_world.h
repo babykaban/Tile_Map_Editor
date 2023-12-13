@@ -27,6 +27,13 @@ struct world_position
     v2 Offset_;
 };
 
+struct world_tile
+{
+    bitmap_id TileBitmapID;
+    asset_vector MatchVector;
+    asset_vector WeightVector;
+};
+
 struct world_chunk
 {
     int32 ChunkX;

@@ -178,6 +178,69 @@ DEBUGTextLine(render_group *RenderGroup, char *String)
     }
 }
 
+#if 0
+internal void
+FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer *GroundBuffer,
+                world_position *ChunkP, real32 TileSideInMeters)
+{
+    random_series Series = RandomSeed(236346);
+    temporary_memory GroundMemory = BeginTemporaryMemory(&TranState->TranArena);
+
+    loaded_bitmap *Buffer = &GroundBuffer->Bitmap;
+    Buffer->AlignPercentage = V2(0.5f, 0.5f);
+    Buffer->WidthOverHeight = 1.0f; 
+
+    real32 Width = GameState->World->ChunkDimInMeters.x;
+    real32 Height = GameState->World->ChunkDimInMeters.y;
+    Assert(Width == Height);
+    v2 HalfDim = 0.5f*V2(Width, Height);
+
+    render_group *RenderGroup = AllocateRenderGroup(TranState->Assets, &TranState->TranArena, Megabytes(4), true);
+    BeginRender(RenderGroup);
+    Ortographic(RenderGroup, Buffer->Width, Buffer->Height, (Buffer->Width - 2) / Width);
+    Clear(RenderGroup, V4(1.0f, 0.0f, 1.0f, 1.0f));
+
+    GroundBuffer->P = *ChunkP;
+
+    int32 TileCountX = WORLD_WIDTH_TILE_COUNT;
+    int32 TileCountY = WORLD_HEIGHT_TILE_COUNT;
+
+    if((ChunkP->ChunkX >= 0) && (ChunkP->ChunkY >= 0))
+    {
+        int32 MinTileX = TILES_PER_CHUNK*ChunkP->ChunkX;
+        int32 MaxTileX = MinTileX + TILES_PER_CHUNK;
+        int32 MinTileY = TILES_PER_CHUNK*ChunkP->ChunkY;
+        int32 MaxTileY = MinTileY + TILES_PER_CHUNK;
+
+        for(int32 TileY = MinTileY;
+            TileY < MaxTileY;
+            ++TileY)
+        {
+            for(int32 TileX = MinTileX;
+                TileX < MaxTileX;
+                ++TileX)
+            {
+                if((TileX < TileCountX) && (TileY < TileCountY))
+                {
+                    world_tile *WorldTile = GameState->WorldTiles + TileY*TileCountX + TileX;
+
+                    real32 X = (real32)(TileX - MinTileX);
+                    real32 Y = (real32)(TileY - MinTileY);
+                    v2 P = -HalfDim + V2(TileSideInMeters*X, TileSideInMeters*Y);
+                    
+                    bitmap_id ID = GetFirstBitmapFrom(TranState->Assets, Asset_TestTile);
+                    PushBitmap(RenderGroup, ID, TileSideInMeters, V3(P, 0.0f));
+                }
+            }
+        }
+    }
+
+    TiledRenderGroupToOutput(TranState->LowPriorityQueue, RenderGroup, Buffer);
+    EndRender(RenderGroup);
+    EndTemporaryMemory(GroundMemory);
+}
+#else
+
 internal void
 FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer *GroundBuffer,
                 world_position *ChunkP, real32 TileSideInMeters)
@@ -221,27 +284,14 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
             {
                 if((TileX < TileCountX) && (TileY < TileCountY))
                 {
-                    u32 TileWorldIdnex = TileY*TileCountX + TileX;
-
-                    asset_vector MatchVector = {};
-                    MatchVector.E[Tag_TileBiomeType] = BiomeType_AncientForest;
-                    MatchVector.E[Tag_TileState] = TileState_Solid;
-                    MatchVector.E[Tag_TileMainSurface] = TileSurface_0;
-                    MatchVector.E[Tag_TileMergeSurface] = TileSurface_1;
-
-                    asset_vector WeightVector = {};
-                    WeightVector.E[Tag_TileBiomeType] = 1.0f;
-                    WeightVector.E[Tag_TileState] = 1.0f;
-                    WeightVector.E[Tag_TileMainSurface] = 1.0f;
-                    WeightVector.E[Tag_TileMergeSurface] = 1.0f;
-
-                    bitmap_id TileBitmapID = GetRandomBitmapFrom(RenderGroup->Assets, Asset_Tile, &Series);
+                    world_tile *WorldTile = GameState->WorldTiles + TileY*TileCountX + TileX;
 
                     real32 X = (real32)(TileX - MinTileX);
                     real32 Y = (real32)(TileY - MinTileY);
                     v2 P = -HalfDim + V2(TileSideInMeters*X, TileSideInMeters*Y);
-
-                    PushBitmap(RenderGroup, TileBitmapID, TileSideInMeters, V3(P, 0.0f));
+                    
+                    bitmap_id ID = GetFirstBitmapFrom(TranState->Assets, Asset_TestTile);
+                    PushBitmap(RenderGroup, ID, TileSideInMeters, V3(P, 0.0f));
                 }
             }
         }
@@ -251,14 +301,66 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
     EndRender(RenderGroup);
     EndTemporaryMemory(GroundMemory);
 }
+#endif
 
-internal tile *
-GetTileFromChunkPosition(game_state *GameState, world_position *MouseP)
+internal world_tile *
+GetTileFromChunkPosition(game_state *GameState, world_position MouseP)
 {
-    tile *Result = 0;
+    world_tile *Result = 0;
+    tile_position MouseTileP = TilePositionFromChunkPosition(MouseP);
 
+    u32 WorldTileIndex = MouseTileP.TileY*WORLD_HEIGHT_TILE_COUNT + MouseTileP.TileY*WORLD_WIDTH_TILE_COUNT;
 
+    Result = GameState->WorldTiles + WorldTileIndex;
+    
     return(Result);
+}
+
+internal void
+ShowTile(render_group *RenderGroup, game_state *GameState, world_position MouseChunkP)
+{
+    if((MouseChunkP.ChunkX >= 0) && (MouseChunkP.ChunkY >= 0))
+    {
+        r32 TileSize = 100.0f;
+        world_tile *WorldTile = GetTileFromChunkPosition(GameState, MouseChunkP);
+        PushBitmap(RenderGroup, WorldTile->TileBitmapID, TileSize, V3(0, 0, 0));
+    }
+}
+
+internal void
+InitializeWorldTiles(game_assets *Assets, game_state *GameState, u32 *ReferenceTiles)
+{
+    if(ReferenceTiles)
+    {
+        // TODO(paul): MakeReferenceArray
+    }
+    else
+    {
+        asset_vector MatchVector = {};
+        MatchVector.E[Tag_TileBiomeType] = BiomeType_AncientForest;
+        MatchVector.E[Tag_TileState] = TileState_Solid;
+        MatchVector.E[Tag_TileMainSurface] = TileSurface_0;
+        MatchVector.E[Tag_TileMergeSurface] = TileSurface_0;
+
+        asset_vector WeightVector = {};
+        WeightVector.E[Tag_TileBiomeType] = 1.0f;
+        WeightVector.E[Tag_TileState] = 1.0f;
+        WeightVector.E[Tag_TileMainSurface] = 1.0f;
+        WeightVector.E[Tag_TileMergeSurface] = 1.0f;
+
+        bitmap_id TileBitmapID = GetBestMatchBitmapFrom(Assets, Asset_Tile,
+                                                        &MatchVector, &WeightVector);
+
+        for(u32 TileIndex = 0;
+            TileIndex < GameState->WorldTileCount;
+            ++TileIndex)
+        {
+            world_tile *WorldTile = GameState->WorldTiles + TileIndex;
+            WorldTile->TileBitmapID = TileBitmapID;
+            WorldTile->MatchVector = MatchVector;
+            WorldTile->WeightVector = WeightVector;
+        }
+    }
 }
 
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
@@ -268,8 +370,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     Assert((&Input->Controllers[0].Terminator - &Input->Controllers[0].Buttons[0]) ==
            (ArrayCount(Input->Controllers[0].Buttons)));
 
-    uint32 GroundBufferWidth = 512; 
-    uint32 GroundBufferHeight = 512;
+    uint32 GroundBufferWidth = 256; 
+    uint32 GroundBufferHeight = 256;
 
     uint32 TileSideInPixels = 32;
     real32 PixelsToMeters = 1.0f / TileSideInPixels;
@@ -281,19 +383,29 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     {
         uint32 TilesPerWidth = 30;
         uint32 TilesPerHeight = 17;
-
+#if 1
         v2 WorldChunkDimInMeters =
             {
                 TILES_PER_CHUNK * TileSideInMeters,
                 TILES_PER_CHUNK * TileSideInMeters
             };
-
+#else
+        v2 WorldChunkDimInMeters =
+            {
+                PixelsToMeters*GroundBufferWidth,
+                PixelsToMeters*GroundBufferHeight,
+            };
+#endif
         InitializeArena(&GameState->WorldArena, Memory->PermanentStorageSize - sizeof(game_state),
                         (uint8 *)Memory->PermanentStorage + sizeof(game_state));
 
-        GameState->WorldTiles =
-            PushArray(&GameState->WorldArena,
-                      WORLD_HEIGHT_TILE_COUNT*WORLD_WIDTH_TILE_COUNT, tile);
+
+        GameState->BiomeMask = 0xFF000000;
+        GameState->TileStateMask = 0x00FF0000;
+        GameState->TileSurfaceMainMask = 0x0000FF00;
+        GameState->TileSurfaceMergeMask = 0x000000FF;
+        GameState->WorldTileCount = WORLD_HEIGHT_TILE_COUNT*WORLD_WIDTH_TILE_COUNT;
+        GameState->WorldTiles = PushArray(&GameState->WorldArena, GameState->WorldTileCount, world_tile);
         
         GameState->World = PushStruct(&GameState->WorldArena, world);
         world *World = GameState->World;
@@ -372,6 +484,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         }
 
         TranState->Assets = AllocateGameAssets(&TranState->TranArena, Megabytes(16), TranState);
+
+        InitializeWorldTiles(TranState->Assets, GameState, 0);
         
         TranState->GroundBufferCount = 256;
         TranState->GroundBuffers = PushArray(&TranState->TranArena, TranState->GroundBufferCount, ground_buffer);
@@ -589,8 +703,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     if(GameState->ViewTile)
     {
-//        tile *Tile = GetTileFromChunkPosition(GameState, MouseP);
-//        ShowTile();
+        ShowTile(TextRenderGroup, GameState, MouseChunkP);
     }
     
     PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(ScreenBounds), V4(1.0f, 1.0f, 0.0f, 1));
@@ -599,6 +712,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     v2 Delta = Subtract(World, &GameState->CameraP, &MouseChunkP);
     PushRect(RenderGroup, V3(-Delta, 0),
              0.2f*V2(TileSideInMeters, TileSideInMeters), V4(0, 0, 1, 1));
+
+    bitmap_id ID = GetFirstBitmapFrom(TranState->Assets, Asset_TestTile);
+    PushBitmap(RenderGroup, ID, 6.0f*TileSideInMeters, V3(0, 0, 0.0f));
     
     RenderGroup->GlobalAlpha = 1.0f;
 
