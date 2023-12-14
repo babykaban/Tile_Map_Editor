@@ -197,7 +197,7 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
 
     render_group *RenderGroup = AllocateRenderGroup(TranState->Assets, &TranState->TranArena, Megabytes(4), true);
     BeginRender(RenderGroup);
-    Ortographic(RenderGroup, Buffer->Width, Buffer->Height, (Buffer->Width - 2) / Width);
+    Ortographic(RenderGroup, Buffer->Width, Buffer->Height, Buffer->Width / Width);
     Clear(RenderGroup, V4(1.0f, 0.0f, 1.0f, 1.0f));
 
     GroundBuffer->P = *ChunkP;
@@ -291,13 +291,15 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
                     v2 P = -HalfDim + V2(TileSideInMeters*X, TileSideInMeters*Y);
                     
                     bitmap_id ID = GetFirstBitmapFrom(TranState->Assets, Asset_TestTile);
-                    PushBitmap(RenderGroup, ID, TileSideInMeters, V3(P, 0.0f));
+                    PushBitmap(RenderGroup, ID, 1, V3(P, 0.0f));
                 }
             }
         }
     }
 
-    TiledRenderGroupToOutput(TranState->LowPriorityQueue, RenderGroup, Buffer);
+
+    RenderGroupToOutput(RenderGroup, Buffer);
+//    TiledRenderGroupToOutput(TranState->LowPriorityQueue, RenderGroup, Buffer);
     EndRender(RenderGroup);
     EndTemporaryMemory(GroundMemory);
 }
@@ -361,6 +363,18 @@ InitializeWorldTiles(game_assets *Assets, game_state *GameState, u32 *ReferenceT
             WorldTile->WeightVector = WeightVector;
         }
     }
+}
+
+inline void
+ResetGroundBuffers(transient_state *TranState)
+{
+    for(uint32 GroundBufferIndex = 0;
+        GroundBufferIndex < TranState->GroundBufferCount;
+        ++GroundBufferIndex)
+    {
+        ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
+        GroundBuffer->P = NullPosition();            
+    }        
 }
 
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
@@ -502,7 +516,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     }
     
     
-#if 0
+#if 1
     if(Input->ExecutableReloaded)
     {
         ResetGroundBuffers(TranState);
@@ -643,8 +657,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             real32 GroundSideInMeters = World->ChunkDimInMeters.x;
             PushBitmap(RenderGroup, Bitmap, GroundSideInMeters, V3(Delta, 0));
 
-            PushRectOutline(RenderGroup, V3(Delta, 0), V2(GroundSideInMeters, GroundSideInMeters),
-                            V4(1.0f, 1.0f, 0.0f, 1.0f), 0.02f);
+//            PushRectOutline(RenderGroup, V3(Delta, 0), V2(GroundSideInMeters, GroundSideInMeters),
+//                            V4(1.0f, 1.0f, 0.0f, 1.0f), 0.02f);
         }
     }
 
@@ -714,7 +728,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
              0.2f*V2(TileSideInMeters, TileSideInMeters), V4(0, 0, 1, 1));
 
     bitmap_id ID = GetFirstBitmapFrom(TranState->Assets, Asset_TestTile);
-    PushBitmap(RenderGroup, ID, 6.0f*TileSideInMeters, V3(0, 0, 0.0f));
+//    PushBitmap(RenderGroup, ID, 6.0f*TileSideInMeters, V3(0, 0, 0.0f));
     
     RenderGroup->GlobalAlpha = 1.0f;
 
