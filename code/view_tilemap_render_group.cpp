@@ -1345,13 +1345,14 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputTarget,
             {
                 render_entry_bitmap *Entry = (render_entry_bitmap *)Data;
                 Assert(Entry->Bitmap);
+
 #if 1
                 DrawRectangleQuickly(OutputTarget, Entry->P,
                                      V2(Entry->Size.x, 0), V2(0, Entry->Size.y), Entry->Color,
                                      Entry->Bitmap, NullPixelsToMeters, ClipRect, Even);
 #else
                 DrawRectangleSlowly(OutputTarget, Entry->P, V2(Entry->Size.x, 0), V2(0, Entry->Size.y),
-                                    Entry->Color, Entry->Bitmap, 0, 0, 0, 0, NullPixelsToMeters);
+                                    Entry->Color, Entry->Bitmap);
 #endif
                 BaseAddress += sizeof(*Entry);
             } break;
@@ -1575,7 +1576,7 @@ GetRenderEntityBasisP(render_transform *Transform, v3 OriginalP)
         real32 DistanceAboveTarget = Transform->DistanceAboveTarget;
 
 #if 1
-        DistanceAboveTarget -= 7.0f;
+        DistanceAboveTarget -= 5.0f;
 #endif
     
         real32 DistanceToPZ = (DistanceAboveTarget - P.z);

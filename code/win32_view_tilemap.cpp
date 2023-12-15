@@ -312,18 +312,27 @@ Win32DisplayBufferInWindow(win32_offscreen_buffer *Buffer,
     }
     else
     {
-//        int OffsetX = (WindowWidth - Buffer->Width) / 2;
-//        int OffsetY = (WindowHeight - Buffer->Height) / 2;
+        int OffsetX = (WindowWidth - Buffer->Width) / 2;
+        int OffsetY = (WindowHeight - Buffer->Height) / 2;
 
         // NOTE(casey): For prototyping purposes, we're going to always blit
         // 1-to-1 pixels to make sure we don't introduce artifacts with
         // stretching while we are learning to code the renderer!
+#if 0
         StretchDIBits(DeviceContext,
                       0, 0, WindowWidth, WindowHeight,
                       0, 0, Buffer->Width, Buffer->Height,
                       Buffer->Memory,
                       &Buffer->Info,
                       DIB_RGB_COLORS, SRCCOPY);
+#else
+        StretchDIBits(DeviceContext,
+                      0, 0, Buffer->Width, Buffer->Height,
+                      0, 0, Buffer->Width, Buffer->Height,
+                      Buffer->Memory,
+                      &Buffer->Info,
+                      DIB_RGB_COLORS, SRCCOPY);
+#endif
     }
 }
 
@@ -889,8 +898,8 @@ WinMain(HINSTANCE Instance,
     int MetricX = GetSystemMetrics(SM_CXSCREEN);
     int MetricY = GetSystemMetrics(SM_CYSCREEN);
     
-    Win32ResizeDIBSection(&GlobalBackbuffer, MetricX, MetricY);
-//    Win32ResizeDIBSection(&GlobalBackbuffer, 1366, 768);
+//    Win32ResizeDIBSection(&GlobalBackbuffer, MetricX, MetricY);
+    Win32ResizeDIBSection(&GlobalBackbuffer, 960, 540);
     
     WindowClass.style = CS_HREDRAW|CS_VREDRAW;
     WindowClass.lpfnWndProc = Win32MainWindowCallback;

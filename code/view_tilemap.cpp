@@ -298,8 +298,8 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
     }
 
 
-//    RenderGroupToOutput(RenderGroup, Buffer);
-    TiledRenderGroupToOutput(TranState->LowPriorityQueue, RenderGroup, Buffer);
+    RenderGroupToOutput(RenderGroup, Buffer);
+//    TiledRenderGroupToOutput(TranState->LowPriorityQueue, RenderGroup, Buffer);
     EndRender(RenderGroup);
     EndTemporaryMemory(GroundMemory);
 }
