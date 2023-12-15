@@ -307,11 +307,11 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Col
 
             if((Edge0 < 0) && (Edge1 < 0) && (Edge2 < 0) && (Edge3 < 0))
             {
-#if 1
+#if 0
                 v2 ScreenSpaceUV = {InvWidthMax*(real32)XIterator, FixedCastY};
                 real32 ZDiff = PixelsToMeters*((real32)YIterator - OriginY);
 #else
-                v2 ScreenSpaceUV = {InvWidthMax*(real32)X, InvHeightMax*(real32)Y};
+                v2 ScreenSpaceUV = {InvWidthMax*(real32)XIterator, InvHeightMax*(real32)YIterator};
                 real32 ZDiff = 0.0f;
 #endif
                 real32 U = InvXAxisLenghtSq*Inner(d, XAxis);
@@ -331,8 +331,8 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Col
                 Assert((U >= 0.0f) && (U <= 1.0f));
                 Assert((V >= 0.0f) && (V <= 1.0f));
 
-                real32 tX = (U*(real32)(Texture->Width - 2));
-                real32 tY = (V*(real32)(Texture->Height - 2));
+                real32 tX = (U*(real32)(Texture->Width - 1));
+                real32 tY = (V*(real32)(Texture->Height - 1));
                 
                 int32 X = (int32)tX;
                 int32 Y = (int32)tY;
@@ -445,7 +445,7 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Col
     }
 }
 
-#if 0
+#if 1
 internal void
 DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Color,
                      loaded_bitmap *Texture, real32 PixelsToMeters,
@@ -473,9 +473,9 @@ DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Co
     {
         v2 TestP = P[PIndex];
         int FloorX = FloorReal32ToInt32(TestP.x);
-        int CeilX = CeilReal32ToInt32(TestP.x) + 1;
+        int CeilX = CeilReal32ToInt32(TestP.x);
         int FloorY = FloorReal32ToInt32(TestP.y);
-        int CeilY = CeilReal32ToInt32(TestP.y) + 1;
+        int CeilY = CeilReal32ToInt32(TestP.y);
 
         if(FillRect.MinX > FloorX) {FillRect.MinX = FloorX;}
         if(FillRect.MinY > FloorY) {FillRect.MinY = FloorY;}
@@ -557,11 +557,11 @@ DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Co
 
         // TODO(paul): Find out why you need to subtract 2 from height and/or width of
         // of a texture
-        __m128 WidthM2 = _mm_set1_ps((real32)(Texture->Width - 2));
-        __m128 HeightM2 = _mm_set1_ps((real32)(Texture->Height - 2));
+//        __m128 WidthM2 = _mm_set1_ps((real32)(Texture->Width - 2));
+//        __m128 HeightM2 = _mm_set1_ps((real32)(Texture->Height - 2));
 
-//        __m128 WidthM2 = _mm_set1_ps((real32)(Texture->Width));
-//        __m128 HeightM2 = _mm_set1_ps((real32)(Texture->Height));
+        __m128 WidthM2 = _mm_set1_ps((real32)(Texture->Width - 1));
+        __m128 HeightM2 = _mm_set1_ps((real32)(Texture->Height - 1));
     
         uint8 *Row = ((uint8 *)Buffer->Memory +
                       FillRect.MinX*BITMAP_BYTES_PER_PIXEL +
@@ -581,31 +581,19 @@ DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Co
             Y < MaxY;
             Y += 2)
         {
-#if 0
-            __m128 PixelPy = _mm_set1_ps((real32)Y);
-            PixelPy = _mm_sub_ps(PixelPy, Originy_4x); 
-       
-            __m128 PixelPx = _mm_set_ps((real32)(MinX + 3),
-                                        (real32)(MinX + 2),
-                                        (real32)(MinX + 1),
-                                        (real32)(MinX + 0));
-            PixelPx = _mm_sub_ps(PixelPx, Originx_4x); 
 
-            __m128 PynX = _mm_mul_ps(PixelPx, nXAxisy_4x);
-            __m128 PynY = _mm_mul_ps(PixelPy, nYAxisy_4x);
-#else
             __m128 PixelPy = _mm_set1_ps((real32)Y);
-            PixelPy = _mm_sub_ps(PixelPy, Originy_4x); 
-       
             __m128 PixelPx = _mm_set_ps((real32)(MinX + 3),
                                         (real32)(MinX + 2),
                                         (real32)(MinX + 1),
                                         (real32)(MinX + 0));
+
+            PixelPy = _mm_sub_ps(PixelPy, Originy_4x); 
             PixelPx = _mm_sub_ps(PixelPx, Originx_4x); 
 
             __m128 PynX = _mm_mul_ps(PixelPy, nYAxisx_4x);
             __m128 PynY = _mm_mul_ps(PixelPy, nYAxisy_4x);
-#endif            
+
             __m128i ClipMask = StartClipMask;
                 
             uint32 *Pixel = (uint32 *)Row;
@@ -617,8 +605,13 @@ DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Co
 #define M(a, i) ((float *)&(a))[i]
 #define Mi(a, i) ((uint32 *)&(a))[i]
 
+                // NOTE(paul): Calculate coordinates in texture in range from 0 to 1
                 __m128 U = _mm_add_ps(_mm_mul_ps(PixelPx, nXAxisx_4x), PynX);
                 __m128 V = _mm_add_ps(_mm_mul_ps(PixelPx, nXAxisy_4x), PynY);
+
+                // NOTE(paul): Clamp U and V to range from 0 to 1
+                U = _mm_min_ps(_mm_max_ps(U, Zero), One);
+                V = _mm_min_ps(_mm_max_ps(V, Zero), One);
 
                 __m128i WriteMask = _mm_castps_si128(_mm_and_ps(_mm_and_ps(_mm_cmpge_ps(U, Zero),
                                                                            _mm_cmple_ps(U, One)),
@@ -630,13 +623,14 @@ DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Co
                 {
                     __m128i OriginalDest = _mm_load_si128((__m128i *)Pixel);
 
-                    U = _mm_min_ps(_mm_max_ps(U, Zero), One);
-                    V = _mm_min_ps(_mm_max_ps(V, Zero), One);
+                    // NOTE(paul): Calculate coordinates in texture
+//                    __m128 tX = _mm_add_ps(_mm_mul_ps(U, WidthM2), Half);
+//                    __m128 tY = _mm_add_ps(_mm_mul_ps(V, HeightM2), Half);
+                    __m128 tX = _mm_mul_ps(U, WidthM2);
+                    __m128 tY = _mm_mul_ps(V, HeightM2);
 
-                    // NOTE(paul): Find coordinates in texture
-                    __m128 tX = _mm_add_ps(_mm_mul_ps(U, WidthM2), Half);
-                    __m128 tY = _mm_add_ps(_mm_mul_ps(V, HeightM2), Half);
-
+//                    __m128i FetchX_4x = _mm_cvttps_epi32(tX);
+//                    __m128i FetchY_4x = _mm_cvttps_epi32(tY);
                     __m128i FetchX_4x = _mm_cvttps_epi32(tX);
                     __m128i FetchY_4x = _mm_cvttps_epi32(tY);
             
@@ -1351,7 +1345,7 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputTarget,
             {
                 render_entry_bitmap *Entry = (render_entry_bitmap *)Data;
                 Assert(Entry->Bitmap);
-#if 0
+#if 1
                 DrawRectangleQuickly(OutputTarget, Entry->P,
                                      V2(Entry->Size.x, 0), V2(0, Entry->Size.y), Entry->Color,
                                      Entry->Bitmap, NullPixelsToMeters, ClipRect, Even);
@@ -1580,7 +1574,7 @@ GetRenderEntityBasisP(render_transform *Transform, v3 OriginalP)
     
         real32 DistanceAboveTarget = Transform->DistanceAboveTarget;
 
-#if 0
+#if 1
         DistanceAboveTarget -= 7.0f;
 #endif
     

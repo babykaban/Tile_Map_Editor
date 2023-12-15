@@ -291,15 +291,15 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
                     v2 P = -HalfDim + V2(TileSideInMeters*X, TileSideInMeters*Y);
                     
                     bitmap_id ID = GetFirstBitmapFrom(TranState->Assets, Asset_TestTile);
-                    PushBitmap(RenderGroup, ID, 1, V3(P, 0.0f));
+                    PushBitmap(RenderGroup, ID, 1.0f, V3(P, 0.0f));
                 }
             }
         }
     }
 
 
-    RenderGroupToOutput(RenderGroup, Buffer);
-//    TiledRenderGroupToOutput(TranState->LowPriorityQueue, RenderGroup, Buffer);
+//    RenderGroupToOutput(RenderGroup, Buffer);
+    TiledRenderGroupToOutput(TranState->LowPriorityQueue, RenderGroup, Buffer);
     EndRender(RenderGroup);
     EndTemporaryMemory(GroundMemory);
 }
