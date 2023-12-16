@@ -298,8 +298,8 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
     }
 
 
-    RenderGroupToOutput(RenderGroup, Buffer);
-//    TiledRenderGroupToOutput(TranState->LowPriorityQueue, RenderGroup, Buffer);
+//    RenderGroupToOutput(RenderGroup, Buffer);
+    TiledRenderGroupToOutput(TranState->LowPriorityQueue, RenderGroup, Buffer);
     EndRender(RenderGroup);
     EndTemporaryMemory(GroundMemory);
 }
@@ -599,7 +599,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     // NOTE(paul): Reset font spacing
     DEBUGReset(RenderGroup, Buffer->Width, Buffer->Height);
 
-    Clear(RenderGroup, V4(0.25f, 0.25f, 0.25f, 0.0f));
+//    Clear(RenderGroup, V4(0.25f, 0.25f, 0.25f, 0.0f));
 
     v2 ScreenCenter = {0.5f*(real32)DrawBuffer->Width,
                        0.5f*(real32)DrawBuffer->Height};

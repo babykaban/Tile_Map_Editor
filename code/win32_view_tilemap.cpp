@@ -898,8 +898,8 @@ WinMain(HINSTANCE Instance,
     int MetricX = GetSystemMetrics(SM_CXSCREEN);
     int MetricY = GetSystemMetrics(SM_CYSCREEN);
     
-//    Win32ResizeDIBSection(&GlobalBackbuffer, MetricX, MetricY);
-    Win32ResizeDIBSection(&GlobalBackbuffer, 960, 540);
+    Win32ResizeDIBSection(&GlobalBackbuffer, MetricX, MetricY);
+//    Win32ResizeDIBSection(&GlobalBackbuffer, 960, 540);
     
     WindowClass.style = CS_HREDRAW|CS_VREDRAW;
     WindowClass.lpfnWndProc = Win32MainWindowCallback;

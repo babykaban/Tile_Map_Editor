@@ -214,6 +214,163 @@ SampleEnvironmentMap(v2 ScreenSpaceUV, v3 SampleDirection, real32 Roughness, env
 }
 
 internal void
+DrawRect0(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Color,
+          loaded_bitmap *Texture)
+{
+    real32 InvXAxisLengthSq = 1.0f / LengthSq(XAxis);
+    real32 InvYAxisLengthSq = 1.0f / LengthSq(YAxis);
+    
+    uint32 Color32 = ((RoundReal32ToUInt32(Color.a * 255.0f) << 24) |
+                      (RoundReal32ToUInt32(Color.r * 255.0f) << 16) |
+                      (RoundReal32ToUInt32(Color.g * 255.0f) << 8) |
+                      (RoundReal32ToUInt32(Color.b * 255.0f) << 0));
+
+    int WidthMax = (Buffer->Width);
+    int HeightMax = (Buffer->Height);
+    
+    int XMin = WidthMax;
+    int XMax = 0;
+    int YMin = HeightMax;
+    int YMax = 0;
+
+    v2 P[4] = {Origin, Origin + XAxis, Origin + XAxis + YAxis, Origin + YAxis};
+    for(int PIndex = 0;
+        PIndex < ArrayCount(P);
+        ++PIndex)
+    {
+        v2 TestP = P[PIndex];
+        int FloorX = FloorReal32ToInt32(TestP.x);
+        int CeilX = CeilReal32ToInt32(TestP.x);
+        int FloorY = FloorReal32ToInt32(TestP.y);
+        int CeilY = CeilReal32ToInt32(TestP.y);
+
+        if(XMin > FloorX) {XMin = FloorX;}
+        if(YMin > FloorY) {YMin = FloorY;}
+        if(XMax < CeilX) {XMax = CeilX;}
+        if(YMax < CeilY) {YMax = CeilY;}
+    }
+
+    if(XMin < 0) {XMin = 0;}
+    if(YMin < 0) {YMin = 0;}
+    if(XMax > WidthMax) {XMax = WidthMax;}
+    if(YMax > HeightMax) {YMax = HeightMax;}    
+    
+    uint8 *Row = ((uint8 *)Buffer->Memory +
+                  XMin*BITMAP_BYTES_PER_PIXEL +
+                  YMin*Buffer->Pitch);
+    for(int Yi = YMin;
+        Yi < YMax;
+        ++Yi)
+    {
+        uint32 *Pixel = (uint32 *)Row;
+        for(int Xi = XMin;
+            Xi < XMax;
+            ++Xi)
+        {
+#if 1
+            v2 PixelP = V2i(Xi, Yi);
+            v2 d = PixelP - Origin;
+            
+            // TODO(casey): PerpInner
+            // TODO(casey): Simpler origin
+            real32 Edge0 = Inner(d, -Perp(XAxis));
+            real32 Edge1 = Inner(d - XAxis, -Perp(YAxis));
+            real32 Edge2 = Inner(d - XAxis - YAxis, Perp(XAxis));
+            real32 Edge3 = Inner(d - YAxis, Perp(YAxis));
+            
+            if((Edge0 < 0) &&
+               (Edge1 < 0) &&
+               (Edge2 < 0) &&
+               (Edge3 < 0))
+            {
+                real32 U = InvXAxisLengthSq*Inner(d, XAxis);
+                real32 V = InvYAxisLengthSq*Inner(d, YAxis);
+
+                // TODO(casey): SSE clamping.
+                Assert((U >= 0.0f) && (U <= 1.0f));
+                Assert((V >= 0.0f) && (V <= 1.0f));
+
+                // TODO(casey): Formalize texture boundaries!!!
+                real32 tX = ((U*(real32)(Texture->Width)));
+                real32 tY = ((V*(real32)(Texture->Height)));
+                
+                int32 X = (int32)tX;
+                int32 Y = (int32)tY;
+
+                real32 fX = tX - (real32)X;
+                real32 fY = tY - (real32)Y;
+
+                Assert((X >= 0) && (X < Texture->Width));
+                Assert((Y >= 0) && (Y < Texture->Height));
+                
+                uint8 *TexelPtr = ((uint8 *)Texture->Memory) + Y*Texture->Pitch + X*sizeof(uint32);
+                uint32 TexelPtrA = *(uint32 *)(TexelPtr);
+                uint32 TexelPtrB = *(uint32 *)(TexelPtr + sizeof(uint32));
+                uint32 TexelPtrC = *(uint32 *)(TexelPtr + Texture->Pitch);
+                uint32 TexelPtrD = *(uint32 *)(TexelPtr + Texture->Pitch + sizeof(uint32));
+
+                // TODO(casey): Color.a!!
+                v4 TexelA = {(real32)((TexelPtrA >> 16) & 0xFF),
+                    (real32)((TexelPtrA >> 8) & 0xFF),
+                    (real32)((TexelPtrA >> 0) & 0xFF),
+                    (real32)((TexelPtrA >> 24) & 0xFF)};
+                v4 TexelB = {(real32)((TexelPtrB >> 16) & 0xFF),
+                    (real32)((TexelPtrB >> 8) & 0xFF),
+                    (real32)((TexelPtrB >> 0) & 0xFF),
+                    (real32)((TexelPtrB >> 24) & 0xFF)};
+                v4 TexelC = {(real32)((TexelPtrC >> 16) & 0xFF),
+                    (real32)((TexelPtrC >> 8) & 0xFF),
+                    (real32)((TexelPtrC >> 0) & 0xFF),
+                    (real32)((TexelPtrC >> 24) & 0xFF)};
+                v4 TexelD = {(real32)((TexelPtrD >> 16) & 0xFF),
+                    (real32)((TexelPtrD >> 8) & 0xFF),
+                    (real32)((TexelPtrD >> 0) & 0xFF),
+                    (real32)((TexelPtrD >> 24) & 0xFF)};
+#if 1
+                v4 Texel = Lerp(Lerp(TexelA, fX, TexelB),
+                                fY,
+                                Lerp(TexelC, fX, TexelD));
+#else
+                v4 Texel = TexelA;
+#endif
+                
+                real32 SA = Texel.a;
+                real32 SR = Texel.r;
+                real32 SG = Texel.g;
+                real32 SB = Texel.b;
+                
+                real32 RSA = (SA / 255.0f) * Color.a; 
+                
+                real32 DA = (real32)((*Pixel >> 24) & 0xFF);
+                real32 DR = (real32)((*Pixel >> 16) & 0xFF);
+                real32 DG = (real32)((*Pixel >> 8) & 0xFF);
+                real32 DB = (real32)((*Pixel >> 0) & 0xFF);
+                real32 RDA = (DA / 255.0f);
+            
+                real32 InvRSA = (1.0f-RSA);
+                // TODO(casey): Check this for math errors
+                real32 A = 255.0f*(RSA + RDA - RSA*RDA);
+                real32 R = InvRSA*DR + SR;
+                real32 G = InvRSA*DG + SG;
+                real32 B = InvRSA*DB + SB;
+
+                *Pixel = (((uint32)(A + 0.5f) << 24) |
+                          ((uint32)(R + 0.5f) << 16) |
+                          ((uint32)(G + 0.5f) << 8) |
+                          ((uint32)(B + 0.5f) << 0));
+            }
+#else
+            *Pixel = Color32;
+#endif
+            
+            ++Pixel;
+        }
+        
+        Row += Buffer->Pitch;
+    }
+}
+
+internal void
 DrawRectangleSlowly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Color,
                     loaded_bitmap *Texture, loaded_bitmap *NormalMap,
                     environment_map *Top,
@@ -1346,13 +1503,15 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputTarget,
                 render_entry_bitmap *Entry = (render_entry_bitmap *)Data;
                 Assert(Entry->Bitmap);
 
-#if 1
+#if 0
                 DrawRectangleQuickly(OutputTarget, Entry->P,
                                      V2(Entry->Size.x, 0), V2(0, Entry->Size.y), Entry->Color,
                                      Entry->Bitmap, NullPixelsToMeters, ClipRect, Even);
 #else
-                DrawRectangleSlowly(OutputTarget, Entry->P, V2(Entry->Size.x, 0), V2(0, Entry->Size.y),
-                                    Entry->Color, Entry->Bitmap);
+                DrawRect0(OutputTarget, Entry->P, V2(Entry->Size.x, 0), V2(0, Entry->Size.y),
+                          Entry->Color, Entry->Bitmap);
+//                DrawRectangleSlowly(OutputTarget, Entry->P, V2(Entry->Size.x, 0), V2(0, Entry->Size.y),
+//                                    Entry->Color, Entry->Bitmap);
 #endif
                 BaseAddress += sizeof(*Entry);
             } break;
@@ -1382,7 +1541,7 @@ internal PLATFORM_WORK_QUEUE_CALLBACK(DoTiledRenderWork)
 {
     tile_render_work *Work = (tile_render_work *)Data;
 
-    RenderGroupToOutput(Work->RenderGroup, Work->OutputTarget, Work->ClipRect, false);
+//    RenderGroupToOutput(Work->RenderGroup, Work->OutputTarget, Work->ClipRect, false);
     RenderGroupToOutput(Work->RenderGroup, Work->OutputTarget, Work->ClipRect, true);
 }
 
@@ -1575,7 +1734,7 @@ GetRenderEntityBasisP(render_transform *Transform, v3 OriginalP)
     
         real32 DistanceAboveTarget = Transform->DistanceAboveTarget;
 
-#if 1
+#if 0
         DistanceAboveTarget -= 5.0f;
 #endif
     
