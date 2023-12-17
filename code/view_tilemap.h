@@ -184,6 +184,23 @@ struct ground_buffer
     loaded_bitmap Bitmap;
 };
 
+enum tile_attribute
+{
+    TileAttribute_Biome,
+    TileAttribute_State,
+    TileAttribute_MainSurface,
+    TileAttribute_MergeSurface,
+};
+
+static const char *TileAtributes[] =
+{
+    "Biome",
+    "State",
+    "MainSurface",
+    "MergeSurface",
+
+};
+
 struct game_state
 {
     memory_arena WorldArena;
@@ -204,7 +221,8 @@ struct game_state
     //             00 - tile_state
     //             00 - tile_surface(Main)
     //             00 - tile_surface(Merge) 
-    u32 CurrentTileAttributes;
+    u32 ChoosenTileAttributes;
+    u32 AttributeToChange;
     
     u32 WorldTileCount;
     world_tile *WorldTiles;

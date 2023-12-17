@@ -254,10 +254,10 @@ typedef struct game_controller_input
             game_button_state ActionLeft;
             game_button_state ActionRight;
 
-            game_button_state OpenTileMenu;
-            game_button_state ChangeTile;
-            game_button_state Rotate;
-            game_button_state Flip;
+            game_button_state Biome;
+            game_button_state State;
+            game_button_state MainSurface;
+            game_button_state MergeSurface;
             
             game_button_state LeftShoulder;
             game_button_state RightShoulder;

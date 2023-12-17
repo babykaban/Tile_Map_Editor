@@ -30,8 +30,7 @@ struct world_position
 struct world_tile
 {
     bitmap_id TileBitmapID;
-    asset_vector MatchVector;
-    asset_vector WeightVector;
+    u32 TileAttributes;
 };
 
 struct world_chunk

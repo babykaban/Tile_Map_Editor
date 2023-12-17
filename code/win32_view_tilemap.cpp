@@ -517,17 +517,21 @@ Win32ProcessPendingMessages(win32_state *State, game_controller_input *KeyboardC
                     {
                         Win32ProcessKeyboardMessage(&KeyboardController->RightShoulder, IsDown);
                     }
-                    else if(VKCode == 'T')
+                    else if(VKCode == '1')
                     {
-                        Win32ProcessKeyboardMessage(&KeyboardController->OpenTileMenu, IsDown);
+                        Win32ProcessKeyboardMessage(&KeyboardController->Biome, IsDown);
                     }
-                    else if(VKCode == 'R')
+                    else if(VKCode == '2')
                     {
-                        Win32ProcessKeyboardMessage(&KeyboardController->Rotate, IsDown, true);
+                        Win32ProcessKeyboardMessage(&KeyboardController->State, IsDown, true);
                     }
-                    else if(VKCode == 'F')
+                    else if(VKCode == '3')
                     {
-                        Win32ProcessKeyboardMessage(&KeyboardController->Flip, IsDown, true);
+                        Win32ProcessKeyboardMessage(&KeyboardController->MainSurface, IsDown, true);
+                    }
+                    else if(VKCode == '4')
+                    {
+                        Win32ProcessKeyboardMessage(&KeyboardController->MergeSurface, IsDown, true);
                     }
                     else if(VKCode == VK_UP)
                     {
@@ -556,7 +560,7 @@ Win32ProcessPendingMessages(win32_state *State, game_controller_input *KeyboardC
                     }
                     else if(VKCode == VK_RETURN)
                     {
-                        Win32ProcessKeyboardMessage(&KeyboardController->ChangeTile, IsDown, true);
+//                        Win32ProcessKeyboardMessage(&KeyboardController->ChangeTile, IsDown, true);
                     }
 #if VIEW_TILEMAP_INTERNAL
                     else if(VKCode == 'P')

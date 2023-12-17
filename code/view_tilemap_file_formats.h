@@ -31,6 +31,20 @@ enum tile_biome_type
     BiomeType_Count,
 };
 
+static const char *Biomes[] =
+{
+    "AncientForest",
+    "DeepCave",
+    "DesertV1",
+    "DesertV2",
+    "GrassLand",
+    "MarshlandV1",
+    "MarshlandV2",
+    "Mountains",
+    "Strangeland",
+    "Wetland",
+};
+
 enum tile_state
 {
     TileState_Solid,
@@ -64,6 +78,31 @@ enum tile_state
     TileState_Count,
 };
 
+static const char *States[] =
+{
+    "Solid",
+    "TopLeftCornerOutside",
+    "BottomLeftCornerOutside",
+    "TopRightCornerOutside",
+    "BottomRightCornerOutside",
+    "TopLeftCornerInside",
+    "BottomLeftCornerInside",
+    "TopRightCornerInside",
+    "BottomRightCornerInside",
+    "TopVertical0",
+    "TopVertical1",
+    "TopVertical2",
+    "BottomVertical0",
+    "BottomVertical1",
+    "BottomVertical2",
+    "LeftHorizontal0",
+    "LeftHorizontal1",
+    "LeftHorizontal2",
+    "RightHorizontal0",
+    "RightHorizontal1",
+    "RightHorizontal2",
+};
+
 enum tile_surface
 {
     TileSurface_0,
@@ -84,6 +123,26 @@ enum tile_surface
     TileSurface_15,
 
     TileSurface_Count,
+};
+
+static const char *Surfaces[] =
+{
+    "TileSurface_0",
+    "TileSurface_1",
+    "TileSurface_2",
+    "TileSurface_3",
+    "TileSurface_4",
+    "TileSurface_5",
+    "TileSurface_6",
+    "TileSurface_7",
+    "TileSurface_8",
+    "TileSurface_9",
+    "TileSurface_10",
+    "TileSurface_11",
+    "TileSurface_12",
+    "TileSurface_13",
+    "TileSurface_14",
+    "TileSurface_15",
 };
 
 enum asset_tag_id
