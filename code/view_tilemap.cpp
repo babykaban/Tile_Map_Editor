@@ -692,7 +692,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     BeginRender(TextRenderGroup);
     Ortographic(TextRenderGroup, Buffer->Width, Buffer->Height, 1.0f);
 
-    render_group *RenderGroup = AllocateRenderGroup(TranState->Assets, &TranState->TranArena, Megabytes(4), false, true);
+    render_group *RenderGroup = AllocateRenderGroup(TranState->Assets, &TranState->TranArena, Megabytes(4), false, false);
     BeginRender(RenderGroup);
     real32 WidthOfMonitor = 0.635f; // NOTE(casey): Horizontal measurement of monitor in meters
     real32 MetersToPixels = (real32)DrawBuffer->Width*WidthOfMonitor;// / 2.0f;
@@ -725,8 +725,27 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     loaded_tileset *Tileset = GetTileset(RenderGroup->Assets, TilesetID, RenderGroup->GenerationID);
 
     ssa_tileset *Info = GetTilesetInfo(RenderGroup->Assets, TilesetID);
-    bitmap_id ID = GetBitmapForTile(RenderGroup->Assets, Info, Tileset, 1);
-    PushBitmap(RenderGroup, ID, 3.0f, V3(0, 0, 0));
+
+    r32 OffsetX = 0.0f;
+    r32 OffsetY = 0.0f;
+    int Count = 0;
+    for(u32 TileIndex = 0;
+        TileIndex < Info->TileCount;
+        ++TileIndex)
+    {
+        
+        bitmap_id ID = GetBitmapForTile(RenderGroup->Assets, Info, Tileset, TileIndex);
+        PushBitmap(RenderGroup, ID, 2.0f, V3(OffsetX, OffsetY, 0));
+
+        ++Count;
+        OffsetX += 2.0f;
+        if(Count == 5)
+        {
+            Count = 0;
+            OffsetX = 0.0f;
+            OffsetY -= 2.0f;
+        }
+    }
 
     v2 ScreenCenter = {0.5f*(real32)DrawBuffer->Width,
                        0.5f*(real32)DrawBuffer->Height};
