@@ -358,7 +358,7 @@ LoadTileset(game_assets *Assets, tileset_id ID, b32 Immediate)
                 Asset->Header = AcquireAssetMemory(Assets, SizeTotal, ID.Value);
 
                 loaded_tileset *Tileset = &Asset->Header->Tileset;
-//                Font->BitmapIDOffset = GetFile(Assets, Asset->FileIndex)->FontBitmapIDOffset;
+                Tileset->BitmapIDOffset = GetFile(Assets, Asset->FileIndex)->TileBitmapIDOffset;
                 Tileset->TileBitmapIDs = (bitmap_id *)(Asset->Header + 1);
                 
                 load_asset_work Work;
@@ -825,6 +825,11 @@ AllocateGameAssets(memory_arena *Arena, memory_index Size, transient_state *Tran
                         {
                             File->FontBitmapIDOffset = AssetCount - SourceType->FirstAssetIndex;
                         }
+
+                        if(SourceType->TypeID == Asset_Tile)
+                        {
+                            File->TileBitmapIDOffset = AssetCount - SourceType->FirstAssetIndex;
+                        }
                         
                         u32 AssetCountForType = (SourceType->OnePastLastAssetIndex -
                                                  SourceType->FirstAssetIndex);
@@ -903,6 +908,17 @@ GetBitmapForGlyph(game_assets *Assets, ssa_font *Info, loaded_font *Font, u32 De
     u32 Glyph = GetGlyphFromCodePoint(Info, Font, DesiredCodePoint);
     bitmap_id Result = Font->Glyphs[Glyph].BitmapID;
     Result.Value += Font->BitmapIDOffset;
+    
+    return(Result);
+}
+
+internal bitmap_id
+GetBitmapForTile(game_assets *Assets, ssa_tileset *Info, loaded_tileset *Tileset,
+                 u32 TileIndex)
+{
+    Assert(TileIndex < Info->TileCount);
+    bitmap_id Result = Tileset->TileBitmapIDs[TileIndex];
+    Result.Value += Tileset->BitmapIDOffset;
     
     return(Result);
 }

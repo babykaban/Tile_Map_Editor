@@ -27,6 +27,7 @@ struct loaded_font
 struct loaded_tileset
 {
     bitmap_id *TileBitmapIDs;
+    u32 BitmapIDOffset;
 };
 
 enum asset_state
@@ -81,6 +82,7 @@ struct asset_file
 
     u32 TagBase; 
     s32 FontBitmapIDOffset;
+    s32 TileBitmapIDOffset;
 };
 
 enum asset_memory_block_flags
