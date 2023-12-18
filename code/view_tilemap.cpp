@@ -563,7 +563,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         GameState->CameraBoundsMax.ChunkY = WORLD_HEIGHT_TILE_COUNT / TILES_PER_CHUNK;
 
         GameState->ViewTile = false;
-
+        
         Memory->IsInitialized = true;
     }
 
@@ -702,11 +702,28 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     Prespective(RenderGroup, DrawBuffer->Width, DrawBuffer->Height, MetersToPixels, FocalLength, DistanceAboveTarget);
 
     RenderGroup->Transform.OffsetP = V3(0, 0, 0);
+    
+    asset_vector WeightVector = {};
+    WeightVector.E[Tag_TileBiomeType] = 1.0f;
+    WeightVector.E[Tag_TileState] = 1.0f;
+    WeightVector.E[Tag_TileMainSurface] = 1.0f;
+    WeightVector.E[Tag_TileMergeSurface] = 1.0f;
 
+    asset_vector MatchVector = {};
+    MatchVector.E[Tag_TileBiomeType] = (r32)BiomeType_AncientForest;
+    MatchVector.E[Tag_TileMainSurface] = (r32)TileSurface_Grass0;
+    MatchVector.E[Tag_TileMergeSurface] = (r32)TileSurface_Ground0;
+    
+    tileset_id ID = GetBestMatchTilesetFrom(RenderGroup->Assets, Asset_Tileset, &MatchVector, &WeightVector);
+    PushTileset(RenderGroup, ID);
+    loaded_tileset *Tileset = GetTileset(RenderGroup->Assets, ID, RenderGroup->GenerationID);
+    
     // NOTE(paul): Reset font spacing
     DEBUGReset(RenderGroup, Buffer->Width, Buffer->Height);
 
     Clear(RenderGroup, V4(0.25f, 0.25f, 0.25f, 0.0f));
+
+    PushBitmap(TextRenderGroup, Tileset->TileBitmapIDs[1], 100.0f, V3(0, 0, 0));
 
     v2 ScreenCenter = {0.5f*(real32)DrawBuffer->Width,
                        0.5f*(real32)DrawBuffer->Height};
@@ -806,7 +823,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
                 if(FurthestBuffer)
                 {
-                    FillGroundChunk(TranState, GameState, FurthestBuffer, &ChunkCenterP, TileSideInMeters);
+//                    FillGroundChunk(TranState, GameState, FurthestBuffer, &ChunkCenterP, TileSideInMeters);
                 }
             }
         }

@@ -105,6 +105,15 @@ static const char *States[] =
 
 enum tile_surface
 {
+    TileSurface_Grass0,
+    TileSurface_Grass1,
+    TileSurface_Grass2,
+    TileSurface_Grass3,
+    TileSurface_Ground0,
+    TileSurface_Ground1,
+    TileSurface_Ground2,
+    TileSurface_Ground3,
+    TileSurface_Ground4,
     TileSurface_0,
     TileSurface_1,
     TileSurface_2,
@@ -113,20 +122,21 @@ enum tile_surface
     TileSurface_5,
     TileSurface_6,
     TileSurface_7,
-    TileSurface_8,
-    TileSurface_9,
-    TileSurface_10,
-    TileSurface_11,
-    TileSurface_12,
-    TileSurface_13,
-    TileSurface_14,
-    TileSurface_15,
 
     TileSurface_Count,
 };
 
 static const char *Surfaces[] =
 {
+    "TileSurface_Grass0",
+    "TileSurface_Grass1",
+    "TileSurface_Grass2",
+    "TileSurface_Grass3",
+    "TileSurface_Ground0",
+    "TileSurface_Ground1",
+    "TileSurface_Ground2",
+    "TileSurface_Ground3",
+    "TileSurface_Ground4",
     "TileSurface_0",
     "TileSurface_1",
     "TileSurface_2",
@@ -135,14 +145,6 @@ static const char *Surfaces[] =
     "TileSurface_5",
     "TileSurface_6",
     "TileSurface_7",
-    "TileSurface_8",
-    "TileSurface_9",
-    "TileSurface_10",
-    "TileSurface_11",
-    "TileSurface_12",
-    "TileSurface_13",
-    "TileSurface_14",
-    "TileSurface_15",
 };
 
 enum asset_tag_id
@@ -184,6 +186,7 @@ enum asset_type_id
     Asset_FontGlyph,
 
     Asset_Tile,
+    Asset_Tileset,
     Asset_TestTile,
     //
     // NOTE(casey): Sounds!
@@ -206,6 +209,11 @@ enum asset_type_id
 #define SSA_CODE(a, b, c, d) (((uint32)(a) << 0) | ((uint32)(b) << 8) | ((uint32)(c) << 16) | ((uint32)(d) << 24))
 
 #pragma pack(push, 1)
+
+struct tileset_id
+{
+    u32 Value;
+};
 
 struct bitmap_id
 {
@@ -302,6 +310,16 @@ struct ssa_font
     */
 };
 
+struct ssa_tileset
+{
+    u32 TileCount;
+
+    /* NOTE(paul): Data is:
+
+       bitmap_id TileBitmapIDs[TileCount];
+    */
+};
+
 struct ssa_asset
 {
     u64 DataOffset;
@@ -312,6 +330,7 @@ struct ssa_asset
         ssa_bitmap Bitmap;
         ssa_sound Sound;
         ssa_font Font;
+        ssa_tileset Tileset;
     };
 };
 

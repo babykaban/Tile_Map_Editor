@@ -1631,6 +1631,25 @@ PushFont(render_group *Group, font_id ID)
     return(Font);
 }
 
+inline loaded_tileset *
+PushTileset(render_group *Group, tileset_id ID)
+{
+    loaded_tileset *Tileset = GetTileset(Group->Assets, ID, Group->GenerationID);
+    
+    if(Tileset)
+    {
+        // NOTE(casey): Nothing to do
+    }
+    else
+    {
+        Assert(!Group->RendersInBackground);
+        LoadTileset(Group->Assets, ID, true);
+        ++Group->MissingResourceCount;
+    }
+
+    return(Tileset);
+}
+
 inline void
 PushRect(render_group *Group, v3 Offset, v2 Dim, v4 Color = V4(1, 1, 1, 1))
 {

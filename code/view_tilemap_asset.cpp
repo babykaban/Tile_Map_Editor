@@ -332,6 +332,71 @@ LoadBitmap(game_assets *Assets, bitmap_id ID, b32 Immediate)
 }
 
 internal void
+LoadTileset(game_assets *Assets, tileset_id ID, b32 Immediate)
+{
+    asset *Asset = Assets->Assets + ID.Value;
+    if(ID.Value)
+    {
+        if(AtomicCompareExchangeUInt32((uint32 *)&Asset->State, AssetState_Queued, AssetState_Unloaded) ==
+           AssetState_Unloaded)
+        {
+            task_with_memory *Task = 0;
+
+            if(!Immediate)
+            {
+                Task = BeginTaskWithMemory(Assets->TranState);
+            }
+        
+            if(Immediate || Task)
+            {
+                ssa_tileset *Info = &Asset->SSA.Tileset;
+
+                u32 TileBitmapIDsSize = sizeof(bitmap_id)*Info->TileCount;
+                u32 SizeData = TileBitmapIDsSize;
+                u32 SizeTotal = SizeData + sizeof(asset_memory_header);
+
+                Asset->Header = AcquireAssetMemory(Assets, SizeTotal, ID.Value);
+
+                loaded_tileset *Tileset = &Asset->Header->Tileset;
+//                Font->BitmapIDOffset = GetFile(Assets, Asset->FileIndex)->FontBitmapIDOffset;
+                Tileset->TileBitmapIDs = (bitmap_id *)(Asset->Header + 1);
+                
+                load_asset_work Work;
+                Work.Task = Task;
+                Work.Asset = Assets->Assets + ID.Value;
+                Work.Handle = GetFileHandleFor(Assets, Asset->FileIndex);
+                Work.Offset = Asset->SSA.DataOffset;
+                Work.Size = SizeData;
+                Work.Destination = Tileset->TileBitmapIDs;
+                Work.FinalizeOperation = FinalizeAsset_None;
+                Work.FinalState = AssetState_Loaded;
+
+                if(Task)
+                {
+                    load_asset_work *TaskWork = PushStruct(&Task->Arena, load_asset_work);
+                    *TaskWork = Work;
+                
+                    Platform.AddEntry(Assets->TranState->LowPriorityQueue, LoadAssetWork, TaskWork);
+                }
+                else
+                {
+                    LoadAssetWorkDirectly(&Work);
+                }
+            }
+            else
+            {
+                Asset->State = AssetState_Unloaded;
+            }
+        }
+        else if(Immediate)
+        {
+            asset_state volatile *State = (asset_state volatile *)&Asset->State;
+            while(*State == AssetState_Queued) {}
+        }
+    }
+}
+
+internal void
 LoadSound(game_assets *Assets, sound_id ID)
 {
     asset *Asset = Assets->Assets + ID.Value;
@@ -555,6 +620,15 @@ inline font_id
 GetBestMatchFontFrom(game_assets *Assets, asset_type_id TypeID, asset_vector *MatchVector, asset_vector *WeightVector)
 {
     font_id Result = {};
+    Result.Value = GetBestMatchAssetFrom(Assets, TypeID, MatchVector, WeightVector);
+
+    return(Result);
+}
+
+inline tileset_id
+GetBestMatchTilesetFrom(game_assets *Assets, asset_type_id TypeID, asset_vector *MatchVector, asset_vector *WeightVector)
+{
+    tileset_id Result = {};
     Result.Value = GetBestMatchAssetFrom(Assets, TypeID, MatchVector, WeightVector);
 
     return(Result);

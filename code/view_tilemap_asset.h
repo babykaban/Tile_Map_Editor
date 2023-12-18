@@ -24,6 +24,11 @@ struct loaded_font
     u16 *UnicodeMap;
 };
 
+struct loaded_tileset
+{
+    bitmap_id *TileBitmapIDs;
+};
+
 enum asset_state
 {
     AssetState_Unloaded,
@@ -44,6 +49,7 @@ struct asset_memory_header
         loaded_bitmap Bitmap;
         loaded_sound Sound;
         loaded_font Font;
+        loaded_tileset Tileset;
     };
 };
 
@@ -248,6 +254,25 @@ GetFontInfo(game_assets *Assets, font_id ID)
     return(Result);
 }
 
+inline loaded_tileset *
+GetTileset(game_assets *Assets, tileset_id ID, u32 GenerationID)
+{
+    asset_memory_header *Header = GetAsset(Assets, ID.Value, GenerationID);
+
+    loaded_tileset *Result = Header ? &Header->Tileset : 0;
+
+    return(Result);
+}
+
+inline ssa_tileset *
+GetTilesetInfo(game_assets *Assets, tileset_id ID)
+{
+    Assert(ID.Value <= Assets->AssetCount);
+    ssa_tileset *Result = &Assets->Assets[ID.Value].SSA.Tileset;
+
+    return(Result);
+}
+
 inline bool32
 IsValid(bitmap_id ID)
 {
@@ -272,6 +297,9 @@ inline void PrefetchSound(game_assets *Assets, sound_id ID) {LoadSound(Assets, I
 
 internal void LoadFont(game_assets *Assets, font_id ID, b32 Immediate);
 inline void PrefetchFont(game_assets *Assets, font_id ID) {LoadFont(Assets, ID, false);}
+
+internal void LoadTileset(game_assets *Assets, tileset_id ID, b32 Immediate);
+inline void PrefetchTileset(game_assets *Assets, tileset_id ID) {LoadTileset(Assets, ID, false);}
 
 inline sound_id
 GetNextSoundInChain(game_assets *Assets, sound_id ID)
