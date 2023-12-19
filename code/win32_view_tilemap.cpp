@@ -467,7 +467,7 @@ Win32ProcessKeyboardMessage(game_button_state *NewState, bool32 IsDown, bool32 R
 }
 
 internal void
-Win32ProcessPendingMessages(win32_state *State, game_controller_input *KeyboardController, s32 *MouseRotated)
+Win32ProcessPendingMessages(win32_state *State, game_controller_input *KeyboardController, s16 *MouseRotated)
 {
     MSG Message;
     while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
@@ -481,7 +481,7 @@ Win32ProcessPendingMessages(win32_state *State, game_controller_input *KeyboardC
 
             case WM_MOUSEWHEEL:
             {
-                *MouseRotated = (s32)((Message.wParam >> 16) / 120);
+                *MouseRotated = (s16)(Message.wParam >> 16);
             } break;
 
             
@@ -1035,7 +1035,7 @@ WinMain(HINSTANCE Instance,
                         }
                     }
 
-                    s32 MouseZ = 0;
+                    s16 MouseZ = 0;
                     Win32ProcessPendingMessages(&Win32State, NewKeyboardController, &MouseZ);
 
                     if(!GlobalPause)
@@ -1045,7 +1045,10 @@ WinMain(HINSTANCE Instance,
                         ScreenToClient(Window, &MouseP);
                         NewInput->MouseX = MouseP.x;
                         NewInput->MouseY = MouseP.y;
-                        NewInput->MouseZ = MouseZ; // TODO(casey): Support mousewheel?
+                        // NOTE(paul): 120 is the mouse wheel delta, thus
+                        // this division will convert the number to the
+                        // number of rotations
+                        NewInput->MouseZ = MouseZ / 120;
                         Win32ProcessKeyboardMessage(&NewInput->MouseButtons[0],
                                                     GetKeyState(VK_LBUTTON) & (1 << 15));
                         Win32ProcessKeyboardMessage(&NewInput->MouseButtons[1],

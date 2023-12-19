@@ -214,6 +214,7 @@ struct game_state
 
     u32 Count;
     u32 TileArray[10];
+    u32 CursorIndex;
     
     u32 WorldTileCount;
     world_tile *WorldTiles;

@@ -298,17 +298,6 @@ GetTileFromChunkPosition(game_state *GameState, world_position MouseP)
     return(Result);
 }
 
-internal void
-ShowTile(render_group *RenderGroup, game_state *GameState, world_position MouseChunkP)
-{
-    if((MouseChunkP.ChunkX >= 0) && (MouseChunkP.ChunkY >= 0))
-    {
-        r32 TileSize = 100.0f;
-        world_tile *WorldTile = GetTileFromChunkPosition(GameState, MouseChunkP);
-        PushBitmap(RenderGroup, WorldTile->TileBitmapID, TileSize, V3(0, 0, 0));
-    }
-}
-
 inline void
 ResetGroundBuffers(transient_state *TranState)
 {
@@ -497,12 +486,12 @@ ShowTileMenuBar(render_group *RenderGroup, game_state *GameState, loaded_tileset
         TileOffsetX += TileDimInMeters;
     }
 
-    r32 CursorOffsetX = TileHalfDim - HalfMenuBarWidth;
+    r32 CursorOffsetX = (TileHalfDim - HalfMenuBarWidth) + GameState->CursorIndex*TileDimInMeters;
     PushRectOutline(RenderGroup, V3(CursorOffsetX, OffsetY, 0), V2(TileDimInMeters, TileDimInMeters), V4(1, 1, 1, 1), 0.05f);
 }
 
 internal void
-ShowTest(render_group *RenderGroup, game_state *GameState, s32 MouseZ)
+ShowTest(render_group *RenderGroup, game_state *GameState, s16 MouseZ)
 {
 
     DEBUGTextLine(RenderGroup, "Test:");
@@ -514,24 +503,40 @@ ShowTest(render_group *RenderGroup, game_state *GameState, s32 MouseZ)
                 GameState->TileArray[8], GameState->TileArray[9], MouseZ);
     DEBUGTextLine(RenderGroup, TextBuffer);
 
-    if(MouseZ)
+    if(MouseZ != 0)
     {
+        s32 Count = MouseZ > 0 ? MouseZ : MouseZ * -1;
         for(s32 MouseRotIndex = 0;
-            MouseRotIndex < MouseZ;
+            MouseRotIndex < Count;
             ++MouseRotIndex)
         {
-            for(u32 I = ArrayCount(GameState->TileArray) - 1;
-                I > 0;
-                --I)
+            if(((GameState->CursorIndex == 0) && (MouseZ < 0)) ||
+               ((GameState->CursorIndex == 9) && (MouseZ > 0)))
             {
-                GameState->TileArray[I] = GameState->TileArray[I - 1];
+                for(u32 I = ArrayCount(GameState->TileArray) - 1;
+                    I > 0;
+                    --I)
+                {
+                    GameState->TileArray[I] = GameState->TileArray[I - 1];
+                }
+                s32 NewFirst = GameState->TileArray[0] - 1;
+                if(NewFirst == -1)
+                {
+                    NewFirst = GameState->Count - 1;
+                }
+                GameState->TileArray[0] = NewFirst;
             }
-            s32 NewFirst = GameState->TileArray[0] - 1;
-            if(NewFirst == -1)
+            else
             {
-                NewFirst = GameState->Count - 1;
+                if(MouseZ > 0)
+                {
+                    GameState->CursorIndex += 1;
+                }
+                else
+                {
+                    GameState->CursorIndex -= 1;
+                }
             }
-            GameState->TileArray[0] = NewFirst;
         }
     }
 }
@@ -624,7 +629,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         {
             GameState->TileArray[I] = I;
         }
-        
+        GameState->CursorIndex = 1;        
         Memory->IsInitialized = true;
     }
 
