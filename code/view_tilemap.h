@@ -212,17 +212,8 @@ struct game_state
     world_position CameraBoundsMin;
     world_position CameraBoundsMax;
 
-    b32 ViewTile;
-    u32 BiomeMask;
-    u32 TileStateMask;
-    u32 TileSurfaceMainMask;
-    u32 TileSurfaceMergeMask;
-    // NOTE(paul): 00 - tile_biome_type
-    //             00 - tile_state
-    //             00 - tile_surface(Main)
-    //             00 - tile_surface(Merge) 
-    u32 ChoosenTileAttributes;
-    u32 AttributeToChange;
+    u32 Count;
+    u32 TileArray[10];
     
     u32 WorldTileCount;
     world_tile *WorldTiles;

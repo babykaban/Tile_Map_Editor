@@ -310,13 +310,20 @@ struct ssa_font
     */
 };
 
+
+struct ssa_tile
+{
+    u32 UniqueID;
+    bitmap_id BitmapID;
+};
+
 struct ssa_tileset
 {
     u32 TileCount;
 
     /* NOTE(paul): Data is:
 
-       bitmap_id TileBitmapIDs[TileCount];
+       ssat_tile Tiles[TileCount];
     */
 };
 

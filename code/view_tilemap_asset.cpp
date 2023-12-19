@@ -351,15 +351,15 @@ LoadTileset(game_assets *Assets, tileset_id ID, b32 Immediate)
             {
                 ssa_tileset *Info = &Asset->SSA.Tileset;
 
-                u32 TileBitmapIDsSize = sizeof(bitmap_id)*Info->TileCount;
-                u32 SizeData = TileBitmapIDsSize;
+                u32 TilesSize = sizeof(ssa_tile)*Info->TileCount;
+                u32 SizeData = TilesSize;
                 u32 SizeTotal = SizeData + sizeof(asset_memory_header);
 
                 Asset->Header = AcquireAssetMemory(Assets, SizeTotal, ID.Value);
 
                 loaded_tileset *Tileset = &Asset->Header->Tileset;
                 Tileset->BitmapIDOffset = GetFile(Assets, Asset->FileIndex)->TileBitmapIDOffset;
-                Tileset->TileBitmapIDs = (bitmap_id *)(Asset->Header + 1);
+                Tileset->Tiles = (ssa_tile *)(Asset->Header + 1);
                 
                 load_asset_work Work;
                 Work.Task = Task;
@@ -367,7 +367,7 @@ LoadTileset(game_assets *Assets, tileset_id ID, b32 Immediate)
                 Work.Handle = GetFileHandleFor(Assets, Asset->FileIndex);
                 Work.Offset = Asset->SSA.DataOffset;
                 Work.Size = SizeData;
-                Work.Destination = Tileset->TileBitmapIDs;
+                Work.Destination = Tileset->Tiles;
                 Work.FinalizeOperation = FinalizeAsset_None;
                 Work.FinalState = AssetState_Loaded;
 
@@ -917,7 +917,7 @@ GetBitmapForTile(game_assets *Assets, ssa_tileset *Info, loaded_tileset *Tileset
                  u32 TileIndex)
 {
     Assert(TileIndex < Info->TileCount);
-    bitmap_id Result = Tileset->TileBitmapIDs[TileIndex];
+    bitmap_id Result = Tileset->Tiles[TileIndex].BitmapID;
     Result.Value += Tileset->BitmapIDOffset;
     
     return(Result);

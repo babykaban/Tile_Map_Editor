@@ -26,7 +26,7 @@ struct loaded_font
 
 struct loaded_tileset
 {
-    bitmap_id *TileBitmapIDs;
+    ssa_tile *Tiles;
     u32 BitmapIDOffset;
 };
 
