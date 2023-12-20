@@ -6,6 +6,190 @@
    $Notice: (C) Copyright 2023 by Handy Paul, Inc. All Rights Reserved. $
    ======================================================================== */
 
+#if 0
+struct unpacked_tile_attributes
+{
+    s32 Biome;
+    s32 State;
+    s32 MainSurface;
+    s32 MergeSurface;
+};
+
+inline unpacked_tile_attributes
+UnpackTileAttributes(game_state *GameState, u32 TileAttributes)
+{
+    unpacked_tile_attributes Result = {};
+
+    Result.Biome = (TileAttributes & GameState->BiomeMask) >> 24;
+    Result.State = (TileAttributes & GameState->TileStateMask) >> 16;
+    Result.MainSurface = (TileAttributes & GameState->TileSurfaceMainMask) >> 8;
+    Result.MergeSurface = (TileAttributes & GameState->TileSurfaceMergeMask);
+
+    return(Result);
+}
+
+inline u32
+PackTileAttributes(unpacked_tile_attributes Attributes)
+{
+    u32 Result = ((Attributes.Biome << 24) |
+                  (Attributes.State << 16) |
+                  (Attributes.MainSurface << 8) |
+                  (Attributes.MergeSurface));
+
+    return(Result);
+}
+
+inline u32
+PackTileAttributes(u32 Biome, u32 State, u32 MainSurface, u32 MergeSurface)
+{
+    u32 Result = ((Biome << 24) |
+                  (State << 16) |
+                  (MainSurface << 8) |
+                  (MergeSurface));
+
+    return(Result);
+}
+
+inline void
+DrawTilesForAttributes(render_group *RenderGroup, unpacked_tile_attributes Attributes)
+{
+    r32 TileSize = 100.0f;
+    r32 TileHalfSize = TileSize / 2.0f;
+    r32 Offset = 90.0f;
+    r32 OffsetY = AtY - Offset;
+    r32 OffsetX = LeftEdge + Offset;
+        
+    bitmap_id ID = GetTileBitmapIDForAttributes(RenderGroup->Assets, Attributes.Biome, Attributes.State,
+                                                Attributes.MainSurface, Attributes.MergeSurface);
+    PushRectOutline(RenderGroup, V3(OffsetX + TileHalfSize, OffsetY + TileHalfSize, 0),
+                    V2(TileSize, TileSize), V4(1, 0, 0, 1), 2.0f);
+    PushBitmap(RenderGroup, ID, TileSize, V3(OffsetX, OffsetY, 0));
+    OffsetX += Offset + TileSize;
+
+    ID = GetSolidTileBitmapIDForAttributes(RenderGroup->Assets, Attributes.Biome, Attributes.MainSurface);
+    PushRectOutline(RenderGroup, V3(OffsetX + TileHalfSize, OffsetY + TileHalfSize, 0),
+                    V2(TileSize, TileSize), V4(1, 0, 0, 1), 2.0f);
+    PushBitmap(RenderGroup, ID, TileSize, V3(OffsetX, OffsetY, 0));
+    OffsetX += Offset + TileSize;
+
+    ID = GetSolidTileBitmapIDForAttributes(RenderGroup->Assets, Attributes.Biome, Attributes.MergeSurface);
+    PushRectOutline(RenderGroup, V3(OffsetX + TileHalfSize, OffsetY + TileHalfSize, 0),
+                    V2(TileSize, TileSize), V4(1, 0, 0, 1), 2.0f);
+    PushBitmap(RenderGroup, ID, TileSize, V3(OffsetX, OffsetY, 0));
+    OffsetX += Offset + TileSize;
+
+    AtY -= 120.0f;
+}
+
+internal void
+ShowCurrentTileAttributes(render_group *RenderGroup, game_state *GameState, world_position MouseChunkP)
+{
+    if((MouseChunkP.ChunkX >= 0) && (MouseChunkP.ChunkY >= 0))
+    {
+        world_tile *WorldTile = GetTileFromChunkPosition(GameState, MouseChunkP);
+
+        unpacked_tile_attributes TileAttributes = UnpackTileAttributes(GameState, WorldTile->TileAttributes);
+
+        DEBUGTextLine(RenderGroup, "CurrentTileAttributes:");
+        char TextBuffer[256];
+        _snprintf_s(TextBuffer, sizeof(TextBuffer),
+                    "Biome: %s / State: %s / MainSurface: %s / MergeSurface: %s",
+                    Biomes[TileAttributes.Biome], States[TileAttributes.State],
+                    Surfaces[TileAttributes.MainSurface], Surfaces[TileAttributes.MergeSurface]);
+        DEBUGTextLine(RenderGroup, TextBuffer);
+
+        DrawTilesForAttributes(RenderGroup, TileAttributes);
+    }
+}
+
+internal void
+ShowChoosenTileAttributes(render_group *RenderGroup, game_state *GameState)
+{
+    unpacked_tile_attributes TileAttributes = UnpackTileAttributes(GameState, GameState->ChoosenTileAttributes);
+
+    DEBUGTextLine(RenderGroup, "ChoosenTileAttributes:");
+    char TextBuffer[256];
+    _snprintf_s(TextBuffer, sizeof(TextBuffer),
+                "Biome: %s / State: %s / MainSurface: %s / MergeSurface: %s",
+                Biomes[TileAttributes.Biome], States[TileAttributes.State],
+                Surfaces[TileAttributes.MainSurface], Surfaces[TileAttributes.MergeSurface]);
+    DEBUGTextLine(RenderGroup, TextBuffer);
+
+    DrawTilesForAttributes(RenderGroup, TileAttributes);
+}
+
+inline void
+ChangeChoosenAttributeValueFor(game_state *GameState, b32 Up)
+{
+    unpacked_tile_attributes Attributes = UnpackTileAttributes(GameState, GameState->ChoosenTileAttributes);
+    s32 Addend = Up ? 1 : -1;
+    switch(GameState->AttributeToChange)
+    {
+        case TileAttribute_Biome:
+        {
+            Attributes.Biome += Addend;
+            if(Attributes.Biome < 0) {Attributes.Biome = BiomeType_Count - 1;}
+            if(Attributes.Biome >= BiomeType_Count) {Attributes.Biome = 0;}
+        } break;
+
+        case TileAttribute_State:
+        {
+            Attributes.State += Addend;
+            if(Attributes.State < 0) {Attributes.State = TileState_Count - 1;}
+            if(Attributes.State >= TileState_Count) {Attributes.State = 0;}
+        } break;
+
+        case TileAttribute_MainSurface:
+        {
+            Attributes.MainSurface += Addend;
+            if(Attributes.MainSurface < 0) {Attributes.MainSurface = TileSurface_Count - 1;}
+            if(Attributes.MainSurface >= TileSurface_Count) {Attributes.MainSurface = 0;}
+        } break;
+
+        case TileAttribute_MergeSurface:
+        {
+            Attributes.MergeSurface += Addend;
+            if(Attributes.MergeSurface < 0) {Attributes.MergeSurface = TileSurface_Count - 1;}
+            if(Attributes.MergeSurface >= TileSurface_Count) {Attributes.MergeSurface = 0;}
+        } break;
+    }
+
+    GameState->ChoosenTileAttributes = PackTileAttributes(Attributes);
+}
+#endif
+
+inline bitmap_id
+GetTileBitmapIDForAttributes(game_assets *Assets, u32 Biome, u32 State, u32 MainSurface, u32 MergeSurface)
+{
+    bitmap_id Result = {};
+    
+    asset_vector WeightVector = {};
+    WeightVector.E[Tag_TileBiomeType] = 1.0f;
+    WeightVector.E[Tag_TileState] = 1.0f;
+    WeightVector.E[Tag_TileMainSurface] = 1.0f;
+    WeightVector.E[Tag_TileMergeSurface] = 1.0f;
+
+    asset_vector MatchVector = {};
+    MatchVector.E[Tag_TileBiomeType] = (r32)Biome;
+    MatchVector.E[Tag_TileState] = (r32)State;
+    MatchVector.E[Tag_TileMainSurface] = (r32)MainSurface;
+    MatchVector.E[Tag_TileMergeSurface] = (r32)MergeSurface;
+
+    Result = GetBestMatchBitmapFrom(Assets, Asset_Tile,
+                                    &MatchVector, &WeightVector);
+
+    return(Result);
+}
+
+inline bitmap_id
+GetSolidTileBitmapIDForAttributes(game_assets *Assets, u32 Biome, u32 Surface)
+{
+    bitmap_id Result = {};
+    Result = GetTileBitmapIDForAttributes(Assets, Biome, TileState_Solid, Surface, Surface);
+
+    return(Result);
+}
+
 inline v2
 TopDownAlign(loaded_bitmap *Bitmap, v2 Align)
 {

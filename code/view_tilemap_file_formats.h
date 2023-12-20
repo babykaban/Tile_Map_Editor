@@ -45,64 +45,6 @@ static const char *Biomes[] =
     "Wetland",
 };
 
-enum tile_state
-{
-    TileState_Solid,
-
-    TileState_TopLeftCornerOutside,
-    TileState_BottomLeftCornerOutside,
-    TileState_TopRightCornerOutside,
-    TileState_BottomRightCornerOutside,
-
-    TileState_TopLeftCornerInside,
-    TileState_BottomLeftCornerInside,
-    TileState_TopRightCornerInside,
-    TileState_BottomRightCornerInside,
-
-    TileState_TopVertical0,
-    TileState_TopVertical1,
-    TileState_TopVertical2,
-
-    TileState_BottomVertical0,
-    TileState_BottomVertical1,
-    TileState_BottomVertical2,
-
-    TileState_LeftHorizontal0,
-    TileState_LeftHorizontal1,
-    TileState_LeftHorizontal2,
-
-    TileState_RightHorizontal0,
-    TileState_RightHorizontal1,
-    TileState_RightHorizontal2,
-
-    TileState_Count,
-};
-
-static const char *States[] =
-{
-    "Solid",
-    "TopLeftCornerOutside",
-    "BottomLeftCornerOutside",
-    "TopRightCornerOutside",
-    "BottomRightCornerOutside",
-    "TopLeftCornerInside",
-    "BottomLeftCornerInside",
-    "TopRightCornerInside",
-    "BottomRightCornerInside",
-    "TopVertical0",
-    "TopVertical1",
-    "TopVertical2",
-    "BottomVertical0",
-    "BottomVertical1",
-    "BottomVertical2",
-    "LeftHorizontal0",
-    "LeftHorizontal1",
-    "LeftHorizontal2",
-    "RightHorizontal0",
-    "RightHorizontal1",
-    "RightHorizontal2",
-};
-
 enum tile_surface
 {
     TileSurface_Grass0,
@@ -113,15 +55,7 @@ enum tile_surface
     TileSurface_Ground1,
     TileSurface_Ground2,
     TileSurface_Ground3,
-    TileSurface_Ground4,
-    TileSurface_0,
-    TileSurface_1,
-    TileSurface_2,
-    TileSurface_3,
-    TileSurface_4,
-    TileSurface_5,
-    TileSurface_6,
-    TileSurface_7,
+    TileSurface_CliffWall,
 
     TileSurface_Count,
 };
@@ -136,15 +70,7 @@ static const char *Surfaces[] =
     "TileSurface_Ground1",
     "TileSurface_Ground2",
     "TileSurface_Ground3",
-    "TileSurface_Ground4",
-    "TileSurface_0",
-    "TileSurface_1",
-    "TileSurface_2",
-    "TileSurface_3",
-    "TileSurface_4",
-    "TileSurface_5",
-    "TileSurface_6",
-    "TileSurface_7",
+    "TileSurface_CliffWall",
 };
 
 enum asset_tag_id
@@ -153,8 +79,8 @@ enum asset_tag_id
     Tag_UnicodeCodepoint,
     Tag_FontType,
 
+    Tag_TileID,
     Tag_TileBiomeType,
-    Tag_TileState,
     Tag_TileMainSurface,
     Tag_TileMergeSurface,
     

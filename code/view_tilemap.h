@@ -184,21 +184,11 @@ struct ground_buffer
     loaded_bitmap Bitmap;
 };
 
-enum tile_attribute
+struct array_cursor
 {
-    TileAttribute_Biome,
-    TileAttribute_State,
-    TileAttribute_MainSurface,
-    TileAttribute_MergeSurface,
-};
-
-static const char *TileAtributes[] =
-{
-    "Biome",
-    "State",
-    "MainSurface",
-    "MergeSurface",
-
+    u32 ArrayPosition;
+    u32 ArrayCount;
+    u32 *Array;
 };
 
 struct game_state
@@ -211,10 +201,11 @@ struct game_state
     world_position CameraP;
     world_position CameraBoundsMin;
     world_position CameraBoundsMax;
-
-    u32 Count;
-    u32 TileArray[10];
-    u32 CursorIndex;
+    
+    u32 TilesetBiome;
+    u32 TilesetMainSurface;
+    u32 TilesetMergeSurface;
+    array_cursor MenuBarCursor;
     
     u32 WorldTileCount;
     world_tile *WorldTiles;

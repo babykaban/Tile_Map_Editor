@@ -29,8 +29,8 @@ struct world_position
 
 struct world_tile
 {
+    u32 TileID;
     bitmap_id TileBitmapID;
-    u32 TileAttributes;
 };
 
 struct world_chunk

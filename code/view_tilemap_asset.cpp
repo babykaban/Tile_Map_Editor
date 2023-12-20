@@ -634,38 +634,6 @@ GetBestMatchTilesetFrom(game_assets *Assets, asset_type_id TypeID, asset_vector 
     return(Result);
 }
 
-inline bitmap_id
-GetTileBitmapIDForAttributes(game_assets *Assets, u32 Biome, u32 State, u32 MainSurface, u32 MergeSurface)
-{
-    bitmap_id Result = {};
-    
-    asset_vector WeightVector = {};
-    WeightVector.E[Tag_TileBiomeType] = 1.0f;
-    WeightVector.E[Tag_TileState] = 1.0f;
-    WeightVector.E[Tag_TileMainSurface] = 1.0f;
-    WeightVector.E[Tag_TileMergeSurface] = 1.0f;
-
-    asset_vector MatchVector = {};
-    MatchVector.E[Tag_TileBiomeType] = (r32)Biome;
-    MatchVector.E[Tag_TileState] = (r32)State;
-    MatchVector.E[Tag_TileMainSurface] = (r32)MainSurface;
-    MatchVector.E[Tag_TileMergeSurface] = (r32)MergeSurface;
-
-    Result = GetBestMatchBitmapFrom(Assets, Asset_Tile,
-                                    &MatchVector, &WeightVector);
-
-    return(Result);
-}
-
-inline bitmap_id
-GetSolidTileBitmapIDForAttributes(game_assets *Assets, u32 Biome, u32 Surface)
-{
-    bitmap_id Result = {};
-    Result = GetTileBitmapIDForAttributes(Assets, Biome, TileState_Solid, Surface, Surface);
-
-    return(Result);
-}
-
 internal uint32
 GetRandomAssetFrom(game_assets *Assets, asset_type_id TypeID, random_series *Series)
 {

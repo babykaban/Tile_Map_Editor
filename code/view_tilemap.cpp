@@ -19,30 +19,30 @@ global_variable font_id FontID;
 global_variable tileset_id TilesetID; 
 
 inline tile_position
-TilePositionFromChunkPosition(world_position Pos)
+TilePositionFromChunkPosition(world_position *Pos)
 {
     tile_position Result = {};
 
     u32 HalfChunkCount = TILES_PER_CHUNK / 2;
-    Result.TileX = Pos.ChunkX*TILES_PER_CHUNK + HalfChunkCount;
-    Result.TileY = Pos.ChunkY*TILES_PER_CHUNK + HalfChunkCount; 
+    Result.TileX = Pos->ChunkX*TILES_PER_CHUNK + HalfChunkCount;
+    Result.TileY = Pos->ChunkY*TILES_PER_CHUNK + HalfChunkCount; 
 
-    if(Pos.Offset_.x > 0.0f)
+    if(Pos->Offset_.x > 0.0f)
     {
-        Result.TileX += CeilReal32ToInt32(Pos.Offset_.x) - 1;
+        Result.TileX += CeilReal32ToInt32(Pos->Offset_.x) - 1;
     }
     else
     {
-        Result.TileX += FloorReal32ToInt32(Pos.Offset_.x);
+        Result.TileX += FloorReal32ToInt32(Pos->Offset_.x);
     }
 
-    if(Pos.Offset_.y > 0.0f)
+    if(Pos->Offset_.y > 0.0f)
     {
-        Result.TileY += CeilReal32ToInt32(Pos.Offset_.y) - 1;
+        Result.TileY += CeilReal32ToInt32(Pos->Offset_.y) - 1;
     }
     else
     {
-        Result.TileY += FloorReal32ToInt32(Pos.Offset_.y);
+        Result.TileY += FloorReal32ToInt32(Pos->Offset_.y);
     }
 
     return(Result);
@@ -229,7 +229,7 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
                     real32 Y = (real32)(TileY - MinTileY);
                     v2 P = -HalfDim + V2(TileSideInMeters*X, TileSideInMeters*Y);
                     
-                    bitmap_id ID = GetFirstBitmapFrom(TranState->Assets, Asset_TestTile);
+                    bitmap_id ID = WorldTile->TileBitmapID;
                     PushBitmap(RenderGroup, ID, 1.0f, V3(P, 0.0f));
                 }
             }
@@ -252,46 +252,32 @@ InitializeWorldTiles(game_assets *Assets, game_state *GameState, u32 *ReferenceT
     else
     {
         asset_vector MatchVector = {};
-        MatchVector.E[Tag_TileBiomeType] = BiomeType_AncientForest;
-        MatchVector.E[Tag_TileState] = TileState_Solid;
-        MatchVector.E[Tag_TileMainSurface] = TileSurface_0;
-        MatchVector.E[Tag_TileMergeSurface] = TileSurface_0;
+        MatchVector.E[Tag_TileID] = 3.0f;
 
         asset_vector WeightVector = {};
-        WeightVector.E[Tag_TileBiomeType] = 1.0f;
-        WeightVector.E[Tag_TileState] = 1.0f;
-        WeightVector.E[Tag_TileMainSurface] = 1.0f;
-        WeightVector.E[Tag_TileMergeSurface] = 1.0f;
+        WeightVector.E[Tag_TileID] = 1.0f;
 
         bitmap_id TileBitmapID = GetBestMatchBitmapFrom(Assets, Asset_Tile,
                                                         &MatchVector, &WeightVector);
-
-        u32 TileAttributes = ((BiomeType_AncientForest << 24) |
-                              (TileState_Solid << 16) |
-                              (TileSurface_0 << 8) |
-                              (TileSurface_0));
-
-//        GameState->ChoosenTileAttributes = TileAttributes;
-//        GameState->AttributeToChange = TileAttribute_Biome;
         
         for(u32 TileIndex = 0;
             TileIndex < GameState->WorldTileCount;
             ++TileIndex)
         {
             world_tile *WorldTile = GameState->WorldTiles + TileIndex;
+            WorldTile->TileID = 3;
             WorldTile->TileBitmapID = TileBitmapID;
-            WorldTile->TileAttributes = TileAttributes;
         }
     }
 }
 
 internal world_tile *
-GetTileFromChunkPosition(game_state *GameState, world_position MouseP)
+GetTileFromChunkPosition(game_state *GameState, world_position *MouseP)
 {
     world_tile *Result = 0;
     tile_position MouseTileP = TilePositionFromChunkPosition(MouseP);
 
-    u32 WorldTileIndex = MouseTileP.TileY*WORLD_HEIGHT_TILE_COUNT + MouseTileP.TileY*WORLD_WIDTH_TILE_COUNT;
+    u32 WorldTileIndex = MouseTileP.TileY*WORLD_HEIGHT_TILE_COUNT + MouseTileP.TileX;
 
     Result = GameState->WorldTiles + WorldTileIndex;
     
@@ -310,162 +296,111 @@ ResetGroundBuffers(transient_state *TranState)
     }        
 }
 
-#if 0
-struct unpacked_tile_attributes
-{
-    s32 Biome;
-    s32 State;
-    s32 MainSurface;
-    s32 MergeSurface;
-};
-
-inline unpacked_tile_attributes
-UnpackTileAttributes(game_state *GameState, u32 TileAttributes)
-{
-    unpacked_tile_attributes Result = {};
-
-    Result.Biome = (TileAttributes & GameState->BiomeMask) >> 24;
-    Result.State = (TileAttributes & GameState->TileStateMask) >> 16;
-    Result.MainSurface = (TileAttributes & GameState->TileSurfaceMainMask) >> 8;
-    Result.MergeSurface = (TileAttributes & GameState->TileSurfaceMergeMask);
-
-    return(Result);
-}
-
-inline u32
-PackTileAttributes(unpacked_tile_attributes Attributes)
-{
-    u32 Result = ((Attributes.Biome << 24) |
-                  (Attributes.State << 16) |
-                  (Attributes.MainSurface << 8) |
-                  (Attributes.MergeSurface));
-
-    return(Result);
-}
-
-inline u32
-PackTileAttributes(u32 Biome, u32 State, u32 MainSurface, u32 MergeSurface)
-{
-    u32 Result = ((Biome << 24) |
-                  (State << 16) |
-                  (MainSurface << 8) |
-                  (MergeSurface));
-
-    return(Result);
-}
-
-inline void
-DrawTilesForAttributes(render_group *RenderGroup, unpacked_tile_attributes Attributes)
-{
-    r32 TileSize = 100.0f;
-    r32 TileHalfSize = TileSize / 2.0f;
-    r32 Offset = 90.0f;
-    r32 OffsetY = AtY - Offset;
-    r32 OffsetX = LeftEdge + Offset;
-        
-    bitmap_id ID = GetTileBitmapIDForAttributes(RenderGroup->Assets, Attributes.Biome, Attributes.State,
-                                                Attributes.MainSurface, Attributes.MergeSurface);
-    PushRectOutline(RenderGroup, V3(OffsetX + TileHalfSize, OffsetY + TileHalfSize, 0),
-                    V2(TileSize, TileSize), V4(1, 0, 0, 1), 2.0f);
-    PushBitmap(RenderGroup, ID, TileSize, V3(OffsetX, OffsetY, 0));
-    OffsetX += Offset + TileSize;
-
-    ID = GetSolidTileBitmapIDForAttributes(RenderGroup->Assets, Attributes.Biome, Attributes.MainSurface);
-    PushRectOutline(RenderGroup, V3(OffsetX + TileHalfSize, OffsetY + TileHalfSize, 0),
-                    V2(TileSize, TileSize), V4(1, 0, 0, 1), 2.0f);
-    PushBitmap(RenderGroup, ID, TileSize, V3(OffsetX, OffsetY, 0));
-    OffsetX += Offset + TileSize;
-
-    ID = GetSolidTileBitmapIDForAttributes(RenderGroup->Assets, Attributes.Biome, Attributes.MergeSurface);
-    PushRectOutline(RenderGroup, V3(OffsetX + TileHalfSize, OffsetY + TileHalfSize, 0),
-                    V2(TileSize, TileSize), V4(1, 0, 0, 1), 2.0f);
-    PushBitmap(RenderGroup, ID, TileSize, V3(OffsetX, OffsetY, 0));
-    OffsetX += Offset + TileSize;
-
-    AtY -= 120.0f;
-}
-
 internal void
-ShowCurrentTileAttributes(render_group *RenderGroup, game_state *GameState, world_position MouseChunkP)
+ChangeTile(render_group *RenderGroup, game_state *GameState, world_position *MouseP)
 {
-    if((MouseChunkP.ChunkX >= 0) && (MouseChunkP.ChunkY >= 0))
+    world_tile *TileToChange = GetTileFromChunkPosition(GameState, MouseP);
+    if((MouseP->ChunkX >= 0) && (MouseP->ChunkY >= 0))
     {
-        world_tile *WorldTile = GetTileFromChunkPosition(GameState, MouseChunkP);
+        loaded_tileset *Tileset = PushTileset(RenderGroup, TilesetID);
+        if(Tileset)
+        {
+            u32 TileIndex = GameState->MenuBarCursor.Array[GameState->MenuBarCursor.ArrayPosition];
+            ssa_tile *Tile = Tileset->Tiles + TileIndex; 
+            TileToChange->TileID = Tile->UniqueID;
+            TileToChange->TileBitmapID.Value = Tile->BitmapID.Value + Tileset->BitmapIDOffset;
+        }
 
-        unpacked_tile_attributes TileAttributes = UnpackTileAttributes(GameState, WorldTile->TileAttributes);
-
-        DEBUGTextLine(RenderGroup, "CurrentTileAttributes:");
-        char TextBuffer[256];
-        _snprintf_s(TextBuffer, sizeof(TextBuffer),
-                    "Biome: %s / State: %s / MainSurface: %s / MergeSurface: %s",
-                    Biomes[TileAttributes.Biome], States[TileAttributes.State],
-                    Surfaces[TileAttributes.MainSurface], Surfaces[TileAttributes.MergeSurface]);
-        DEBUGTextLine(RenderGroup, TextBuffer);
-
-        DrawTilesForAttributes(RenderGroup, TileAttributes);
+        ResetGroundBuffers(RenderGroup->Assets->TranState);
     }
 }
 
 internal void
-ShowChoosenTileAttributes(render_group *RenderGroup, game_state *GameState)
+ResetCursorArray(array_cursor *Cursor)
 {
-    unpacked_tile_attributes TileAttributes = UnpackTileAttributes(GameState, GameState->ChoosenTileAttributes);
-
-    DEBUGTextLine(RenderGroup, "ChoosenTileAttributes:");
-    char TextBuffer[256];
-    _snprintf_s(TextBuffer, sizeof(TextBuffer),
-                "Biome: %s / State: %s / MainSurface: %s / MergeSurface: %s",
-                Biomes[TileAttributes.Biome], States[TileAttributes.State],
-                Surfaces[TileAttributes.MainSurface], Surfaces[TileAttributes.MergeSurface]);
-    DEBUGTextLine(RenderGroup, TextBuffer);
-
-    DrawTilesForAttributes(RenderGroup, TileAttributes);
-}
-
-inline void
-ChangeChoosenAttributeValueFor(game_state *GameState, b32 Up)
-{
-    unpacked_tile_attributes Attributes = UnpackTileAttributes(GameState, GameState->ChoosenTileAttributes);
-    s32 Addend = Up ? 1 : -1;
-    switch(GameState->AttributeToChange)
+    for(u32 I = 0;
+        I < Cursor->ArrayCount;
+        ++I)
     {
-        case TileAttribute_Biome:
-        {
-            Attributes.Biome += Addend;
-            if(Attributes.Biome < 0) {Attributes.Biome = BiomeType_Count - 1;}
-            if(Attributes.Biome >= BiomeType_Count) {Attributes.Biome = 0;}
-        } break;
-
-        case TileAttribute_State:
-        {
-            Attributes.State += Addend;
-            if(Attributes.State < 0) {Attributes.State = TileState_Count - 1;}
-            if(Attributes.State >= TileState_Count) {Attributes.State = 0;}
-        } break;
-
-        case TileAttribute_MainSurface:
-        {
-            Attributes.MainSurface += Addend;
-            if(Attributes.MainSurface < 0) {Attributes.MainSurface = TileSurface_Count - 1;}
-            if(Attributes.MainSurface >= TileSurface_Count) {Attributes.MainSurface = 0;}
-        } break;
-
-        case TileAttribute_MergeSurface:
-        {
-            Attributes.MergeSurface += Addend;
-            if(Attributes.MergeSurface < 0) {Attributes.MergeSurface = TileSurface_Count - 1;}
-            if(Attributes.MergeSurface >= TileSurface_Count) {Attributes.MergeSurface = 0;}
-        } break;
+        Cursor->Array[I] = I;
     }
-
-    GameState->ChoosenTileAttributes = PackTileAttributes(Attributes);
 }
-#endif
 
 internal void
-ShowTileMenuBar(render_group *RenderGroup, game_state *GameState, loaded_tileset *Tileset, r32 TileDimInMeters)
+InitializeCursor(memory_arena *Arena, array_cursor *Cursor, u32 CursorArrayCount)
 {
-    u32 TileCountInBar = 10;
+    Cursor->ArrayPosition = 0;
+    Cursor->ArrayCount = CursorArrayCount;
+    Cursor->Array = PushArray(Arena, Cursor->ArrayCount, u32);
+    ResetCursorArray(Cursor);
+}
+
+internal void
+ChangeCursorPositionFor(array_cursor *Cursor, u32 SourceArrayCount, s16 MouseZ)
+{
+    if(MouseZ != 0)
+    {
+        u32 CursorLastIndex = Cursor->ArrayCount - 1;
+        s32 Count = MouseZ > 0 ? MouseZ : MouseZ * -1;
+        for(s32 MouseRotIndex = 0;
+            MouseRotIndex < Count;
+            ++MouseRotIndex)
+        {
+            if(MouseZ > 0)
+            {
+                if(Cursor->ArrayPosition == 0)
+                {
+                    s32 NewFirst = Cursor->Array[0] - 1;
+                    for(u32 I = CursorLastIndex;
+                        I > 0;
+                        --I)
+                    {
+                        Cursor->Array[I] = Cursor->Array[I - 1];
+                    }
+
+                    if(NewFirst == -1)
+                    {
+                        NewFirst = SourceArrayCount - 1;
+                    }
+                    Cursor->Array[0] = NewFirst;
+                }
+                else
+                {
+                    --Cursor->ArrayPosition;
+                }
+            }
+            else
+            {
+                if(Cursor->ArrayPosition == CursorLastIndex)
+                {
+                    u32 NewLast = Cursor->Array[CursorLastIndex] + 1;
+                    for(u32 I = 0;
+                        I < Cursor->ArrayCount;
+                        ++I)
+                    {
+                        Cursor->Array[I] = Cursor->Array[I + 1];
+                    }
+
+                    if(NewLast == SourceArrayCount)
+                    {
+                        NewLast = 0;
+                    }
+                    Cursor->Array[CursorLastIndex] = NewLast;
+                }
+                else
+                {
+                    ++Cursor->ArrayPosition;
+                }
+            }
+        }
+    }
+}
+
+internal void
+ShowTileMenuBar(render_group *RenderGroup, array_cursor *Cursor, r32 TileDimInMeters)
+{
+    loaded_tileset *Tileset = PushTileset(RenderGroup, TilesetID);
+    u32 TileCountInBar = Cursor->ArrayCount;
 
     r32 TileHalfDim = 0.5f*TileDimInMeters;
     r32 MenuBarWidth = TileDimInMeters*TileCountInBar;
@@ -474,71 +409,69 @@ ShowTileMenuBar(render_group *RenderGroup, game_state *GameState, loaded_tileset
     PushRectOutline(RenderGroup, V3(0, OffsetY, 0), V2(MenuBarWidth, TileDimInMeters), V4(0, 1, 0, 1), 0.05f);
 
     ssa_tileset *Info = GetTilesetInfo(RenderGroup->Assets, TilesetID);
-    r32 TileOffsetX = -HalfMenuBarWidth;
-    r32 TileOffsetY = OffsetY - TileHalfDim;
-    for(u32 Index = 0;
-        Index < TileCountInBar;
-        ++Index)
+    if(Tileset)
     {
-        u32 TileIndex = GameState->TileArray[Index];
-        bitmap_id ID = GetBitmapForTile(RenderGroup->Assets, Info, Tileset, TileIndex);
-        PushBitmap(RenderGroup, ID, TileDimInMeters, V3(TileOffsetX, TileOffsetY, 0));
-        TileOffsetX += TileDimInMeters;
+        r32 TileOffsetX = -HalfMenuBarWidth;
+        r32 TileOffsetY = OffsetY - TileHalfDim;
+        for(u32 Index = 0;
+            Index < TileCountInBar;
+            ++Index)
+        {
+            u32 TileIndex = Cursor->Array[Index];
+            bitmap_id ID = GetBitmapForTile(RenderGroup->Assets, Info, Tileset, TileIndex);
+            PushBitmap(RenderGroup, ID, TileDimInMeters, V3(TileOffsetX, TileOffsetY, 0));
+            TileOffsetX += TileDimInMeters;
+        }
     }
 
-    r32 CursorOffsetX = (TileHalfDim - HalfMenuBarWidth) + GameState->CursorIndex*TileDimInMeters;
+    r32 CursorOffsetX = (TileHalfDim - HalfMenuBarWidth) + Cursor->ArrayPosition*TileDimInMeters;
     PushRectOutline(RenderGroup, V3(CursorOffsetX, OffsetY, 0), V2(TileDimInMeters, TileDimInMeters), V4(1, 1, 1, 1), 0.05f);
 }
 
 internal void
-ShowTest(render_group *RenderGroup, game_state *GameState, s16 MouseZ)
+ShowTilesetStats(render_group *RenderGroup, game_state *GameState)
 {
+    DEBUGTextLine(RenderGroup, "Tileset Stats:");
+    char TextBuffer[256];
+    _snprintf_s(TextBuffer, sizeof(TextBuffer),
+                "B: %s, MaS: %s, MeS: %s",
+                Biomes[GameState->TilesetBiome], Surfaces[GameState->TilesetMainSurface],
+                Surfaces[GameState->TilesetMergeSurface]);
+    DEBUGTextLine(RenderGroup, TextBuffer);
+}
 
+internal void
+ReloadTileset(game_assets *Assets, game_state *GameState)
+{
+    asset_vector WeightVector = {};
+    WeightVector.E[Tag_TileBiomeType] = 1.0f;
+    WeightVector.E[Tag_TileMainSurface] = 1.0f;
+    WeightVector.E[Tag_TileMergeSurface] = 1.0f;
+
+    asset_vector MatchVector = {};
+    MatchVector.E[Tag_TileBiomeType] = (r32)GameState->TilesetBiome;
+    MatchVector.E[Tag_TileMainSurface] = (r32)GameState->TilesetMainSurface;
+    MatchVector.E[Tag_TileMergeSurface] = (r32)GameState->TilesetMergeSurface;
+
+    tileset_id ID = GetBestMatchTilesetFrom(Assets, Asset_Tileset, &MatchVector, &WeightVector);
+    if(ID.Value != TilesetID.Value)
+    {
+        TilesetID = ID;
+        ResetCursorArray(&GameState->MenuBarCursor);
+    }
+}
+
+internal void
+ShowTest(render_group *RenderGroup, array_cursor *Cursor)
+{
     DEBUGTextLine(RenderGroup, "Test:");
     char TextBuffer[256];
     _snprintf_s(TextBuffer, sizeof(TextBuffer),
-                "%d, %d, %d, %d, %d, %d, %d, %d, %d, %d, MouseZ: %d",
-                GameState->TileArray[0], GameState->TileArray[1], GameState->TileArray[2], GameState->TileArray[3],
-                GameState->TileArray[4], GameState->TileArray[5], GameState->TileArray[6], GameState->TileArray[7],
-                GameState->TileArray[8], GameState->TileArray[9], MouseZ);
+                "%d, %d, %d, %d, %d, %d, %d, %d, %d, %d",
+                Cursor->Array[0], Cursor->Array[1], Cursor->Array[2], Cursor->Array[3],
+                Cursor->Array[4], Cursor->Array[5], Cursor->Array[6], Cursor->Array[7],
+                Cursor->Array[8], Cursor->Array[9]);
     DEBUGTextLine(RenderGroup, TextBuffer);
-
-    if(MouseZ != 0)
-    {
-        s32 Count = MouseZ > 0 ? MouseZ : MouseZ * -1;
-        for(s32 MouseRotIndex = 0;
-            MouseRotIndex < Count;
-            ++MouseRotIndex)
-        {
-            if(((GameState->CursorIndex == 0) && (MouseZ < 0)) ||
-               ((GameState->CursorIndex == 9) && (MouseZ > 0)))
-            {
-                for(u32 I = ArrayCount(GameState->TileArray) - 1;
-                    I > 0;
-                    --I)
-                {
-                    GameState->TileArray[I] = GameState->TileArray[I - 1];
-                }
-                s32 NewFirst = GameState->TileArray[0] - 1;
-                if(NewFirst == -1)
-                {
-                    NewFirst = GameState->Count - 1;
-                }
-                GameState->TileArray[0] = NewFirst;
-            }
-            else
-            {
-                if(MouseZ > 0)
-                {
-                    GameState->CursorIndex += 1;
-                }
-                else
-                {
-                    GameState->CursorIndex -= 1;
-                }
-            }
-        }
-    }
 }
 
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
@@ -623,13 +556,12 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     
         GameState->CameraBoundsMax.ChunkX = WORLD_WIDTH_TILE_COUNT / TILES_PER_CHUNK;
         GameState->CameraBoundsMax.ChunkY = WORLD_HEIGHT_TILE_COUNT / TILES_PER_CHUNK;
-        for(u32 I = 0;
-            I < ArrayCount(GameState->TileArray);
-            ++I)
-        {
-            GameState->TileArray[I] = I;
-        }
-        GameState->CursorIndex = 1;        
+
+        GameState->TilesetBiome = BiomeType_AncientForest;
+        GameState->TilesetMainSurface = TileSurface_Grass0;
+        GameState->TilesetMergeSurface = TileSurface_Ground0;
+        InitializeCursor(&GameState->WorldArena, &GameState->MenuBarCursor, 10);
+        
         Memory->IsInitialized = true;
     }
 
@@ -716,19 +648,27 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
         if(Controller->Biome.EndedDown)
         {
-//            GameState->AttributeToChange = TileAttribute_Biome;
-        }
-        if(Controller->State.EndedDown)
-        {
-//            GameState->AttributeToChange = TileAttribute_State;
+            GameState->TilesetBiome += 1;
+            if(GameState->TilesetBiome >= BiomeType_Count)
+            {
+                GameState->TilesetBiome = 0;
+            }
         }
         if(Controller->MainSurface.EndedDown)
         {
-//            GameState->AttributeToChange = TileAttribute_MainSurface;
+            GameState->TilesetMainSurface += 1;
+            if(GameState->TilesetMainSurface >= TileSurface_Count)
+            {
+                GameState->TilesetMainSurface = 0;
+            }
         }
         if(Controller->MergeSurface.EndedDown)
         {
-//            GameState->AttributeToChange = TileAttribute_MergeSurface;
+            GameState->TilesetMergeSurface += 1;
+            if(GameState->TilesetMergeSurface >= TileSurface_Count)
+            {
+                GameState->TilesetMergeSurface = 0;
+            }
         }
 
         if(Controller->ActionUp.EndedDown)
@@ -800,30 +740,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 MouseChunkP.Offset_.x, MouseChunkP.Offset_.y);
     DEBUGTextLine(TextRenderGroup, TextBuffer);
 
-    tile_position MouseTileP = TilePositionFromChunkPosition(MouseChunkP);
+    tile_position MouseTileP = TilePositionFromChunkPosition(&MouseChunkP);
     _snprintf_s(TextBuffer, sizeof(TextBuffer),
                 "MouseP in Tiles: X: %d Y: %d",
                 MouseTileP.TileX, MouseTileP.TileY);
     DEBUGTextLine(TextRenderGroup, TextBuffer);
-
-    // NOTE(casey): Ground chunk rendering
-    for(uint32 GroundBufferIndex = 0;
-        GroundBufferIndex < TranState->GroundBufferCount;
-        ++GroundBufferIndex)
-    {
-        ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
-        if(IsValid(GroundBuffer->P))
-        {
-            loaded_bitmap *Bitmap = &GroundBuffer->Bitmap;
-            v2 Delta = Subtract(GameState->World, &GroundBuffer->P, &GameState->CameraP);        
-
-            real32 GroundSideInMeters = World->ChunkDimInMeters.x;
-            PushBitmap(RenderGroup, Bitmap, GroundSideInMeters, V3(Delta, 0));
-
-//            PushRectOutline(RenderGroup, V3(Delta, 0), V2(GroundSideInMeters, GroundSideInMeters),
-//                            V4(1.0f, 1.0f, 0.0f, 1.0f), 0.01f);
-        }
-    }
 
     // NOTE(casey): Ground chunk updating
     {
@@ -872,57 +793,43 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
                 if(FurthestBuffer)
                 {
-//                    FillGroundChunk(TranState, GameState, FurthestBuffer, &ChunkCenterP, TileSideInMeters);
+                    FillGroundChunk(TranState, GameState, FurthestBuffer, &ChunkCenterP, TileSideInMeters);
                 }
             }
         }
     }
 
-    asset_vector WeightVector = {};
-    WeightVector.E[Tag_TileBiomeType] = 1.0f;
-    WeightVector.E[Tag_TileState] = 1.0f;
-    WeightVector.E[Tag_TileMainSurface] = 1.0f;
-    WeightVector.E[Tag_TileMergeSurface] = 1.0f;
-
-    asset_vector MatchVector = {};
-    MatchVector.E[Tag_TileBiomeType] = (r32)BiomeType_AncientForest;
-    MatchVector.E[Tag_TileMainSurface] = (r32)TileSurface_Grass0;
-    MatchVector.E[Tag_TileMergeSurface] = (r32)TileSurface_Ground3;
-
-    TilesetID = GetBestMatchTilesetFrom(RenderGroup->Assets, Asset_Tileset, &MatchVector, &WeightVector);
-    PushTileset(RenderGroup, TilesetID);
-    loaded_tileset *Tileset = GetTileset(RenderGroup->Assets, TilesetID, RenderGroup->GenerationID);
-
-    ssa_tileset *Info = GetTilesetInfo(RenderGroup->Assets, TilesetID);
-    GameState->Count = Info->TileCount;
-
-    r32 OffsetX = 0.0f;
-    r32 OffsetY = 0.0f;
-    int Count = 0;
-    for(u32 TileIndex = 0;
-        TileIndex < Info->TileCount;
-        ++TileIndex)
+    // NOTE(casey): Ground chunk rendering
+    for(uint32 GroundBufferIndex = 0;
+        GroundBufferIndex < TranState->GroundBufferCount;
+        ++GroundBufferIndex)
     {
-        
-        bitmap_id ID = GetBitmapForTile(RenderGroup->Assets, Info, Tileset, TileIndex);
-        PushBitmap(RenderGroup, ID, 1.0f, V3(OffsetX, OffsetY, 0));
-
-        ++Count;
-        OffsetX += 1.0f;
-        if(Count == 5)
+        ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
+        if(IsValid(GroundBuffer->P))
         {
-            Count = 0;
-            OffsetX = 0.0f;
-            OffsetY -= 1.0f;
+            loaded_bitmap *Bitmap = &GroundBuffer->Bitmap;
+            v2 Delta = Subtract(GameState->World, &GroundBuffer->P, &GameState->CameraP);        
+
+            real32 GroundSideInMeters = World->ChunkDimInMeters.x;
+            PushBitmap(RenderGroup, Bitmap, GroundSideInMeters, V3(Delta, 0));
+
+//            PushRectOutline(RenderGroup, V3(Delta, 0), V2(GroundSideInMeters, GroundSideInMeters),
+//                            V4(1.0f, 1.0f, 0.0f, 1.0f), 0.01f);
         }
     }
 
-    ShowTest(TextRenderGroup, GameState, Input->MouseZ);
-
-    ShowTileMenuBar(RenderGroup, GameState, Tileset, TileSideInMeters);
-
-//    ShowCurrentTileAttributes(TextRenderGroup, GameState, MouseChunkP);
-//    ShowChoosenTileAttributes(TextRenderGroup, GameState);
+    if(Input->MouseButtons[0].EndedDown)
+    {
+        ChangeTile(RenderGroup, GameState, &MouseChunkP);
+    }
+    
+    ssa_tileset *Info = GetTilesetInfo(RenderGroup->Assets, TilesetID);
+    ChangeCursorPositionFor(&GameState->MenuBarCursor, Info->TileCount, Input->MouseZ);
+    ShowTest(TextRenderGroup, &GameState->MenuBarCursor);
+    ShowTileMenuBar(RenderGroup, &GameState->MenuBarCursor, TileSideInMeters);
+    ShowTilesetStats(TextRenderGroup, GameState);
+    
+    ReloadTileset(RenderGroup->Assets, GameState);
     
     PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(ScreenBounds), V4(1.0f, 1.0f, 0.0f, 1));
     PushRect(RenderGroup, V3(0, 0, 0), 0.2f*V2(TileSideInMeters, TileSideInMeters), V4(1, 0, 0, 1));
