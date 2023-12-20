@@ -66,6 +66,27 @@ ChunkPositionFromTilePosition(world *World, int32 AbsTileX, int32 AbsTileY,
 }
 
 internal void
+WriteMap(transient_state *TranState, char *FileName, u32 TileCount, world_tile *Tiles)
+{
+    temporary_memory WriteMemory = BeginTemporaryMemory(&TranState->TranArena);
+    uint32 ContentSize = sizeof(world_tile)*TileCount;
+
+    Platform.DEBUGWriteEntireFile(0, FileName, ContentSize, Tiles);
+    
+    EndTemporaryMemory(WriteMemory);
+}
+
+#if 0
+internal void
+ReadMap(transient_state *TranState, char *FileName, u32 TileCount, world_tile *Tiles)
+{
+    uint32 ContentSize = sizeof(world_tile)*TileCount;
+
+    Platform.DEBUGWriteEntireFile(0, FileName, ContentSize, Tiles);
+}
+#endif
+
+internal void
 ClearBitmap(loaded_bitmap *Bitmap)
 {
     if(Bitmap->Memory)
@@ -311,6 +332,8 @@ ChangeTile(render_group *RenderGroup, game_state *GameState, world_position *Mou
             TileToChange->TileBitmapID.Value = Tile->BitmapID.Value + Tileset->BitmapIDOffset;
         }
 
+        WriteMap(RenderGroup->Assets->TranState, "tilemap.bin",
+                 GameState->WorldTileCount, GameState->WorldTiles);
         ResetGroundBuffers(RenderGroup->Assets->TranState);
     }
 }
