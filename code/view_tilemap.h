@@ -208,6 +208,7 @@ struct game_state
     array_cursor MenuBarCursor;
     
     u32 WorldTileCount;
+    u32 *TileIDs;
     world_tile *WorldTiles;
 };
 

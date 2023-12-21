@@ -66,25 +66,11 @@ ChunkPositionFromTilePosition(world *World, int32 AbsTileX, int32 AbsTileY,
 }
 
 internal void
-WriteMap(transient_state *TranState, char *FileName, u32 TileCount, world_tile *Tiles)
+WriteMap(char *FileName, u32 TileCount, u32 *TileIDs)
 {
-    temporary_memory WriteMemory = BeginTemporaryMemory(&TranState->TranArena);
-    uint32 ContentSize = sizeof(world_tile)*TileCount;
-
-    Platform.DEBUGWriteEntireFile(0, FileName, ContentSize, Tiles);
-    
-    EndTemporaryMemory(WriteMemory);
+    uint32 ContentSize = sizeof(u32)*TileCount;
+    Platform.DEBUGWriteEntireFile(0, FileName, ContentSize, TileIDs);
 }
-
-#if 0
-internal void
-ReadMap(transient_state *TranState, char *FileName, u32 TileCount, world_tile *Tiles)
-{
-    uint32 ContentSize = sizeof(world_tile)*TileCount;
-
-    Platform.DEBUGWriteEntireFile(0, FileName, ContentSize, Tiles);
-}
-#endif
 
 internal void
 ClearBitmap(loaded_bitmap *Bitmap)
@@ -264,41 +250,63 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
 }
 
 internal void
-InitializeWorldTiles(game_assets *Assets, game_state *GameState, u32 *ReferenceTiles)
+InitializeWorldTiles(game_assets *Assets, game_state *GameState, char *FileName)
 {
-    if(ReferenceTiles)
+    debug_read_file_result TileIDs = Platform.DEBUGReadEntireFile(0, FileName);
+    asset_vector MatchVector = {};
+    asset_vector WeightVector = {};
+    WeightVector.E[Tag_TileID] = 1.0f;
+    if(TileIDs.Contents)
     {
-        // TODO(paul): MakeReferenceArray
+        u32 *Source = (u32 *)TileIDs.Contents;
+        for(u32 TileIndex = 0;
+            TileIndex < GameState->WorldTileCount;
+            ++TileIndex)
+        {
+            u32 TileID = Source[TileIndex];
+            MatchVector.E[Tag_TileID] = (r32)(TileID);
+            bitmap_id TileBitmapID = GetBestMatchBitmapFrom(Assets, Asset_Tile,
+                                                            &MatchVector, &WeightVector);
+            world_tile *WorldTile = GameState->WorldTiles + TileIndex;
+            GameState->TileIDs[TileIndex] = TileID;
+            WorldTile->TileID = TileID;
+            WorldTile->TileBitmapID = TileBitmapID;
+        }
     }
     else
     {
-        asset_vector MatchVector = {};
         MatchVector.E[Tag_TileID] = 3.0f;
-
-        asset_vector WeightVector = {};
-        WeightVector.E[Tag_TileID] = 1.0f;
-
         bitmap_id TileBitmapID = GetBestMatchBitmapFrom(Assets, Asset_Tile,
                                                         &MatchVector, &WeightVector);
-        
         for(u32 TileIndex = 0;
             TileIndex < GameState->WorldTileCount;
             ++TileIndex)
         {
             world_tile *WorldTile = GameState->WorldTiles + TileIndex;
+            GameState->TileIDs[TileIndex] = 3;
             WorldTile->TileID = 3;
             WorldTile->TileBitmapID = TileBitmapID;
         }
     }
 }
 
-internal world_tile *
+internal u32
+GetTileIndexFromChunkPosition(game_state *GameState, world_position *MouseP)
+{
+    u32 Result = 0;
+    tile_position MouseTileP = TilePositionFromChunkPosition(MouseP);
+    u32 WorldTileIndex = MouseTileP.TileY*WORLD_HEIGHT_TILE_COUNT + MouseTileP.TileX;
+
+    Result = WorldTileIndex;
+    
+    return(Result);
+}
+
+inline world_tile *
 GetTileFromChunkPosition(game_state *GameState, world_position *MouseP)
 {
     world_tile *Result = 0;
-    tile_position MouseTileP = TilePositionFromChunkPosition(MouseP);
-
-    u32 WorldTileIndex = MouseTileP.TileY*WORLD_HEIGHT_TILE_COUNT + MouseTileP.TileX;
+    u32 WorldTileIndex = GetTileIndexFromChunkPosition(GameState, MouseP);
 
     Result = GameState->WorldTiles + WorldTileIndex;
     
@@ -320,7 +328,7 @@ ResetGroundBuffers(transient_state *TranState)
 internal void
 ChangeTile(render_group *RenderGroup, game_state *GameState, world_position *MouseP)
 {
-    world_tile *TileToChange = GetTileFromChunkPosition(GameState, MouseP);
+    u32 TileToChange = GetTileIndexFromChunkPosition(GameState, MouseP);
     if((MouseP->ChunkX >= 0) && (MouseP->ChunkY >= 0))
     {
         loaded_tileset *Tileset = PushTileset(RenderGroup, TilesetID);
@@ -328,13 +336,13 @@ ChangeTile(render_group *RenderGroup, game_state *GameState, world_position *Mou
         {
             u32 TileIndex = GameState->MenuBarCursor.Array[GameState->MenuBarCursor.ArrayPosition];
             ssa_tile *Tile = Tileset->Tiles + TileIndex; 
-            TileToChange->TileID = Tile->UniqueID;
-            TileToChange->TileBitmapID.Value = Tile->BitmapID.Value + Tileset->BitmapIDOffset;
-        }
+            GameState->WorldTiles[TileToChange].TileID = Tile->UniqueID;
+            GameState->WorldTiles[TileToChange].TileBitmapID.Value = Tile->BitmapID.Value + Tileset->BitmapIDOffset;
 
-        WriteMap(RenderGroup->Assets->TranState, "tilemap.bin",
-                 GameState->WorldTileCount, GameState->WorldTiles);
-        ResetGroundBuffers(RenderGroup->Assets->TranState);
+            GameState->TileIDs[TileToChange] = Tile->UniqueID;
+
+            ResetGroundBuffers(RenderGroup->Assets->TranState);
+        }
     }
 }
 
@@ -530,6 +538,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
         GameState->WorldTileCount = WORLD_HEIGHT_TILE_COUNT*WORLD_WIDTH_TILE_COUNT;
         GameState->WorldTiles = PushArray(&GameState->WorldArena, GameState->WorldTileCount, world_tile);
+        GameState->TileIDs = PushArray(&GameState->WorldArena, GameState->WorldTileCount, u32);
         
         GameState->World = PushStruct(&GameState->WorldArena, world);
         world *World = GameState->World;
@@ -612,7 +621,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
         TranState->Assets = AllocateGameAssets(&TranState->TranArena, Megabytes(16), TranState);
 
-        InitializeWorldTiles(TranState->Assets, GameState, 0);
+        InitializeWorldTiles(TranState->Assets, GameState, "tilemap.bin");
         
         TranState->GroundBufferCount = 256;
         TranState->GroundBuffers = PushArray(&TranState->TranArena, TranState->GroundBufferCount, ground_buffer);
@@ -852,6 +861,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     ShowTileMenuBar(RenderGroup, &GameState->MenuBarCursor, TileSideInMeters);
     ShowTilesetStats(TextRenderGroup, GameState);
     
+    WriteMap("tilemap.bin", GameState->WorldTileCount, GameState->TileIDs);
     ReloadTileset(RenderGroup->Assets, GameState);
     
     PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(ScreenBounds), V4(1.0f, 1.0f, 0.0f, 1));
