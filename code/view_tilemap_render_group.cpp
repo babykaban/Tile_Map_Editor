@@ -1525,7 +1525,7 @@ GetRenderEntityBasisP(render_transform *Transform, v3 OriginalP)
     
         real32 DistanceAboveTarget = Transform->DistanceAboveTarget;
 
-#if 1
+#if 0
         DistanceAboveTarget += 10.0f;
 #endif
     
