@@ -191,6 +191,16 @@ struct array_cursor
     u32 *Array;
 };
 
+struct tileset_stats
+{
+    u8 Biome;
+    u8 Type;
+    u8 Height;
+    u8 CliffHillType;
+    u8 MainSurface;
+    u8 MergeSurface;
+};
+
 struct game_state
 {
     memory_arena WorldArena;
@@ -202,9 +212,7 @@ struct game_state
     world_position CameraBoundsMin;
     world_position CameraBoundsMax;
     
-    u32 TilesetBiome;
-    u32 TilesetMainSurface;
-    u32 TilesetMergeSurface;
+    tileset_stats SetStats;
     array_cursor MenuBarCursor;
     
     u32 WorldTileCount;

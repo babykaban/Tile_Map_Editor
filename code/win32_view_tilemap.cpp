@@ -529,15 +529,23 @@ Win32ProcessPendingMessages(win32_state *State, game_controller_input *KeyboardC
                     }
                     else if(VKCode == '2')
                     {
-                        Win32ProcessKeyboardMessage(&KeyboardController->MainSurface, IsDown, true);
+                        Win32ProcessKeyboardMessage(&KeyboardController->Type, IsDown, true);
                     }
                     else if(VKCode == '3')
                     {
-                        Win32ProcessKeyboardMessage(&KeyboardController->MergeSurface, IsDown, true);
+                        Win32ProcessKeyboardMessage(&KeyboardController->Height, IsDown, true);
                     }
                     else if(VKCode == '4')
                     {
-                        Win32ProcessKeyboardMessage(&KeyboardController->State, IsDown, true);
+                        Win32ProcessKeyboardMessage(&KeyboardController->CliffHillType, IsDown, true);
+                    }
+                    else if(VKCode == '5')
+                    {
+                        Win32ProcessKeyboardMessage(&KeyboardController->MainSurface, IsDown, true);
+                    }
+                    else if(VKCode == '6')
+                    {
+                        Win32ProcessKeyboardMessage(&KeyboardController->MergeSurface, IsDown, true);
                     }
                     else if(VKCode == VK_UP)
                     {

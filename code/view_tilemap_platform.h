@@ -241,7 +241,7 @@ typedef struct game_controller_input
     
     union
     {
-        game_button_state Buttons[16];
+        game_button_state Buttons[18];
         struct
         {
             game_button_state MoveUp;
@@ -255,7 +255,9 @@ typedef struct game_controller_input
             game_button_state ActionRight;
 
             game_button_state Biome;
-            game_button_state State;
+            game_button_state Type;
+            game_button_state Height;
+            game_button_state CliffHillType;
             game_button_state MainSurface;
             game_button_state MergeSurface;
             

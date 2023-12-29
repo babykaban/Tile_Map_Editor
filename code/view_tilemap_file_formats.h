@@ -55,7 +55,6 @@ enum tile_surface
     TileSurface_Ground1,
     TileSurface_Ground2,
     TileSurface_Ground3,
-    TileSurface_CliffWall,
 
     TileSurface_Count,
 };
@@ -70,17 +69,77 @@ static const char *Surfaces[] =
     "TileSurface_Ground1",
     "TileSurface_Ground2",
     "TileSurface_Ground3",
-    "TileSurface_CliffWall",
+};
+
+enum tile_type
+{
+    TileType_Surface,
+    TileType_Hill,
+    TileType_Cliff,
+    TileType_WaterCliff,
+    TileType_Wall,
+
+    TileType_Count,
+};
+
+static const char *TileTypes[] =
+{
+    "TileType_Surface",
+    "TileType_Hill",
+    "TileType_Cliff",
+    "TileType_WaterCliff",
+    "TileType_Wall",
+};
+
+enum height
+{
+    Height_Lev0,
+    Height_Lev1,
+    Height_Lev2,
+    Height_Lev3,
+
+    Height_Count,
+};
+
+static const char *Heights[] =
+{
+    "Height_Lev0",
+    "Height_Lev1",
+    "Height_Lev2",
+    "Height_Lev3",
+};
+
+enum cliff_hill_type
+{
+    CliffHillType_Climb,
+    CliffHillType_External,
+    CliffHillType_Internal,
+
+    CliffHillType_Count,
+};
+
+static const char *CliffHillTypes[] =
+{
+    "CliffHillType_Climb",
+    "CliffHillType_External",
+    "CliffHillType_Internal",
 };
 
 enum asset_tag_id
 {
     Tag_FacingDirection, // NOTE(casey): Angle in radians off of due right
+    Tag_SpriteIndex,
+    Tag_AnimationType,
+    Tag_AssetType,
+
     Tag_UnicodeCodepoint,
     Tag_FontType,
 
     Tag_TileID,
     Tag_TileBiomeType,
+    Tag_TileType,
+    Tag_Height,
+    Tag_CliffHillType,
     Tag_TileMainSurface,
     Tag_TileMergeSurface,
     

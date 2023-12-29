@@ -73,6 +73,13 @@ WriteMap(char *FileName, u32 TileCount, u32 *TileIDs)
 }
 
 internal void
+WriteWorldTiles(char *FileName, u32 TileCount, world_tile *WorldTiles)
+{
+    uint32 ContentSize = sizeof(world_tile)*TileCount;
+    Platform.DEBUGWriteEntireFile(0, FileName, ContentSize, WorldTiles);
+}
+
+internal void
 ClearBitmap(loaded_bitmap *Bitmap)
 {
     if(Bitmap->Memory)
@@ -243,7 +250,6 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
         }
     }
 
-
     TiledRenderGroupToOutput(TranState->LowPriorityQueue, RenderGroup, Buffer);
     EndRender(RenderGroup);
     EndTemporaryMemory(GroundMemory);
@@ -252,29 +258,23 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
 internal void
 InitializeWorldTiles(game_assets *Assets, game_state *GameState, char *FileName)
 {
-    debug_read_file_result TileIDs = Platform.DEBUGReadEntireFile(0, FileName);
-    asset_vector MatchVector = {};
-    asset_vector WeightVector = {};
-    WeightVector.E[Tag_TileID] = 1.0f;
-    if(TileIDs.Contents)
+    debug_read_file_result WorldTiles = Platform.DEBUGReadEntireFile(0, FileName);
+    if(WorldTiles.Contents)
     {
-        u32 *Source = (u32 *)TileIDs.Contents;
+        GameState->WorldTiles = (world_tile *)WorldTiles.Contents;
         for(u32 TileIndex = 0;
             TileIndex < GameState->WorldTileCount;
             ++TileIndex)
         {
-            u32 TileID = Source[TileIndex];
-            MatchVector.E[Tag_TileID] = (r32)(TileID);
-            bitmap_id TileBitmapID = GetBestMatchBitmapFrom(Assets, Asset_Tile,
-                                                            &MatchVector, &WeightVector);
-            world_tile *WorldTile = GameState->WorldTiles + TileIndex;
-            GameState->TileIDs[TileIndex] = TileID;
-            WorldTile->TileID = TileID;
-            WorldTile->TileBitmapID = TileBitmapID;
+            world_tile *Tile = GameState->WorldTiles + TileIndex;
+            GameState->TileIDs[TileIndex] = Tile->TileID;
         }
     }
     else
     {
+        asset_vector MatchVector = {};
+        asset_vector WeightVector = {};
+        WeightVector.E[Tag_TileID] = 1.0f;
         MatchVector.E[Tag_TileID] = 3.0f;
         bitmap_id TileBitmapID = GetBestMatchBitmapFrom(Assets, Asset_Tile,
                                                         &MatchVector, &WeightVector);
@@ -464,10 +464,23 @@ ShowTilesetStats(render_group *RenderGroup, game_state *GameState)
 {
     DEBUGTextLine(RenderGroup, "Tileset Stats:");
     char TextBuffer[256];
-    _snprintf_s(TextBuffer, sizeof(TextBuffer),
-                "B: %s, MaS: %s, MeS: %s",
-                Biomes[GameState->TilesetBiome], Surfaces[GameState->TilesetMainSurface],
-                Surfaces[GameState->TilesetMergeSurface]);
+    _snprintf_s(TextBuffer, sizeof(TextBuffer), "Biome: %s", Biomes[GameState->SetStats.Biome]);
+    DEBUGTextLine(RenderGroup, TextBuffer);
+
+    _snprintf_s(TextBuffer, sizeof(TextBuffer), "TileType: %s", TileTypes[GameState->SetStats.Type]);
+    DEBUGTextLine(RenderGroup, TextBuffer);
+
+    _snprintf_s(TextBuffer, sizeof(TextBuffer), "Height: %s", Heights[GameState->SetStats.Height]);
+    DEBUGTextLine(RenderGroup, TextBuffer);
+
+    _snprintf_s(TextBuffer, sizeof(TextBuffer), "CliffHillType: %s",
+                CliffHillTypes[GameState->SetStats.CliffHillType]);
+    DEBUGTextLine(RenderGroup, TextBuffer);
+
+    _snprintf_s(TextBuffer, sizeof(TextBuffer), "MainSurface: %s", Surfaces[GameState->SetStats.MainSurface]);
+    DEBUGTextLine(RenderGroup, TextBuffer);
+
+    _snprintf_s(TextBuffer, sizeof(TextBuffer), "MergeSurface: %s", Surfaces[GameState->SetStats.MergeSurface]);
     DEBUGTextLine(RenderGroup, TextBuffer);
 }
 
@@ -476,14 +489,20 @@ ReloadTileset(game_assets *Assets, game_state *GameState)
 {
     asset_vector WeightVector = {};
     WeightVector.E[Tag_TileBiomeType] = 1.0f;
+    WeightVector.E[Tag_TileType] = 1.0f;
+    WeightVector.E[Tag_Height] = 1.0f;
+    WeightVector.E[Tag_CliffHillType] = 1.0f;
     WeightVector.E[Tag_TileMainSurface] = 1.0f;
     WeightVector.E[Tag_TileMergeSurface] = 1.0f;
 
     asset_vector MatchVector = {};
-    MatchVector.E[Tag_TileBiomeType] = (r32)GameState->TilesetBiome;
-    MatchVector.E[Tag_TileMainSurface] = (r32)GameState->TilesetMainSurface;
-    MatchVector.E[Tag_TileMergeSurface] = (r32)GameState->TilesetMergeSurface;
-
+    MatchVector.E[Tag_TileBiomeType] = (r32)GameState->SetStats.Biome;
+    MatchVector.E[Tag_TileType] = (r32)GameState->SetStats.Type;
+    MatchVector.E[Tag_Height] = (r32)GameState->SetStats.Height;
+    MatchVector.E[Tag_CliffHillType] = (r32)GameState->SetStats.CliffHillType;
+    MatchVector.E[Tag_TileMainSurface] = (r32)GameState->SetStats.MainSurface;
+    MatchVector.E[Tag_TileMergeSurface] = (r32)GameState->SetStats.MergeSurface;
+    
     tileset_id ID = GetBestMatchTilesetFrom(Assets, Asset_Tileset, &MatchVector, &WeightVector);
     if(ID.Value != TilesetID.Value)
     {
@@ -589,9 +608,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         GameState->CameraBoundsMax.ChunkX = WORLD_WIDTH_TILE_COUNT / TILES_PER_CHUNK;
         GameState->CameraBoundsMax.ChunkY = WORLD_HEIGHT_TILE_COUNT / TILES_PER_CHUNK;
 
-        GameState->TilesetBiome = BiomeType_AncientForest;
-        GameState->TilesetMainSurface = TileSurface_Grass0;
-        GameState->TilesetMergeSurface = TileSurface_Ground0;
+        GameState->SetStats = {};
+        
         InitializeCursor(&GameState->WorldArena, &GameState->MenuBarCursor, 10);
         
         Memory->IsInitialized = true;
@@ -621,7 +639,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
         TranState->Assets = AllocateGameAssets(&TranState->TranArena, Megabytes(16), TranState);
 
-        InitializeWorldTiles(TranState->Assets, GameState, "tilemap.bin");
+        InitializeWorldTiles(TranState->Assets, GameState, "worldtiles.bin");
         
         TranState->GroundBufferCount = 256;
         TranState->GroundBuffers = PushArray(&TranState->TranArena, TranState->GroundBufferCount, ground_buffer);
@@ -680,26 +698,54 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
         if(Controller->Biome.EndedDown)
         {
-            GameState->TilesetBiome += 1;
-            if(GameState->TilesetBiome >= BiomeType_Count)
+            GameState->SetStats.Biome += 1;
+            if(GameState->SetStats.Biome >= BiomeType_Count)
             {
-                GameState->TilesetBiome = 0;
+                GameState->SetStats.Biome = 0;
             }
         }
+
+        if(Controller->Type.EndedDown)
+        {
+            GameState->SetStats.Type += 1;
+            if(GameState->SetStats.Type >= TileType_Count)
+            {
+                GameState->SetStats.Type = 0;
+            }
+        }
+
+        if(Controller->Height.EndedDown)
+        {
+            GameState->SetStats.Height += 1;
+            if(GameState->SetStats.Height >= Height_Count)
+            {
+                GameState->SetStats.Height = 0;
+            }
+        }
+
+        if(Controller->CliffHillType.EndedDown)
+        {
+            GameState->SetStats.CliffHillType += 1;
+            if(GameState->SetStats.CliffHillType >= CliffHillType_Count)
+            {
+                GameState->SetStats.CliffHillType = 0;
+            }
+        }
+
         if(Controller->MainSurface.EndedDown)
         {
-            GameState->TilesetMainSurface += 1;
-            if(GameState->TilesetMainSurface >= TileSurface_Count)
+            GameState->SetStats.MainSurface += 1;
+            if(GameState->SetStats.MainSurface >= TileSurface_Count)
             {
-                GameState->TilesetMainSurface = 0;
+                GameState->SetStats.MainSurface = 0;
             }
         }
         if(Controller->MergeSurface.EndedDown)
         {
-            GameState->TilesetMergeSurface += 1;
-            if(GameState->TilesetMergeSurface >= TileSurface_Count)
+            GameState->SetStats.MergeSurface += 1;
+            if(GameState->SetStats.MergeSurface >= TileSurface_Count)
             {
-                GameState->TilesetMergeSurface = 0;
+                GameState->SetStats.MergeSurface = 0;
             }
         }
 
@@ -862,6 +908,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     ShowTilesetStats(TextRenderGroup, GameState);
     
     WriteMap("tilemap.bin", GameState->WorldTileCount, GameState->TileIDs);
+    WriteWorldTiles("worldtiles.bin", GameState->WorldTileCount, GameState->WorldTiles);
     ReloadTileset(RenderGroup->Assets, GameState);
     
     PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(ScreenBounds), V4(1.0f, 1.0f, 0.0f, 1));
