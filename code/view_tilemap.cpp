@@ -891,8 +891,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             real32 GroundSideInMeters = World->ChunkDimInMeters.x;
             PushBitmap(RenderGroup, Bitmap, GroundSideInMeters, V3(Delta, 0));
 
-//            PushRectOutline(RenderGroup, V3(Delta, 0), V2(GroundSideInMeters, GroundSideInMeters),
-//                            V4(1.0f, 1.0f, 0.0f, 1.0f), 0.01f);
+            PushRectOutline(RenderGroup, V3(Delta, 0), V2(GroundSideInMeters, GroundSideInMeters),
+                            V4(1.0f, 1.0f, 0.0f, 1.0f), 0.01f);
         }
     }
 
@@ -917,6 +917,21 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     v2 Delta = Subtract(World, &GameState->CameraP, &MouseChunkP);
     PushRect(RenderGroup, V3(-Delta, 0),
              0.2f*V2(TileSideInMeters, TileSideInMeters), V4(0, 0, 1, 1));
+
+    tile_position Tp = TilePositionFromChunkPosition(&MouseChunkP);
+    tile_position TCp = TilePositionFromChunkPosition(&GameState->CameraP);
+    
+
+    v2 dTile =
+        {
+            (real32)TCp.TileX - (real32)Tp.TileX,
+            (real32)TCp.TileY - (real32)Tp.TileY
+        };
+
+    v2 D = dTile*TileSideInMeters - V2(0.5f, 0.5f);
+
+    PushRectOutline(RenderGroup, V3(-D, 0), V2(TileSideInMeters, TileSideInMeters),
+                    V4(0.0f, 0.0f, 1.0f, 1), 0.0125f);
     
     RenderGroup->GlobalAlpha = 1.0f;
 
