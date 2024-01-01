@@ -1632,9 +1632,14 @@ PushFont(render_group *Group, font_id ID)
 }
 
 inline loaded_tileset *
-PushTileset(render_group *Group, tileset_id ID)
+PushTileset(render_group *Group, tileset_id ID, b32 Immidiate = false)
 {
     loaded_tileset *Tileset = GetTileset(Group->Assets, ID, Group->GenerationID);
+    if((Group->RendersInBackground || Immidiate) && !Tileset)
+    {
+        LoadTileset(Group->Assets, ID, true);
+        Tileset = GetTileset(Group->Assets, ID, Group->GenerationID);
+    }
     
     if(Tileset)
     {
@@ -1643,7 +1648,7 @@ PushTileset(render_group *Group, tileset_id ID)
     else
     {
         Assert(!Group->RendersInBackground);
-        LoadTileset(Group->Assets, ID, true);
+        LoadTileset(Group->Assets, ID, false);
         ++Group->MissingResourceCount;
     }
 

@@ -215,9 +215,12 @@ struct game_state
     tileset_stats SetStats;
     array_cursor MenuBarCursor;
     
+    b32 WorldTilesInitialized;
     u32 WorldTileCount;
     u32 *TileIDs;
     world_tile *WorldTiles;
+
+    tileset_id GlobalTilesetID;
 };
 
 struct task_with_memory

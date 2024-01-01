@@ -17,6 +17,8 @@ global_variable r32 AtY;
 global_variable r32 FontScale;
 global_variable font_id FontID;
 global_variable tileset_id TilesetID; 
+global_variable loaded_tileset *GlobalTileset; 
+global_variable ssa_tileset *GlobalTilesetInfo;
 
 inline tile_position
 TilePositionFromChunkPosition(world_position *Pos)
@@ -268,6 +270,8 @@ InitializeWorldTiles(game_assets *Assets, game_state *GameState, char *FileName)
         {
             world_tile *Tile = GameState->WorldTiles + TileIndex;
             GameState->TileIDs[TileIndex] = Tile->TileID;
+            Tile->TileBitmapID = GetBitmapForTileID(GlobalTileset, GlobalTilesetInfo, Tile->TileID,
+                                                    GameState->GlobalTilesetID);
         }
     }
     else
@@ -288,6 +292,8 @@ InitializeWorldTiles(game_assets *Assets, game_state *GameState, char *FileName)
             WorldTile->TileBitmapID = TileBitmapID;
         }
     }
+
+    GameState->WorldTilesInitialized = true;
 }
 
 internal u32
@@ -488,7 +494,7 @@ internal void
 ReloadTileset(game_assets *Assets, game_state *GameState)
 {
     asset_vector WeightVector = {};
-    WeightVector.E[Tag_TileBiomeType] = 1.0f;
+    WeightVector.E[Tag_BiomeType] = 1.0f;
     WeightVector.E[Tag_TileType] = 1.0f;
     WeightVector.E[Tag_Height] = 1.0f;
     WeightVector.E[Tag_CliffHillType] = 1.0f;
@@ -496,7 +502,7 @@ ReloadTileset(game_assets *Assets, game_state *GameState)
     WeightVector.E[Tag_TileMergeSurface] = 1.0f;
 
     asset_vector MatchVector = {};
-    MatchVector.E[Tag_TileBiomeType] = (r32)GameState->SetStats.Biome;
+    MatchVector.E[Tag_BiomeType] = (r32)GameState->SetStats.Biome;
     MatchVector.E[Tag_TileType] = (r32)GameState->SetStats.Type;
     MatchVector.E[Tag_Height] = (r32)GameState->SetStats.Height;
     MatchVector.E[Tag_CliffHillType] = (r32)GameState->SetStats.CliffHillType;
@@ -638,8 +644,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         }
 
         TranState->Assets = AllocateGameAssets(&TranState->TranArena, Megabytes(16), TranState);
-
-        InitializeWorldTiles(TranState->Assets, GameState, "worldtiles.bin");
         
         TranState->GroundBufferCount = 256;
         TranState->GroundBuffers = PushArray(&TranState->TranArena, TranState->GroundBufferCount, ground_buffer);
@@ -651,6 +655,20 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             GroundBuffer->Bitmap = MakeEmptyBitmap(&TranState->TranArena, GroundBufferWidth, GroundBufferHeight, false);
             GroundBuffer->P = NullPosition();
         }
+
+        asset_vector MatchVector = {};
+        asset_vector WeightVector = {};
+        WeightVector.E[Tag_BiomeType] = 1.0f;
+        WeightVector.E[Tag_TileMainSurface] = 1.0f;
+        WeightVector.E[Tag_TileMergeSurface] = 1.0f;
+
+        MatchVector.E[Tag_BiomeType] = (r32)BiomeType_Global;
+        MatchVector.E[Tag_TileMainSurface] = (r32)TileSurface_Global;
+        MatchVector.E[Tag_TileMergeSurface] = (r32)TileSurface_Global;
+        tileset_id ID = GetBestMatchTilesetFrom(TranState->Assets, Asset_Tileset,
+                                                &MatchVector, &WeightVector);
+
+        GameState->GlobalTilesetID = ID;
         
         TranState->IsInitialized = true;
     }
@@ -785,6 +803,15 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     
     Prespective(RenderGroup, DrawBuffer->Width, DrawBuffer->Height, MetersToPixels, FocalLength, DistanceAboveTarget);
 
+
+    GlobalTileset = PushTileset(RenderGroup, GameState->GlobalTilesetID, true);
+    GlobalTilesetInfo = GetTilesetInfo(TranState->Assets, GameState->GlobalTilesetID);
+    if(!GameState->WorldTilesInitialized)
+    {
+        InitializeWorldTiles(TranState->Assets, GameState, "worldtiles.bin");
+    }
+
+    
     RenderGroup->Transform.OffsetP = V3(0, 0, 0);
     
     // NOTE(paul): Reset font spacing

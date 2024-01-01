@@ -15,7 +15,7 @@ enum asset_font_type
     FontType_DebugSmall = 11,
 };
 
-enum tile_biome_type
+enum biome_type
 {
     BiomeType_AncientForest,
     BiomeType_DeepCave,
@@ -29,6 +29,7 @@ enum tile_biome_type
     BiomeType_Wetland,
 
     BiomeType_Count,
+    BiomeType_Global,
 };
 
 static const char *Biomes[] =
@@ -57,6 +58,7 @@ enum tile_surface
     TileSurface_Ground3,
 
     TileSurface_Count,
+    TileSurface_Global,
 };
 
 static const char *Surfaces[] =
@@ -125,6 +127,50 @@ static const char *CliffHillTypes[] =
     "CliffHillType_Internal",
 };
 
+enum tree_type
+{
+    TreeType_Fallen,
+    TreeType_Mashroom,
+    TreeType_Leaveless,
+    TreeType_Giant,
+};
+
+enum light_level
+{
+    LightLevel_0,
+    LightLevel_1,
+    LightLevel_2,
+    LightLevel_3,
+    LightLevel_4,
+};
+
+enum color
+{
+    Color_Red,
+    Color_Pink,
+    Color_Yellow,
+};
+
+enum size_level
+{
+    SizeLevel_0,
+    SizeLevel_1,
+    SizeLevel_2,
+    SizeLevel_3,
+    SizeLevel_4,
+    SizeLevel_5,
+    SizeLevel_6,
+};
+
+enum variety_type
+{
+    VarietyType_0,
+    VarietyType_1,
+    VarietyType_2,
+    VarietyType_3,
+    VarietyType_4,
+};
+
 enum asset_tag_id
 {
     Tag_FacingDirection, // NOTE(casey): Angle in radians off of due right
@@ -136,12 +182,19 @@ enum asset_tag_id
     Tag_FontType,
 
     Tag_TileID,
-    Tag_TileBiomeType,
+    Tag_BiomeType,
     Tag_TileType,
     Tag_Height,
     Tag_CliffHillType,
     Tag_TileMainSurface,
     Tag_TileMergeSurface,
+
+    Tag_TreeType,
+    Tag_LightLevel,
+    Tag_SizeLevel,
+    Tag_Color,
+
+    Tag_Variety,
     
     Tag_Count,
 };
@@ -173,6 +226,21 @@ enum asset_type_id
     Asset_Tile,
     Asset_Tileset,
     Asset_TestTile,
+
+    Asset_Hero,
+    Asset_Golem,
+
+    Asset_Sprite,
+    Asset_SpriteSheet,
+
+    Asset_Bole,
+    Asset_Bush,
+    Asset_MixDecor,
+    Asset_Reed,
+    Asset_StoneReed,
+    Asset_Log,
+    Asset_StoneHerb,
+    Asset_Herb,
     //
     // NOTE(casey): Sounds!
     //

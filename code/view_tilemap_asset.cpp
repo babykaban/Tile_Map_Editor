@@ -881,6 +881,16 @@ GetBitmapForGlyph(game_assets *Assets, ssa_font *Info, loaded_font *Font, u32 De
 }
 
 internal bitmap_id
+GetBitmapForTileID(loaded_tileset *GlobalTileset, ssa_tileset *Info, u32 TileID, tileset_id ID)
+{
+    Assert(TileID < Info->TileCount);
+    bitmap_id Result = GlobalTileset->Tiles[TileID].BitmapID;
+    Result.Value += ID.Value;
+    
+    return(Result);
+}
+
+internal bitmap_id
 GetBitmapForTile(game_assets *Assets, ssa_tileset *Info, loaded_tileset *Tileset,
                  u32 TileIndex)
 {
