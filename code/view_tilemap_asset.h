@@ -30,6 +30,12 @@ struct loaded_tileset
     u32 BitmapIDOffset;
 };
 
+struct loaded_assetset
+{
+    u32 *AssetIDs;
+    u32 IDOffset;
+};
+
 enum asset_state
 {
     AssetState_Unloaded,
@@ -51,6 +57,7 @@ struct asset_memory_header
         loaded_sound Sound;
         loaded_font Font;
         loaded_tileset Tileset;
+        loaded_assetset Assetset;
     };
 };
 
@@ -81,8 +88,8 @@ struct asset_file
     ssa_asset_type *AssetTypeArray;
 
     u32 TagBase; 
-    s32 FontBitmapIDOffset;
-    s32 TileBitmapIDOffset;
+    
+    u32 AssetTypeOffsets[Asset_Count];
 };
 
 enum asset_memory_block_flags
@@ -212,7 +219,7 @@ GetBitmap(game_assets *Assets, bitmap_id ID, u32 GenerationID)
 inline ssa_bitmap *
 GetBitmapInfo(game_assets *Assets, bitmap_id ID)
 {
-    Assert(ID.Value <= Assets->AssetCount);
+    Assert((u32)ID.Value <= Assets->AssetCount);
     ssa_bitmap *Result = &Assets->Assets[ID.Value].SSA.Bitmap;
 
     return(Result);
@@ -231,7 +238,7 @@ GetSound(game_assets *Assets, sound_id ID, u32 GenerationID)
 inline ssa_sound *
 GetSoundInfo(game_assets *Assets, sound_id ID)
 {
-    Assert(ID.Value <= Assets->AssetCount);
+    Assert((u32)ID.Value <= Assets->AssetCount);
     ssa_sound *Result = &Assets->Assets[ID.Value].SSA.Sound;
 
     return(Result);
@@ -250,7 +257,7 @@ GetFont(game_assets *Assets, font_id ID, u32 GenerationID)
 inline ssa_font *
 GetFontInfo(game_assets *Assets, font_id ID)
 {
-    Assert(ID.Value <= Assets->AssetCount);
+    Assert((u32)ID.Value <= Assets->AssetCount);
     ssa_font *Result = &Assets->Assets[ID.Value].SSA.Font;
 
     return(Result);
@@ -269,8 +276,27 @@ GetTileset(game_assets *Assets, tileset_id ID, u32 GenerationID)
 inline ssa_tileset *
 GetTilesetInfo(game_assets *Assets, tileset_id ID)
 {
-    Assert(ID.Value <= Assets->AssetCount);
+    Assert((u32)ID.Value <= Assets->AssetCount);
     ssa_tileset *Result = &Assets->Assets[ID.Value].SSA.Tileset;
+
+    return(Result);
+}
+
+inline loaded_assetset *
+GetAssetset(game_assets *Assets, assetset_id ID, u32 GenerationID)
+{
+    asset_memory_header *Header = GetAsset(Assets, ID.Value, GenerationID);
+
+    loaded_assetset *Result = Header ? &Header->Assetset : 0;
+
+    return(Result);
+}
+
+inline ssa_assetset *
+GetAssetsetInfo(game_assets *Assets, assetset_id ID)
+{
+    Assert((u32)ID.Value <= Assets->AssetCount);
+    ssa_assetset *Result = &Assets->Assets[ID.Value].SSA.Assetset;
 
     return(Result);
 }
@@ -302,6 +328,9 @@ inline void PrefetchFont(game_assets *Assets, font_id ID) {LoadFont(Assets, ID, 
 
 internal void LoadTileset(game_assets *Assets, tileset_id ID, b32 Immediate);
 inline void PrefetchTileset(game_assets *Assets, tileset_id ID) {LoadTileset(Assets, ID, false);}
+
+internal void LoadAssetset(game_assets *Assets, assetset_id ID, b32 Immediate);
+inline void PrefetchAssetset(game_assets *Assets, assetset_id ID) {LoadAssetset(Assets, ID, false);}
 
 inline sound_id
 GetNextSoundInChain(game_assets *Assets, sound_id ID)

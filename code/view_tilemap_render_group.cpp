@@ -1655,6 +1655,30 @@ PushTileset(render_group *Group, tileset_id ID, b32 Immidiate = false)
     return(Tileset);
 }
 
+inline loaded_assetset *
+PushAssetset(render_group *Group, assetset_id ID, b32 Immidiate = false)
+{
+    loaded_assetset *Assetset = GetAssetset(Group->Assets, ID, Group->GenerationID);
+    if((Group->RendersInBackground || Immidiate) && !Assetset)
+    {
+        LoadAssetset(Group->Assets, ID, true);
+        Assetset = GetAssetset(Group->Assets, ID, Group->GenerationID);
+    }
+    
+    if(Assetset)
+    {
+        // NOTE(casey): Nothing to do
+    }
+    else
+    {
+        Assert(!Group->RendersInBackground);
+        LoadAssetset(Group->Assets, ID, false);
+        ++Group->MissingResourceCount;
+    }
+
+    return(Assetset);
+}
+
 inline void
 PushRect(render_group *Group, v3 Offset, v2 Dim, v4 Color = V4(1, 1, 1, 1))
 {
