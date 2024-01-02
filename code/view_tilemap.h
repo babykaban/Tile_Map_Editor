@@ -202,6 +202,19 @@ struct tileset_stats
     u8 MergeSurface;
 };
 
+enum edit_mode
+{
+    EditMode_Terrain,
+    EditMode_Decoration,
+    EditMode_Count,
+};
+
+static const char *EditModeText[] =
+{
+    "Terrain",
+    "Decoration",
+};
+
 struct game_state
 {
     memory_arena WorldArena;
@@ -215,6 +228,8 @@ struct game_state
     
     tileset_stats SetStats;
     array_cursor MenuBarCursor;
+
+    u32 EditMode;
     
     b32 WorldTilesInitialized;
     u32 WorldTileCount;

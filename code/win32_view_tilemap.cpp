@@ -547,6 +547,10 @@ Win32ProcessPendingMessages(win32_state *State, game_controller_input *KeyboardC
                     {
                         Win32ProcessKeyboardMessage(&KeyboardController->MergeSurface, IsDown, true);
                     }
+                    else if(VKCode == 'M')
+                    {
+                        Win32ProcessKeyboardMessage(&KeyboardController->ChangeEditMode, IsDown, true);
+                    }
                     else if(VKCode == VK_UP)
                     {
                         Win32ProcessKeyboardMessage(&KeyboardController->ActionUp, IsDown, true);

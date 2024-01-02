@@ -11,44 +11,9 @@
 #include "view_tilemap_sim_region.cpp"
 #include "view_tilemap_asset.cpp"
 
-#include <stdio.h>
-global_variable r32 LeftEdge;
-global_variable r32 AtY;
-global_variable r32 FontScale;
-global_variable font_id FontID;
-global_variable tileset_id TilesetID; 
-global_variable loaded_tileset *GlobalTileset; 
-global_variable ssa_tileset *GlobalTilesetInfo;
-
-inline tile_position
-TilePositionFromChunkPosition(world_position *Pos)
-{
-    tile_position Result = {};
-
-    u32 HalfChunkCount = TILES_PER_CHUNK / 2;
-    Result.TileX = Pos->ChunkX*TILES_PER_CHUNK + HalfChunkCount;
-    Result.TileY = Pos->ChunkY*TILES_PER_CHUNK + HalfChunkCount; 
-
-    if(Pos->Offset_.x > 0.0f)
-    {
-        Result.TileX += CeilReal32ToInt32(Pos->Offset_.x) - 1;
-    }
-    else
-    {
-        Result.TileX += FloorReal32ToInt32(Pos->Offset_.x);
-    }
-
-    if(Pos->Offset_.y > 0.0f)
-    {
-        Result.TileY += CeilReal32ToInt32(Pos->Offset_.y) - 1;
-    }
-    else
-    {
-        Result.TileY += FloorReal32ToInt32(Pos->Offset_.y);
-    }
-
-    return(Result);
-}
+#include "view_tilemap_text_and_cursors.cpp"
+#include "view_tilemap_terrain_mode.cpp"
+#include "view_tilemap_decoration_mode.cpp"
 
 inline world_position
 ChunkPositionFromTilePosition(world *World, int32 AbsTileX, int32 AbsTileY,
@@ -65,20 +30,6 @@ ChunkPositionFromTilePosition(world *World, int32 AbsTileX, int32 AbsTileY,
     Assert(IsCanonical(World, Result.Offset_));
     
     return(Result);
-}
-
-internal void
-WriteMap(char *FileName, u32 TileCount, u32 *TileIDs)
-{
-    uint32 ContentSize = sizeof(u32)*TileCount;
-    Platform.DEBUGWriteEntireFile(0, FileName, ContentSize, TileIDs);
-}
-
-internal void
-WriteWorldTiles(char *FileName, u32 TileCount, world_tile *WorldTiles)
-{
-    uint32 ContentSize = sizeof(world_tile)*TileCount;
-    Platform.DEBUGWriteEntireFile(0, FileName, ContentSize, WorldTiles);
 }
 
 internal void
@@ -140,59 +91,6 @@ EndTaskWithMemory(task_with_memory *Task)
 
     CompletePreviousWritesBeforeFutureWrites;
     Task->BeingUsed = false;
-}
-
-internal void
-DEBUGReset(render_group *RenderGroup, s32 Width, s32 Height)
-{
-    asset_vector MatchVector = {};
-    asset_vector WeightVector = {};
-
-    MatchVector.E[Tag_FontType] = (r32)FontType_Debug;
-    WeightVector.E[Tag_FontType] = 1.0f;
-    
-    FontID = GetBestMatchFontFrom(RenderGroup->Assets, Asset_Font, &MatchVector, &WeightVector);
-
-    FontScale = 1.0f;
-    AtY = 0.0f;
-    LeftEdge = -0.5f*Width;
-
-    ssa_font *Info = GetFontInfo(RenderGroup->Assets, FontID);
-    AtY = 0.5f*Height - FontScale*GetStartingBaselineY(Info);
-}
-
-internal void
-DEBUGTextLine(render_group *RenderGroup, char *String)
-{    
-    loaded_font *Font = PushFont(RenderGroup, FontID);
-    if(Font)
-    {
-        ssa_font *FontInfo = GetFontInfo(RenderGroup->Assets, FontID);
-            
-        u32 PrevCodePoint = 0;
-        r32 CharScale = FontScale;
-        v4 Color = V4(0, 0, 0, 1);
-        r32 AtX = LeftEdge;
-        for(char *At = String;
-            *At;
-            )
-        {
-            u32 CodePoint = *At;
-            r32 AdvanceX = CharScale*GetHorizontalAdvanceForPair(FontInfo, Font, PrevCodePoint, CodePoint);
-            AtX += AdvanceX;
-
-            if(CodePoint != ' ')
-            {
-                bitmap_id BitmapID = GetBitmapForGlyph(RenderGroup->Assets, FontInfo, Font, CodePoint);
-                ssa_bitmap *Info = GetBitmapInfo(RenderGroup->Assets, BitmapID);
-                PushBitmap(RenderGroup, BitmapID, CharScale*(r32)Info->Dim[1], V3(AtX, AtY, 0), Color);
-            }
-            PrevCodePoint = CodePoint;
-                
-            ++At;
-        }
-        AtY -= GetLineAdvanceFor(FontInfo)*FontScale;
-    }
 }
 
 internal void
@@ -296,18 +194,6 @@ InitializeWorldTiles(game_assets *Assets, game_state *GameState, char *FileName)
     GameState->WorldTilesInitialized = true;
 }
 
-internal u32
-GetTileIndexFromChunkPosition(game_state *GameState, world_position *MouseP)
-{
-    u32 Result = 0;
-    tile_position MouseTileP = TilePositionFromChunkPosition(MouseP);
-    u32 WorldTileIndex = MouseTileP.TileY*WORLD_HEIGHT_TILE_COUNT + MouseTileP.TileX;
-
-    Result = WorldTileIndex;
-    
-    return(Result);
-}
-
 inline world_tile *
 GetTileFromChunkPosition(game_state *GameState, world_position *MouseP)
 {
@@ -317,217 +203,6 @@ GetTileFromChunkPosition(game_state *GameState, world_position *MouseP)
     Result = GameState->WorldTiles + WorldTileIndex;
     
     return(Result);
-}
-
-inline void
-ResetGroundBuffers(transient_state *TranState)
-{
-    for(uint32 GroundBufferIndex = 0;
-        GroundBufferIndex < TranState->GroundBufferCount;
-        ++GroundBufferIndex)
-    {
-        ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
-        GroundBuffer->P = NullPosition();            
-    }        
-}
-
-internal void
-ChangeTile(render_group *RenderGroup, game_state *GameState, world_position *MouseP)
-{
-    u32 TileToChange = GetTileIndexFromChunkPosition(GameState, MouseP);
-    if((MouseP->ChunkX >= 0) && (MouseP->ChunkY >= 0))
-    {
-        loaded_tileset *Tileset = PushTileset(RenderGroup, TilesetID);
-        if(Tileset)
-        {
-            u32 TileIndex = GameState->MenuBarCursor.Array[GameState->MenuBarCursor.ArrayPosition];
-            ssa_tile *Tile = Tileset->Tiles + TileIndex; 
-            GameState->WorldTiles[TileToChange].TileID = Tile->UniqueID;
-            GameState->WorldTiles[TileToChange].TileBitmapID.Value = Tile->BitmapID.Value + Tileset->BitmapIDOffset;
-
-            GameState->TileIDs[TileToChange] = Tile->UniqueID;
-
-            ResetGroundBuffers(RenderGroup->Assets->TranState);
-        }
-    }
-}
-
-internal void
-ResetCursorArray(array_cursor *Cursor)
-{
-    for(u32 I = 0;
-        I < Cursor->ArrayCount;
-        ++I)
-    {
-        Cursor->Array[I] = I;
-    }
-}
-
-internal void
-InitializeCursor(memory_arena *Arena, array_cursor *Cursor, u32 CursorArrayCount)
-{
-    Cursor->ArrayPosition = 0;
-    Cursor->ArrayCount = CursorArrayCount;
-    Cursor->Array = PushArray(Arena, Cursor->ArrayCount, u32);
-    ResetCursorArray(Cursor);
-}
-
-internal void
-ChangeCursorPositionFor(array_cursor *Cursor, u32 SourceArrayCount, s16 MouseZ)
-{
-    if(MouseZ != 0)
-    {
-        u32 CursorLastIndex = Cursor->ArrayCount - 1;
-        s32 Count = MouseZ > 0 ? MouseZ : MouseZ * -1;
-        for(s32 MouseRotIndex = 0;
-            MouseRotIndex < Count;
-            ++MouseRotIndex)
-        {
-            if(MouseZ > 0)
-            {
-                if(Cursor->ArrayPosition == 0)
-                {
-                    s32 NewFirst = Cursor->Array[0] - 1;
-                    for(u32 I = CursorLastIndex;
-                        I > 0;
-                        --I)
-                    {
-                        Cursor->Array[I] = Cursor->Array[I - 1];
-                    }
-
-                    if(NewFirst == -1)
-                    {
-                        NewFirst = SourceArrayCount - 1;
-                    }
-                    Cursor->Array[0] = NewFirst;
-                }
-                else
-                {
-                    --Cursor->ArrayPosition;
-                }
-            }
-            else
-            {
-                if(Cursor->ArrayPosition == CursorLastIndex)
-                {
-                    u32 NewLast = Cursor->Array[CursorLastIndex] + 1;
-                    for(u32 I = 0;
-                        I < Cursor->ArrayCount;
-                        ++I)
-                    {
-                        Cursor->Array[I] = Cursor->Array[I + 1];
-                    }
-
-                    if(NewLast == SourceArrayCount)
-                    {
-                        NewLast = 0;
-                    }
-                    Cursor->Array[CursorLastIndex] = NewLast;
-                }
-                else
-                {
-                    ++Cursor->ArrayPosition;
-                }
-            }
-        }
-    }
-}
-
-internal void
-ShowTileMenuBar(render_group *RenderGroup, array_cursor *Cursor, r32 TileDimInMeters)
-{
-    loaded_tileset *Tileset = PushTileset(RenderGroup, TilesetID);
-    u32 TileCountInBar = Cursor->ArrayCount;
-
-    r32 TileHalfDim = 0.5f*TileDimInMeters;
-    r32 MenuBarWidth = TileDimInMeters*TileCountInBar;
-    r32 HalfMenuBarWidth = 0.5f*MenuBarWidth;
-    r32 OffsetY = 6.0f;
-    PushRectOutline(RenderGroup, V3(0, OffsetY, 0), V2(MenuBarWidth, TileDimInMeters), V4(0, 1, 0, 1), 0.05f);
-
-    ssa_tileset *Info = GetTilesetInfo(RenderGroup->Assets, TilesetID);
-    if(Tileset)
-    {
-        r32 TileOffsetX = -HalfMenuBarWidth;
-        r32 TileOffsetY = OffsetY - TileHalfDim;
-        for(u32 Index = 0;
-            Index < TileCountInBar;
-            ++Index)
-        {
-            u32 TileIndex = Cursor->Array[Index];
-            bitmap_id ID = GetBitmapForTile(RenderGroup->Assets, Info, Tileset, TileIndex);
-            PushBitmap(RenderGroup, ID, TileDimInMeters, V3(TileOffsetX, TileOffsetY, 0));
-            TileOffsetX += TileDimInMeters;
-        }
-    }
-
-    r32 CursorOffsetX = (TileHalfDim - HalfMenuBarWidth) + Cursor->ArrayPosition*TileDimInMeters;
-    PushRectOutline(RenderGroup, V3(CursorOffsetX, OffsetY, 0), V2(TileDimInMeters, TileDimInMeters), V4(1, 1, 1, 1), 0.05f);
-}
-
-internal void
-ShowTilesetStats(render_group *RenderGroup, game_state *GameState)
-{
-    DEBUGTextLine(RenderGroup, "Tileset Stats:");
-    char TextBuffer[256];
-    _snprintf_s(TextBuffer, sizeof(TextBuffer), "Biome: %s", Biomes[GameState->SetStats.Biome]);
-    DEBUGTextLine(RenderGroup, TextBuffer);
-
-    _snprintf_s(TextBuffer, sizeof(TextBuffer), "TileType: %s", TileTypes[GameState->SetStats.Type]);
-    DEBUGTextLine(RenderGroup, TextBuffer);
-
-    _snprintf_s(TextBuffer, sizeof(TextBuffer), "Height: %s", Heights[GameState->SetStats.Height]);
-    DEBUGTextLine(RenderGroup, TextBuffer);
-
-    _snprintf_s(TextBuffer, sizeof(TextBuffer), "CliffHillType: %s",
-                CliffHillTypes[GameState->SetStats.CliffHillType]);
-    DEBUGTextLine(RenderGroup, TextBuffer);
-
-    _snprintf_s(TextBuffer, sizeof(TextBuffer), "MainSurface: %s", Surfaces[GameState->SetStats.MainSurface]);
-    DEBUGTextLine(RenderGroup, TextBuffer);
-
-    _snprintf_s(TextBuffer, sizeof(TextBuffer), "MergeSurface: %s", Surfaces[GameState->SetStats.MergeSurface]);
-    DEBUGTextLine(RenderGroup, TextBuffer);
-}
-
-internal void
-ReloadTileset(game_assets *Assets, game_state *GameState)
-{
-    asset_vector WeightVector = {};
-    WeightVector.E[Tag_BiomeType] = 1.0f;
-    WeightVector.E[Tag_TileType] = 1.0f;
-    WeightVector.E[Tag_Height] = 1.0f;
-    WeightVector.E[Tag_CliffHillType] = 1.0f;
-    WeightVector.E[Tag_TileMainSurface] = 1.0f;
-    WeightVector.E[Tag_TileMergeSurface] = 1.0f;
-
-    asset_vector MatchVector = {};
-    MatchVector.E[Tag_BiomeType] = (r32)GameState->SetStats.Biome;
-    MatchVector.E[Tag_TileType] = (r32)GameState->SetStats.Type;
-    MatchVector.E[Tag_Height] = (r32)GameState->SetStats.Height;
-    MatchVector.E[Tag_CliffHillType] = (r32)GameState->SetStats.CliffHillType;
-    MatchVector.E[Tag_TileMainSurface] = (r32)GameState->SetStats.MainSurface;
-    MatchVector.E[Tag_TileMergeSurface] = (r32)GameState->SetStats.MergeSurface;
-    
-    tileset_id ID = GetBestMatchTilesetFrom(Assets, Asset_Tileset, &MatchVector, &WeightVector);
-    if(ID.Value != TilesetID.Value)
-    {
-        TilesetID = ID;
-        ResetCursorArray(&GameState->MenuBarCursor);
-    }
-}
-
-internal void
-ShowTest(render_group *RenderGroup, array_cursor *Cursor)
-{
-    DEBUGTextLine(RenderGroup, "Test:");
-    char TextBuffer[256];
-    _snprintf_s(TextBuffer, sizeof(TextBuffer),
-                "%d, %d, %d, %d, %d, %d, %d, %d, %d, %d",
-                Cursor->Array[0], Cursor->Array[1], Cursor->Array[2], Cursor->Array[3],
-                Cursor->Array[4], Cursor->Array[5], Cursor->Array[6], Cursor->Array[7],
-                Cursor->Array[8], Cursor->Array[9]);
-    DEBUGTextLine(RenderGroup, TextBuffer);
 }
 
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
@@ -674,18 +349,17 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     }
     
     
-#if 1
     if(Input->ExecutableReloaded)
     {
         ResetGroundBuffers(TranState);
     }
-#endif    
 
     world *World = GameState->World;
 
     //
     // NOTE(casey): 
     //
+
     game_controller_input *Controller = GetController(Input, 0);
     if(Controller->IsAnalog)
     {
@@ -767,6 +441,15 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             }
         }
 
+        if(Controller->ChangeEditMode.EndedDown)
+        {
+            GameState->EditMode += 1;
+            if(GameState->EditMode >= EditMode_Count)
+            {
+                GameState->EditMode = 0;
+            }
+        }
+
         if(Controller->ActionUp.EndedDown)
         {
 //            ChangeChoosenAttributeValueFor(GameState, true);
@@ -826,6 +509,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     rectangle2 CameraBoundsInMeters = RectMinMax(ScreenBounds.Min, ScreenBounds.Max);
     
     char TextBuffer[256];
+    _snprintf_s(TextBuffer, sizeof(TextBuffer),
+                "Edit Mode: %s",
+                EditModeText[GameState->EditMode]);
+    DEBUGTextLine(TextRenderGroup, TextBuffer);
+    
     _snprintf_s(TextBuffer, sizeof(TextBuffer),
                 "CameraP in Chunks: X: %d Y: %d, OX: %f, OY: %f",
                 GameState->CameraP.ChunkX, GameState->CameraP.ChunkY,
@@ -923,55 +611,17 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         }
     }
 
-    if(Input->MouseButtons[0].EndedDown)
+    if(GameState->EditMode == EditMode_Terrain)
     {
-        ChangeTile(RenderGroup, GameState, &MouseChunkP);
+        TerrainEditMode(RenderGroup, TextRenderGroup, GameState, TranState, Input, &MouseChunkP, TileSideInMeters);
     }
-    
-    ssa_tileset *Info = GetTilesetInfo(RenderGroup->Assets, TilesetID);
-    ChangeCursorPositionFor(&GameState->MenuBarCursor, Info->TileCount, Input->MouseZ);
-    ShowTest(TextRenderGroup, &GameState->MenuBarCursor);
-    ShowTileMenuBar(RenderGroup, &GameState->MenuBarCursor, TileSideInMeters);
-    ShowTilesetStats(TextRenderGroup, GameState);
-    
-    WriteMap("tilemap.bin", GameState->WorldTileCount, GameState->TileIDs);
-    WriteWorldTiles("worldtiles.bin", GameState->WorldTileCount, GameState->WorldTiles);
-    ReloadTileset(RenderGroup->Assets, GameState);
+    else if(GameState->EditMode == EditMode_Decoration)
+    {
+        DecorationEditMode(RenderGroup, TextRenderGroup, GameState, TranState, Input, &MouseChunkP, TileSideInMeters);
+    }
     
     PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(ScreenBounds), V4(1.0f, 1.0f, 0.0f, 1));
     PushRect(RenderGroup, V3(0, 0, 0), 0.2f*V2(TileSideInMeters, TileSideInMeters), V4(1, 0, 0, 1));
-
-    v2 Delta = Subtract(World, &GameState->CameraP, &MouseChunkP);
-    PushRect(RenderGroup, V3(-Delta, 0),
-             0.2f*V2(TileSideInMeters, TileSideInMeters), V4(0, 0, 1, 1));
-
-    tile_position Tp = TilePositionFromChunkPosition(&MouseChunkP);
-    tile_position TCp = TilePositionFromChunkPosition(&GameState->CameraP);
-    
-
-    v2 dTile =
-        {
-            (real32)TCp.TileX - (real32)Tp.TileX,
-            (real32)TCp.TileY - (real32)Tp.TileY
-        };
-
-    v2 D = dTile*TileSideInMeters - V2(0.5f, 0.5f);
-
-    PushRectOutline(RenderGroup, V3(-D, 0), V2(TileSideInMeters, TileSideInMeters),
-                    V4(0.0f, 0.0f, 1.0f, 1), 0.0125f);
-
-    asset_vector MatchVector = {};
-    asset_vector WeightVector = {};
-    WeightVector.E[Tag_AssetType] = 1.0f;
-
-    MatchVector.E[Tag_AssetType] = (r32)Asset_Tree;
-    assetset_id ID = GetBestMatchAssetsetFrom(TranState->Assets, Asset_AssetSet,
-                                              &MatchVector, &WeightVector);
-
-    loaded_assetset *Assetset = PushAssetset(RenderGroup, ID, true);
-    ssa_assetset *AssetsetInfo = GetAssetsetInfo(TranState->Assets, ID);
-    bitmap_id BitmapID = GetBitmapFromAssetset(TranState->Assets, AssetsetInfo, Assetset, 26);
-    PushBitmap(RenderGroup, BitmapID, 4.0f, V3(0, 0, 0));
     
     RenderGroup->GlobalAlpha = 1.0f;
 
