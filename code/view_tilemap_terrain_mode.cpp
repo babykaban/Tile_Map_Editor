@@ -86,7 +86,7 @@ ChangeTile(render_group *RenderGroup, game_state *GameState, world_position *Mou
         loaded_tileset *Tileset = PushTileset(RenderGroup, TilesetID);
         if(Tileset)
         {
-            u32 TileIndex = GameState->MenuBarCursor.Array[GameState->MenuBarCursor.ArrayPosition];
+            u32 TileIndex = GameState->TileMenuBarCursor.Array[GameState->TileMenuBarCursor.ArrayPosition];
             ssa_tile *Tile = Tileset->Tiles + TileIndex; 
             GameState->WorldTiles[TileToChange].TileID = Tile->UniqueID;
             GameState->WorldTiles[TileToChange].TileBitmapID.Value = Tile->BitmapID.Value + Tileset->BitmapIDOffset;
@@ -120,7 +120,7 @@ ShowTileMenuBar(render_group *RenderGroup, array_cursor *Cursor, r32 TileDimInMe
     r32 TileHalfDim = 0.5f*TileDimInMeters;
     r32 MenuBarWidth = TileDimInMeters*TileCountInBar;
     r32 HalfMenuBarWidth = 0.5f*MenuBarWidth;
-    r32 OffsetY = 6.0f;
+    r32 OffsetY = 8.0f;
     PushRectOutline(RenderGroup, V3(0, OffsetY, 0), V2(MenuBarWidth, TileDimInMeters), V4(0, 1, 0, 1), 0.05f);
 
     ssa_tileset *Info = GetTilesetInfo(RenderGroup->Assets, TilesetID);
@@ -148,23 +148,23 @@ ShowTilesetStats(render_group *RenderGroup, game_state *GameState)
 {
     DEBUGTextLine(RenderGroup, "Tileset Stats:");
     char TextBuffer[256];
-    _snprintf_s(TextBuffer, sizeof(TextBuffer), "Biome: %s", Biomes[GameState->SetStats.Biome]);
+    _snprintf_s(TextBuffer, sizeof(TextBuffer), "Biome: %s", Biomes[GameState->TileSetStats.Biome]);
     DEBUGTextLine(RenderGroup, TextBuffer);
 
-    _snprintf_s(TextBuffer, sizeof(TextBuffer), "TileType: %s", TileTypes[GameState->SetStats.Type]);
+    _snprintf_s(TextBuffer, sizeof(TextBuffer), "TileType: %s", TileTypes[GameState->TileSetStats.Type]);
     DEBUGTextLine(RenderGroup, TextBuffer);
 
-    _snprintf_s(TextBuffer, sizeof(TextBuffer), "Height: %s", Heights[GameState->SetStats.Height]);
+    _snprintf_s(TextBuffer, sizeof(TextBuffer), "Height: %s", Heights[GameState->TileSetStats.Height]);
     DEBUGTextLine(RenderGroup, TextBuffer);
 
     _snprintf_s(TextBuffer, sizeof(TextBuffer), "CliffHillType: %s",
-                CliffHillTypes[GameState->SetStats.CliffHillType]);
+                CliffHillTypes[GameState->TileSetStats.CliffHillType]);
     DEBUGTextLine(RenderGroup, TextBuffer);
 
-    _snprintf_s(TextBuffer, sizeof(TextBuffer), "MainSurface: %s", Surfaces[GameState->SetStats.MainSurface]);
+    _snprintf_s(TextBuffer, sizeof(TextBuffer), "MainSurface: %s", Surfaces[GameState->TileSetStats.MainSurface]);
     DEBUGTextLine(RenderGroup, TextBuffer);
 
-    _snprintf_s(TextBuffer, sizeof(TextBuffer), "MergeSurface: %s", Surfaces[GameState->SetStats.MergeSurface]);
+    _snprintf_s(TextBuffer, sizeof(TextBuffer), "MergeSurface: %s", Surfaces[GameState->TileSetStats.MergeSurface]);
     DEBUGTextLine(RenderGroup, TextBuffer);
 }
 
@@ -180,18 +180,18 @@ ReloadTileset(game_assets *Assets, game_state *GameState)
     WeightVector.E[Tag_TileMergeSurface] = 1.0f;
 
     asset_vector MatchVector = {};
-    MatchVector.E[Tag_BiomeType] = (r32)GameState->SetStats.Biome;
-    MatchVector.E[Tag_TileType] = (r32)GameState->SetStats.Type;
-    MatchVector.E[Tag_Height] = (r32)GameState->SetStats.Height;
-    MatchVector.E[Tag_CliffHillType] = (r32)GameState->SetStats.CliffHillType;
-    MatchVector.E[Tag_TileMainSurface] = (r32)GameState->SetStats.MainSurface;
-    MatchVector.E[Tag_TileMergeSurface] = (r32)GameState->SetStats.MergeSurface;
+    MatchVector.E[Tag_BiomeType] = (r32)GameState->TileSetStats.Biome;
+    MatchVector.E[Tag_TileType] = (r32)GameState->TileSetStats.Type;
+    MatchVector.E[Tag_Height] = (r32)GameState->TileSetStats.Height;
+    MatchVector.E[Tag_CliffHillType] = (r32)GameState->TileSetStats.CliffHillType;
+    MatchVector.E[Tag_TileMainSurface] = (r32)GameState->TileSetStats.MainSurface;
+    MatchVector.E[Tag_TileMergeSurface] = (r32)GameState->TileSetStats.MergeSurface;
     
     tileset_id ID = GetBestMatchTilesetFrom(Assets, Asset_Tileset, &MatchVector, &WeightVector);
     if(ID.Value != TilesetID.Value)
     {
         TilesetID = ID;
-        ResetCursorArray(&GameState->MenuBarCursor);
+        ResetCursorArray(&GameState->TileMenuBarCursor);
     }
 }
 
@@ -200,15 +200,16 @@ TerrainEditMode(render_group *RenderGroup, render_group *TextRenderGroup, game_s
                 transient_state *TranState, game_input *Input, world_position *MouseChunkP,
                 r32 TileSideInMeters)
 {
+
     if(Input->MouseButtons[0].EndedDown)
     {
         ChangeTile(RenderGroup, GameState, MouseChunkP);
     }
 
     ssa_tileset *Info = GetTilesetInfo(RenderGroup->Assets, TilesetID);
-    ChangeCursorPositionFor(&GameState->MenuBarCursor, Info->TileCount, Input->MouseZ);
-    ShowTest(TextRenderGroup, &GameState->MenuBarCursor);
-    ShowTileMenuBar(RenderGroup, &GameState->MenuBarCursor, TileSideInMeters);
+    ChangeCursorPositionFor(&GameState->TileMenuBarCursor, Info->TileCount, Input->MouseZ);
+    ShowTest(TextRenderGroup, &GameState->TileMenuBarCursor);
+    ShowTileMenuBar(RenderGroup, &GameState->TileMenuBarCursor, TileSideInMeters);
     ShowTilesetStats(TextRenderGroup, GameState);
     
     WriteMap("tilemap.bin", GameState->WorldTileCount, GameState->TileIDs);
@@ -232,6 +233,6 @@ TerrainEditMode(render_group *RenderGroup, render_group *TextRenderGroup, game_s
     v2 D = dTile*TileSideInMeters - V2(0.5f, 0.5f);
 
     PushRectOutline(RenderGroup, V3(-D, 0), V2(TileSideInMeters, TileSideInMeters),
-                    V4(0.0f, 0.0f, 1.0f, 1), 0.0125f);
+                    V4(0.0f, 0.0f, 1.0f, 1), 0.02f);
 
 }

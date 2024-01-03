@@ -11,10 +11,6 @@
 #include "view_tilemap_sim_region.cpp"
 #include "view_tilemap_asset.cpp"
 
-#include "view_tilemap_text_and_cursors.cpp"
-#include "view_tilemap_terrain_mode.cpp"
-#include "view_tilemap_decoration_mode.cpp"
-
 inline world_position
 ChunkPositionFromTilePosition(world *World, int32 AbsTileX, int32 AbsTileY,
                               v2 AdditionalOffset = V2(0, 0))
@@ -31,6 +27,10 @@ ChunkPositionFromTilePosition(world *World, int32 AbsTileX, int32 AbsTileY,
     
     return(Result);
 }
+
+#include "view_tilemap_text_and_cursors.cpp"
+#include "view_tilemap_terrain_mode.cpp"
+#include "view_tilemap_decoration_mode.cpp"
 
 internal void
 ClearBitmap(loaded_bitmap *Bitmap)
@@ -156,9 +156,10 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
 }
 
 internal void
-InitializeWorldTiles(game_assets *Assets, game_state *GameState, char *FileName)
+InitializeWorldTilesAndDecorations(game_assets *Assets, game_state *GameState,
+                                   char *TilesFileName, char *DecorationsFileName)
 {
-    debug_read_file_result WorldTiles = Platform.DEBUGReadEntireFile(0, FileName);
+    debug_read_file_result WorldTiles = Platform.DEBUGReadEntireFile(0, TilesFileName);
     if(WorldTiles.Contents)
     {
         GameState->WorldTiles = (world_tile *)WorldTiles.Contents;
@@ -189,6 +190,12 @@ InitializeWorldTiles(game_assets *Assets, game_state *GameState, char *FileName)
             WorldTile->TileID = 3;
             WorldTile->TileBitmapID = TileBitmapID;
         }
+    }
+
+    debug_read_file_result Decorations = Platform.DEBUGReadEntireFile(0, DecorationsFileName);
+    if(Decorations.Contents)
+    {
+        GameState->Decorations = (decoration *)Decorations.Contents;
     }
 
     GameState->WorldTilesInitialized = true;
@@ -238,6 +245,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
         GameState->WorldTileCount = WORLD_HEIGHT_TILE_COUNT*WORLD_WIDTH_TILE_COUNT;
         GameState->WorldTiles = PushArray(&GameState->WorldArena, GameState->WorldTileCount, world_tile);
+        GameState->Decorations = PushArray(&GameState->WorldArena, GameState->WorldTileCount, decoration);
         GameState->TileIDs = PushArray(&GameState->WorldArena, GameState->WorldTileCount, u32);
         
         GameState->World = PushStruct(&GameState->WorldArena, world);
@@ -289,9 +297,13 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         GameState->CameraBoundsMax.ChunkX = WORLD_WIDTH_TILE_COUNT / TILES_PER_CHUNK;
         GameState->CameraBoundsMax.ChunkY = WORLD_HEIGHT_TILE_COUNT / TILES_PER_CHUNK;
 
-        GameState->SetStats = {};
-        
-        InitializeCursor(&GameState->WorldArena, &GameState->MenuBarCursor, 10);
+        // NOTE(paul): Initialize cursors and sets stats
+        InitializeCursor(&GameState->TileMenuBarCursor, 10);
+        InitializeCursor(&GameState->AssetMenuBarCursor, 2);
+
+        GameState->TileSetStats = {};
+        GameState->AssetSetStats = {};
+        GameState->AssetSetStats.Type = Asset_Bole;
         
         Memory->IsInitialized = true;
     }
@@ -388,65 +400,88 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         
         GameState->CameraP = MapIntoChunkSpace(World, GameState->CameraP, NewP);
 
-        if(Controller->Biome.EndedDown)
-        {
-            GameState->SetStats.Biome += 1;
-            if(GameState->SetStats.Biome >= BiomeType_Count)
-            {
-                GameState->SetStats.Biome = 0;
-            }
-        }
-
-        if(Controller->Type.EndedDown)
-        {
-            GameState->SetStats.Type += 1;
-            if(GameState->SetStats.Type >= TileType_Count)
-            {
-                GameState->SetStats.Type = 0;
-            }
-        }
-
-        if(Controller->Height.EndedDown)
-        {
-            GameState->SetStats.Height += 1;
-            if(GameState->SetStats.Height >= Height_Count)
-            {
-                GameState->SetStats.Height = 0;
-            }
-        }
-
-        if(Controller->CliffHillType.EndedDown)
-        {
-            GameState->SetStats.CliffHillType += 1;
-            if(GameState->SetStats.CliffHillType >= CliffHillType_Count)
-            {
-                GameState->SetStats.CliffHillType = 0;
-            }
-        }
-
-        if(Controller->MainSurface.EndedDown)
-        {
-            GameState->SetStats.MainSurface += 1;
-            if(GameState->SetStats.MainSurface >= TileSurface_Count)
-            {
-                GameState->SetStats.MainSurface = 0;
-            }
-        }
-        if(Controller->MergeSurface.EndedDown)
-        {
-            GameState->SetStats.MergeSurface += 1;
-            if(GameState->SetStats.MergeSurface >= TileSurface_Count)
-            {
-                GameState->SetStats.MergeSurface = 0;
-            }
-        }
-
         if(Controller->ChangeEditMode.EndedDown)
         {
             GameState->EditMode += 1;
             if(GameState->EditMode >= EditMode_Count)
             {
                 GameState->EditMode = 0;
+            }
+        }
+
+        if(GameState->EditMode == EditMode_Terrain)
+        {
+            if(Controller->Biome.EndedDown)
+            {
+                GameState->TileSetStats.Biome += 1;
+                if(GameState->TileSetStats.Biome >= BiomeType_Count)
+                {
+                    GameState->TileSetStats.Biome = 0;
+                }
+            }
+
+            if(Controller->Type.EndedDown)
+            {
+                GameState->TileSetStats.Type += 1;
+                if(GameState->TileSetStats.Type >= TileType_Count)
+                {
+                    GameState->TileSetStats.Type = 0;
+                }
+            }
+
+            if(Controller->Height.EndedDown)
+            {
+                GameState->TileSetStats.Height += 1;
+                if(GameState->TileSetStats.Height >= Height_Count)
+                {
+                    GameState->TileSetStats.Height = 0;
+                }
+            }
+
+            if(Controller->CliffHillType.EndedDown)
+            {
+                GameState->TileSetStats.CliffHillType += 1;
+                if(GameState->TileSetStats.CliffHillType >= CliffHillType_Count)
+                {
+                    GameState->TileSetStats.CliffHillType = 0;
+                }
+            }
+
+            if(Controller->MainSurface.EndedDown)
+            {
+                GameState->TileSetStats.MainSurface += 1;
+                if(GameState->TileSetStats.MainSurface >= TileSurface_Count)
+                {
+                    GameState->TileSetStats.MainSurface = 0;
+                }
+            }
+            if(Controller->MergeSurface.EndedDown)
+            {
+                GameState->TileSetStats.MergeSurface += 1;
+                if(GameState->TileSetStats.MergeSurface >= TileSurface_Count)
+                {
+                    GameState->TileSetStats.MergeSurface = 0;
+                }
+            }
+        }
+        else if(GameState->EditMode == EditMode_Decoration)
+        {
+            if(Controller->Biome.EndedDown)
+            {
+                GameState->AssetSetStats.Biome += 1;
+                if(GameState->AssetSetStats.Biome >= BiomeType_Count)
+                {
+                    GameState->AssetSetStats.Biome = 0;
+                }
+            }
+
+            if(Controller->Type.EndedDown)
+            {
+                GameState->AssetSetStats.Type += 1;
+                if(GameState->AssetSetStats.Type >= Asset_Count)
+                {
+                    GameState->AssetSetStats.Type = 0;
+                }
             }
         }
 
@@ -481,19 +516,19 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     BeginRender(RenderGroup);
     real32 WidthOfMonitor = 0.635f; // NOTE(casey): Horizontal measurement of monitor in meters
     real32 MetersToPixels = (real32)DrawBuffer->Width*WidthOfMonitor;// / 2.0f;
-    real32 FocalLength = 0.6f;
+    real32 FocalLength = 0.4f;
     real32 DistanceAboveTarget = 9.0f;
     
     Prespective(RenderGroup, DrawBuffer->Width, DrawBuffer->Height, MetersToPixels, FocalLength, DistanceAboveTarget);
 
 
+    // NOTE(paul): Load GlobalTileset
     GlobalTileset = PushTileset(RenderGroup, GameState->GlobalTilesetID, true);
     GlobalTilesetInfo = GetTilesetInfo(TranState->Assets, GameState->GlobalTilesetID);
     if(!GameState->WorldTilesInitialized)
     {
-        InitializeWorldTiles(TranState->Assets, GameState, "worldtiles.bin");
+        InitializeWorldTilesAndDecorations(TranState->Assets, GameState, "worldtiles.bin", "decorations.bin");
     }
-
     
     RenderGroup->Transform.OffsetP = V3(0, 0, 0);
     
@@ -507,6 +542,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     rectangle2 ScreenBounds = GetCameraRectangleAtTarget(RenderGroup);
     rectangle2 CameraBoundsInMeters = RectMinMax(ScreenBounds.Min, ScreenBounds.Max);
+
+    v2 SimBoundsExpansion = {15.0f, 14.0f};
+    rectangle2 SimBounds = AddRadiusTo(CameraBoundsInMeters, SimBoundsExpansion);
     
     char TextBuffer[256];
     _snprintf_s(TextBuffer, sizeof(TextBuffer),
@@ -607,20 +645,37 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             PushBitmap(RenderGroup, Bitmap, GroundSideInMeters, V3(Delta, 0));
 
             PushRectOutline(RenderGroup, V3(Delta, 0), V2(GroundSideInMeters, GroundSideInMeters),
-                            V4(1.0f, 1.0f, 0.0f, 1.0f), 0.01f);
+                            V4(1.0f, 1.0f, 0.0f, 1.0f), 0.015f);
         }
     }
 
+    for(s32 DecorationIndex = GameState->WorldTileCount - 1;
+        DecorationIndex >= 0;
+        --DecorationIndex)
+    {
+        decoration *Decoration = GameState->Decorations + DecorationIndex;
+        if(IsValid(Decoration->BitmapID))
+        {
+            v2 Delta = Subtract(GameState->World, &Decoration->P, &GameState->CameraP) - V2(2.0f, 2.0f);
+            if(IsInRectangle(SimBounds, Delta))
+            {
+                PushBitmap(RenderGroup, Decoration->BitmapID, Decoration->Height, V3(Delta, 0));
+            }
+        }
+    }
+    
     if(GameState->EditMode == EditMode_Terrain)
     {
         TerrainEditMode(RenderGroup, TextRenderGroup, GameState, TranState, Input, &MouseChunkP, TileSideInMeters);
     }
     else if(GameState->EditMode == EditMode_Decoration)
     {
-        DecorationEditMode(RenderGroup, TextRenderGroup, GameState, TranState, Input, &MouseChunkP, TileSideInMeters);
+        DecorationEditMode(RenderGroup, TextRenderGroup, GameState, TranState, Input, &MouseChunkP,
+                           TileSideInMeters, PixelsToMeters);
     }
     
     PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(ScreenBounds), V4(1.0f, 1.0f, 0.0f, 1));
+    PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(SimBounds), V4(1.0f, 0.0f, 1.0f, 1));
     PushRect(RenderGroup, V3(0, 0, 0), 0.2f*V2(TileSideInMeters, TileSideInMeters), V4(1, 0, 0, 1));
     
     RenderGroup->GlobalAlpha = 1.0f;

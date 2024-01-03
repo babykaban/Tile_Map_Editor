@@ -189,7 +189,7 @@ struct array_cursor
 {
     u32 ArrayPosition;
     u32 ArrayCount;
-    u32 *Array;
+    u32 Array[256];
 };
 
 struct tileset_stats
@@ -200,6 +200,12 @@ struct tileset_stats
     u8 CliffHillType;
     u8 MainSurface;
     u8 MergeSurface;
+};
+
+struct assetset_stats
+{
+    u8 Biome;
+    u8 Type;
 };
 
 enum edit_mode
@@ -215,6 +221,13 @@ static const char *EditModeText[] =
     "Decoration",
 };
 
+struct decoration
+{
+    world_position P;
+    r32 Height;
+    bitmap_id BitmapID;
+};
+
 struct game_state
 {
     memory_arena WorldArena;
@@ -226,8 +239,11 @@ struct game_state
     world_position CameraBoundsMin;
     world_position CameraBoundsMax;
     
-    tileset_stats SetStats;
-    array_cursor MenuBarCursor;
+    tileset_stats TileSetStats;
+    array_cursor TileMenuBarCursor;
+
+    assetset_stats AssetSetStats;
+    array_cursor AssetMenuBarCursor;
 
     u32 EditMode;
     
@@ -235,6 +251,7 @@ struct game_state
     u32 WorldTileCount;
     u32 *TileIDs;
     world_tile *WorldTiles;
+    decoration *Decorations;
 
     tileset_id GlobalTilesetID;
 };

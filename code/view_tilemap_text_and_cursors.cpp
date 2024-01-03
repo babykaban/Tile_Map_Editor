@@ -78,11 +78,18 @@ ResetCursorArray(array_cursor *Cursor)
 }
 
 internal void
-InitializeCursor(memory_arena *Arena, array_cursor *Cursor, u32 CursorArrayCount)
+InitializeCursor(array_cursor *Cursor, u32 CursorArrayCount)
 {
     Cursor->ArrayPosition = 0;
     Cursor->ArrayCount = CursorArrayCount;
-    Cursor->Array = PushArray(Arena, Cursor->ArrayCount, u32);
+    ResetCursorArray(Cursor);
+}
+
+internal void
+ReInitializeCursor(array_cursor *Cursor, u32 CursorArrayCount)
+{
+    Cursor->ArrayPosition = 0;
+    Cursor->ArrayCount = CursorArrayCount;
     ResetCursorArray(Cursor);
 }
 
