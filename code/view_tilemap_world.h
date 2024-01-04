@@ -27,12 +27,6 @@ struct world_position
     v2 Offset_;
 };
 
-struct world_tile
-{
-    u32 TileID;
-    bitmap_id TileBitmapID;
-};
-
 struct world_chunk
 {
     int32 ChunkX;

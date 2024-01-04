@@ -628,6 +628,30 @@ GetBestMatchAssetFrom(game_assets *Assets, asset_type_id TypeID,
     return(Result);
 }
 
+struct asset_tag_result
+{
+    asset_vector MatchVector;
+    asset_vector WeightVector;
+};
+
+internal asset_tag_result
+GetAssetTags(game_assets *Assets, u32 AssetIndex)
+{
+    asset_tag_result Result = {};
+
+    asset *Asset = Assets->Assets + AssetIndex;
+        
+    for(uint32 TagIndex = Asset->SSA.FirstTagIndex;
+        TagIndex < Asset->SSA.OnePastLastTagIndex;
+        ++TagIndex)
+    {
+        ssa_tag *Tag = Assets->Tags + TagIndex;
+        Result.MatchVector.E[Tag->ID] = Tag->Value;
+        Result.WeightVector.E[Tag->ID] = 1.0f;
+    }
+
+    return(Result);
+}
 
 internal uint32
 GetFirstAssetFrom(game_assets *Assets, asset_type_id TypeID)
@@ -958,16 +982,6 @@ GetStartingBaselineY(ssa_font *Info)
 {
     r32 Result = Info->AscenderHeight;
 
-    return(Result);
-}
-
-internal bitmap_id
-GetBitmapForTileID(loaded_tileset *GlobalTileset, ssa_tileset *Info, u32 TileID, tileset_id ID)
-{
-    Assert(TileID < Info->TileCount);
-    bitmap_id Result = GlobalTileset->Tiles[TileID].BitmapID;
-    Result.Value += GlobalTileset->BitmapIDOffset;
-    
     return(Result);
 }
 

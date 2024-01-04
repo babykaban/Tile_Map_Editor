@@ -169,8 +169,7 @@ InitializeWorldTilesAndDecorations(game_assets *Assets, game_state *GameState,
         {
             world_tile *Tile = GameState->WorldTiles + TileIndex;
             GameState->TileIDs[TileIndex] = Tile->TileID;
-            Tile->TileBitmapID = GetBitmapForTileID(GlobalTileset, GlobalTilesetInfo, Tile->TileID,
-                                                    GameState->GlobalTilesetID);
+            Tile->TileBitmapID = GetBitmapForTile(Assets, GlobalTilesetInfo, GlobalTileset, Tile->TileID);
         }
     }
     else
@@ -649,6 +648,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         }
     }
 
+    // NOTE(paul): Render decorations
     for(s32 DecorationIndex = GameState->WorldTileCount - 1;
         DecorationIndex >= 0;
         --DecorationIndex)

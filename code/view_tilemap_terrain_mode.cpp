@@ -234,5 +234,4 @@ TerrainEditMode(render_group *RenderGroup, render_group *TextRenderGroup, game_s
 
     PushRectOutline(RenderGroup, V3(-D, 0), V2(TileSideInMeters, TileSideInMeters),
                     V4(0.0f, 0.0f, 1.0f, 1), 0.02f);
-
 }

@@ -221,11 +221,19 @@ static const char *EditModeText[] =
     "Decoration",
 };
 
+struct world_tile
+{
+    u32 TileID;
+    bitmap_id TileBitmapID;
+};
+
 struct decoration
 {
     world_position P;
     r32 Height;
     bitmap_id BitmapID;
+    asset_vector MatchVector;
+    asset_vector WeightVector;
 };
 
 struct game_state
