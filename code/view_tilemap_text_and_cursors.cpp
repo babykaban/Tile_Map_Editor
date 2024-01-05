@@ -42,7 +42,7 @@ DEBUGTextLine(render_group *RenderGroup, char *String)
             
         u32 PrevCodePoint = 0;
         r32 CharScale = FontScale;
-        v4 Color = V4(0, 0, 0, 1);
+        v4 Color = V4(1, 1, 1, 1);
         r32 AtX = LeftEdge;
         for(char *At = String;
             *At;
