@@ -11,6 +11,7 @@ enum finalize_asset_operation
 {
     FinalizeAsset_None,
     FinalizeAsset_Font,
+    FinalizeAsset_Bitmap,
 };
 
 struct load_asset_work
@@ -55,6 +56,13 @@ LoadAssetWorkDirectly(load_asset_work *Work)
                     Font->UnicodeMap[Glyph->UnicodeCodePoint] = (u16)GlyphIndex;
                 }
 
+            } break;
+
+            case FinalizeAsset_Bitmap:
+            {
+                loaded_bitmap *Bitmap = &Work->Asset->Header->Bitmap;
+                Bitmap->TextureHandle = 
+                    Platform.AllocateTexture(Bitmap->Width, Bitmap->Height, Bitmap->Memory);
             } break;
         }
     }    
@@ -181,8 +189,9 @@ GenerationHasCompleted(game_assets *Assets, u32 CheckID)
 }
 
 internal asset_memory_header *
-AcquireAssetMemory(game_assets *Assets, u32 Size, u32 ID)
+AcquireAssetMemory(game_assets *Assets, u32 Size, u32 AssetIndex, asset_header_type AssetType)
 {
+
     asset_memory_header *Result = 0;
 
     BeginAssetLock(Assets);
@@ -193,16 +202,17 @@ AcquireAssetMemory(game_assets *Assets, u32 Size, u32 ID)
         if(Block && (Size <= Block->Size))
         {
             Block->Flags |= AssetMemory_Used;
+
             Result = (asset_memory_header *)(Block + 1);
 
             memory_index RemainingSize = Block->Size - Size;
-            memory_index BlockSplitThreashold = 4096;
-            if(RemainingSize > BlockSplitThreashold)
+            memory_index BlockSplitThreshold = 4096;
+            if(RemainingSize > BlockSplitThreshold)
             {
                 Block->Size -= RemainingSize;
                 InsertBlock(Block, RemainingSize, (u8 *)Result + Size);
             }
-            
+
             break;
         }
         else
@@ -211,15 +221,21 @@ AcquireAssetMemory(game_assets *Assets, u32 Size, u32 ID)
                 Header != &Assets->LoadedAssetSentinel;
                 Header = Header->Prev)
             {
-                u32 AssetIndex = Header->AssetIndex;
-                asset *Asset = Assets->Assets + AssetIndex;
-                if((Asset->State == AssetState_Loaded) &&
+                asset *Asset = Assets->Assets + Header->AssetIndex;
+                if((Asset->State >= AssetState_Loaded) &&
                    (GenerationHasCompleted(Assets, Asset->Header->GenerationID)))
                 {
+                    u32 AssetIndex_ = Header->AssetIndex;
+                    asset *Asset_ = Assets->Assets + AssetIndex_;
 
-                    Assert(Asset->State == AssetState_Loaded);
-    
+                    Assert(Asset_->State == AssetState_Loaded);
+
                     RemoveAssetHeaderFromList(Header);
+                    
+                    if(Asset->Header->AssetType == AssetType_Bitmap)
+                    {
+                        Platform.DeallocateTexture(Asset->Header->Bitmap.TextureHandle);
+                    }
 
                     Block = (asset_memory_block *)Asset->Header - 1;
                     Block->Flags &= ~AssetMemory_Used;
@@ -230,10 +246,9 @@ AcquireAssetMemory(game_assets *Assets, u32 Size, u32 ID)
                     }
 
                     MergeIfPossible(Assets, Block, Block->Next);
-                    
-                    Asset->State = AssetState_Unloaded;
-                    Asset->Header = 0;
 
+                    Asset->State = AssetState_Unloaded;
+                    Asset->Header = 0;    
                     break;
                 }
             }
@@ -242,7 +257,8 @@ AcquireAssetMemory(game_assets *Assets, u32 Size, u32 ID)
 
     if(Result)
     {
-        Result->AssetIndex = ID;
+        Result->AssetType = AssetType;
+        Result->AssetIndex = AssetIndex;
         Result->TotalSize = Size;
         InsertAssetHeaderAtFront(Assets, Result);
     }
@@ -262,7 +278,7 @@ struct asset_memory_size
 internal void
 LoadBitmap(game_assets *Assets, bitmap_id ID, b32 Immediate)
 {
-    asset *Asset = Assets->Assets + ID.Value;
+    asset *Asset = Assets->Assets + ID.Value;        
     if(ID.Value)
     {
         if(AtomicCompareExchangeUInt32((uint32 *)&Asset->State, AssetState_Queued, AssetState_Unloaded) ==
@@ -274,8 +290,8 @@ LoadBitmap(game_assets *Assets, bitmap_id ID, b32 Immediate)
             {
                 Task = BeginTaskWithMemory(Assets->TranState);
             }
-        
-            if(Immediate || Task)
+
+            if(Immediate || Task)        
             {
                 ssa_bitmap *Info = &Asset->SSA.Bitmap;
 
@@ -286,14 +302,15 @@ LoadBitmap(game_assets *Assets, bitmap_id ID, b32 Immediate)
                 Size.Data = Height*Size.Section;
                 Size.Total = Size.Data + sizeof(asset_memory_header);
 
-                Asset->Header = AcquireAssetMemory(Assets, Size.Total, ID.Value);
+                Asset->Header = AcquireAssetMemory(Assets, Size.Total, ID.Value, AssetType_Bitmap);
 
-                loaded_bitmap *Bitmap = &Asset->Header->Bitmap;
+                loaded_bitmap *Bitmap = &Asset->Header->Bitmap;            
                 Bitmap->AlignPercentage = V2(Info->AlignPercentage[0], Info->AlignPercentage[1]);
                 Bitmap->WidthOverHeight = (r32)Info->Dim[0] / (r32)Info->Dim[1];
                 Bitmap->Width = Info->Dim[0];
                 Bitmap->Height = Info->Dim[1];
                 Bitmap->Pitch = Size.Section;
+                Bitmap->TextureHandle = 0;
                 Bitmap->Memory = (Asset->Header + 1);
 
                 load_asset_work Work;
@@ -303,14 +320,12 @@ LoadBitmap(game_assets *Assets, bitmap_id ID, b32 Immediate)
                 Work.Offset = Asset->SSA.DataOffset;
                 Work.Size = Size.Data;
                 Work.Destination = Bitmap->Memory;
-                Work.FinalizeOperation = FinalizeAsset_None;
-                Work.FinalState = AssetState_Loaded;
-
+                Work.FinalizeOperation = FinalizeAsset_Bitmap;
+                Work.FinalState = AssetState_Loaded;            
                 if(Task)
                 {
-                    load_asset_work *TaskWork = PushStruct(&Task->Arena, load_asset_work);
+                    load_asset_work *TaskWork = PushStruct(&Task->Arena, load_asset_work, NoClear());
                     *TaskWork = Work;
-                
                     Platform.AddEntry(Assets->TranState->LowPriorityQueue, LoadAssetWork, TaskWork);
                 }
                 else
@@ -328,7 +343,7 @@ LoadBitmap(game_assets *Assets, bitmap_id ID, b32 Immediate)
             asset_state volatile *State = (asset_state volatile *)&Asset->State;
             while(*State == AssetState_Queued) {}
         }
-    }
+    }    
 }
 
 internal void
@@ -355,7 +370,7 @@ LoadTileset(game_assets *Assets, tileset_id ID, b32 Immediate)
                 u32 SizeData = TilesSize;
                 u32 SizeTotal = SizeData + sizeof(asset_memory_header);
 
-                Asset->Header = AcquireAssetMemory(Assets, SizeTotal, ID.Value);
+                Asset->Header = AcquireAssetMemory(Assets, SizeTotal, ID.Value, AssetType_Tileset);
 
                 loaded_tileset *Tileset = &Asset->Header->Tileset;
                 Tileset->BitmapIDOffset = GetFile(Assets, Asset->FileIndex)->AssetTypeOffsets[Asset_Tile];
@@ -420,7 +435,7 @@ LoadAssetset(game_assets *Assets, assetset_id ID, b32 Immediate)
                 u32 SizeData = TilesSize;
                 u32 SizeTotal = SizeData + sizeof(asset_memory_header);
 
-                Asset->Header = AcquireAssetMemory(Assets, SizeTotal, ID.Value);
+                Asset->Header = AcquireAssetMemory(Assets, SizeTotal, ID.Value, AssetType_Assetset);
 
                 loaded_assetset *Assetset = &Asset->Header->Assetset;
                 Assetset->IDOffset = GetFile(Assets, Asset->FileIndex)->AssetTypeOffsets[Info->DataType];
@@ -480,7 +495,7 @@ LoadSound(game_assets *Assets, sound_id ID)
             Size.Data = Info->ChannelCount*Size.Section;
             Size.Total = Size.Data + sizeof(asset_memory_header);
 
-            Asset->Header = AcquireAssetMemory(Assets, Size.Total, ID.Value); 
+            Asset->Header = AcquireAssetMemory(Assets, Size.Total, ID.Value, AssetType_Sound); 
             
             loaded_sound *Sound = &Asset->Header->Sound;
             Sound->SampleCount = Info->SampleCount;
@@ -542,7 +557,7 @@ LoadFont(game_assets *Assets, font_id ID, b32 Immediate)
                 u32 SizeData = GlyphsSize + HorizontalAdvanceSize;
                 u32 SizeTotal = SizeData + sizeof(asset_memory_header) + UnicodeMapSize;
 
-                Asset->Header = AcquireAssetMemory(Assets, SizeTotal, ID.Value);
+                Asset->Header = AcquireAssetMemory(Assets, SizeTotal, ID.Value, AssetType_Font);
 
                 loaded_font *Font = &Asset->Header->Font;
                 Font->BitmapIDOffset = GetFile(Assets, Asset->FileIndex)->AssetTypeOffsets[Asset_FontGlyph];

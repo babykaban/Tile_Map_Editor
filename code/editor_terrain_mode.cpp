@@ -114,6 +114,7 @@ ShowTest(render_group *RenderGroup, array_cursor *Cursor)
 internal void
 ShowTileMenuBar(render_group *RenderGroup, array_cursor *Cursor, r32 TileDimInMeters)
 {
+    object_transform Transform = DefaultUprightTransform();
     loaded_tileset *Tileset = PushTileset(RenderGroup, TilesetID);
     u32 TileCountInBar = Cursor->ArrayCount;
 
@@ -121,7 +122,7 @@ ShowTileMenuBar(render_group *RenderGroup, array_cursor *Cursor, r32 TileDimInMe
     r32 MenuBarWidth = TileDimInMeters*TileCountInBar;
     r32 HalfMenuBarWidth = 0.5f*MenuBarWidth;
     r32 OffsetY = 8.0f;
-    PushRectOutline(RenderGroup, V3(0, OffsetY, 0), V2(MenuBarWidth, TileDimInMeters), V4(0, 1, 0, 1), 0.05f);
+    PushRectOutline(RenderGroup, Transform, V3(0, OffsetY, 0), V2(MenuBarWidth, TileDimInMeters), V4(0, 1, 0, 1), 0.05f);
 
     ssa_tileset *Info = GetTilesetInfo(RenderGroup->Assets, TilesetID);
     if(Tileset)
@@ -134,13 +135,13 @@ ShowTileMenuBar(render_group *RenderGroup, array_cursor *Cursor, r32 TileDimInMe
         {
             u32 TileIndex = Cursor->Array[Index];
             bitmap_id ID = GetBitmapForTile(RenderGroup->Assets, Info, Tileset, TileIndex);
-            PushBitmap(RenderGroup, ID, TileDimInMeters, V3(TileOffsetX, TileOffsetY, 0));
+            PushBitmap(RenderGroup, Transform, ID, TileDimInMeters, V3(TileOffsetX, TileOffsetY, 0));
             TileOffsetX += TileDimInMeters;
         }
     }
 
     r32 CursorOffsetX = (TileHalfDim - HalfMenuBarWidth) + Cursor->ArrayPosition*TileDimInMeters;
-    PushRectOutline(RenderGroup, V3(CursorOffsetX, OffsetY, 0), V2(TileDimInMeters, TileDimInMeters), V4(1, 1, 1, 1), 0.05f);
+    PushRectOutline(RenderGroup, Transform, V3(CursorOffsetX, OffsetY, 0), V2(TileDimInMeters, TileDimInMeters), V4(1, 1, 1, 1), 0.05f);
 }
 
 internal void
@@ -200,7 +201,7 @@ TerrainEditMode(render_group *RenderGroup, render_group *TextRenderGroup, game_s
                 transient_state *TranState, game_input *Input, world_position *MouseChunkP,
                 r32 TileSideInMeters)
 {
-
+    object_transform Transform = DefaultUprightTransform();
     if(Input->MouseButtons[0].EndedDown)
     {
         ChangeTile(RenderGroup, GameState, MouseChunkP);
@@ -212,12 +213,12 @@ TerrainEditMode(render_group *RenderGroup, render_group *TextRenderGroup, game_s
     ShowTileMenuBar(RenderGroup, &GameState->TileMenuBarCursor, TileSideInMeters);
     ShowTilesetStats(TextRenderGroup, GameState);
     
-    WriteMap("tilemap.bin", GameState->WorldTileCount, GameState->TileIDs);
-    WriteWorldTiles("worldtiles.bin", GameState->WorldTileCount, GameState->WorldTiles);
+//    WriteMap("tilemap.bin", GameState->WorldTileCount, GameState->TileIDs);
+//    WriteWorldTiles("worldtiles.bin", GameState->WorldTileCount, GameState->WorldTiles);
     ReloadTileset(RenderGroup->Assets, GameState);
 
     v2 Delta = Subtract(GameState->World, &GameState->CameraP, MouseChunkP);
-    PushRect(RenderGroup, V3(-Delta, 0),
+    PushRect(RenderGroup, Transform, V3(-Delta, 0),
              0.2f*V2(TileSideInMeters, TileSideInMeters), V4(0, 0, 1, 1));
 
     tile_position Tp = TilePositionFromChunkPosition(MouseChunkP);
@@ -232,6 +233,6 @@ TerrainEditMode(render_group *RenderGroup, render_group *TextRenderGroup, game_s
 
     v2 D = dTile*TileSideInMeters - V2(0.5f, 0.5f);
 
-    PushRectOutline(RenderGroup, V3(-D, 0), V2(TileSideInMeters, TileSideInMeters),
+    PushRectOutline(RenderGroup, Transform, V3(-D, 0), V2(TileSideInMeters, TileSideInMeters),
                     V4(0.0f, 0.0f, 1.0f, 1), 0.02f);
 }

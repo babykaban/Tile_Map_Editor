@@ -35,6 +35,7 @@ DEBUGReset(render_group *RenderGroup, s32 Width, s32 Height)
 internal void
 DEBUGTextLine(render_group *RenderGroup, char *String)
 {    
+    object_transform NoTransform = DefaultFlatTransform();
     loaded_font *Font = PushFont(RenderGroup, FontID);
     if(Font)
     {
@@ -42,7 +43,7 @@ DEBUGTextLine(render_group *RenderGroup, char *String)
             
         u32 PrevCodePoint = 0;
         r32 CharScale = FontScale;
-        v4 Color = V4(1, 1, 1, 1);
+        v4 Color = V4(0, 0, 0, 1);
         r32 AtX = LeftEdge;
         for(char *At = String;
             *At;
@@ -56,7 +57,8 @@ DEBUGTextLine(render_group *RenderGroup, char *String)
             {
                 bitmap_id BitmapID = GetBitmapForGlyph(RenderGroup->Assets, FontInfo, Font, CodePoint);
                 ssa_bitmap *Info = GetBitmapInfo(RenderGroup->Assets, BitmapID);
-                PushBitmap(RenderGroup, BitmapID, CharScale*(r32)Info->Dim[1], V3(AtX, AtY, 0), Color);
+                NoTransform.SortBias = 10000.0f;
+                PushBitmap(RenderGroup, NoTransform, BitmapID, CharScale*(r32)Info->Dim[1], V3(AtX, AtY, 0), Color);
             }
             PrevCodePoint = CodePoint;
                 

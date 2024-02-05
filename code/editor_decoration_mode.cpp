@@ -18,6 +18,7 @@ WriteDecorations(char *FileName, u32 Count, decoration *Decorations)
 internal void
 ShowAssetMenuBar(render_group *RenderGroup, array_cursor *Cursor, r32 TileDimInMeters)
 {
+    object_transform Transform = DefaultUprightTransform();
     loaded_assetset *Assetset = PushAssetset(RenderGroup, AssetsetID);
     u32 AssetCountInBar = Cursor->ArrayCount;
 
@@ -34,7 +35,7 @@ ShowAssetMenuBar(render_group *RenderGroup, array_cursor *Cursor, r32 TileDimInM
     r32 OffsetY = 5.5f - HalfHeight;
     r32 OffsetX = -15.5f + HalfWidth;
     
-    PushRectOutline(RenderGroup, V3(OffsetX, OffsetY, 0), V2(MenuBarWidth, MenuBarHeight), V4(0, 1, 0, 1), 0.05f);
+    PushRectOutline(RenderGroup, Transform, V3(OffsetX, OffsetY, 0), V2(MenuBarWidth, MenuBarHeight), V4(0, 1, 0, 1), 0.05f);
 
     ssa_assetset *Info = GetAssetsetInfo(RenderGroup->Assets, AssetsetID);
     if(Assetset)
@@ -50,7 +51,7 @@ ShowAssetMenuBar(render_group *RenderGroup, array_cursor *Cursor, r32 TileDimInM
     }
 
     r32 CursorOffsetY = (HalfHeight + OffsetY - CursorHalfHeight) - Cursor->ArrayPosition*CursorHeight;
-    PushRectOutline(RenderGroup, V3(OffsetX, CursorOffsetY, 0), V2(CursorWidth, CursorHeight), V4(1, 1, 1, 1), 0.03f);
+    PushRectOutline(RenderGroup, Transform, V3(OffsetX, CursorOffsetY, 0), V2(CursorWidth, CursorHeight), V4(1, 1, 1, 1), 0.03f);
 }
 
 internal void
@@ -141,7 +142,7 @@ DecorationEditMode(render_group *RenderGroup, render_group *TextRenderGroup, gam
                    transient_state *TranState, game_input *Input, world_position *MouseChunkP,
                    r32 TileSideInMeters, r32 PixelsToMeters)
 {
-
+    object_transform Transform = DefaultUprightTransform();
     if(Input->MouseButtons[0].EndedDown)
     {
         AddDecoration(RenderGroup, GameState, MouseChunkP, PixelsToMeters);
@@ -159,12 +160,12 @@ DecorationEditMode(render_group *RenderGroup, render_group *TextRenderGroup, gam
     ShowAssetsetStats(TextRenderGroup, GameState);
 
 
-    WriteDecorations("decorations.bin", GameState->WorldTileCount, GameState->Decorations);
+//    WriteDecorations("decorations.bin", GameState->WorldTileCount, GameState->Decorations);
     ReloadAssetset(TranState->Assets, GameState);
 
 
     v2 Delta = Subtract(GameState->World, &GameState->CameraP, MouseChunkP);
-    PushRect(RenderGroup, V3(-Delta, 0),
+    PushRect(RenderGroup, Transform, V3(-Delta, 0),
              0.2f*V2(TileSideInMeters, TileSideInMeters), V4(0, 0, 1, 1));
 
     tile_position Tp = TilePositionFromChunkPosition(MouseChunkP);
@@ -179,7 +180,7 @@ DecorationEditMode(render_group *RenderGroup, render_group *TextRenderGroup, gam
 
     v2 D = dTile*TileSideInMeters - V2(0.5f, 0.5f);
 
-    PushRectOutline(RenderGroup, V3(-D, 0), V2(TileSideInMeters, TileSideInMeters),
+    PushRectOutline(RenderGroup, Transform, V3(-D, 0), V2(TileSideInMeters, TileSideInMeters),
                     V4(0.0f, 0.0f, 1.0f, 1), 0.02f);
 
     loaded_assetset *Assetset = PushAssetset(RenderGroup, AssetsetID, true);
@@ -193,7 +194,7 @@ DecorationEditMode(render_group *RenderGroup, render_group *TextRenderGroup, gam
         ssa_bitmap *BitmapInfo = GetBitmapInfo(TranState->Assets, BitmapID);
         v2 BitmapDimInMeters = PixelsToMeters*V2i(BitmapInfo->Dim[0], BitmapInfo->Dim[1]);
 
-        PushBitmap(RenderGroup, BitmapID, BitmapDimInMeters.y, V3(-D, 0) - V3(0.5f, 0.5f, 0));
+        PushBitmap(RenderGroup, Transform, BitmapID, BitmapDimInMeters.y, V3(-D, 0) - V3(0.5f, 0.5f, 0));
     }
 }
 

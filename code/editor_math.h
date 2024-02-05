@@ -6,122 +6,6 @@
    $Creator: Casey Muratori $
    ======================================================================== */
 
-union v2
-{
-    struct
-    {
-        real32 x, y;
-    };
-    struct
-    {
-        real32 u, v;
-    };
-    real32 E[2];
-};
-
-union v3
-{
-    struct
-    {
-        real32 x, y, z;
-    };
-    struct
-    {
-        real32 r, g, b;
-    };
-    struct
-    {
-        real32 u, v, w;
-    };
-    struct
-    {
-        v2 xy;
-        real32 Ignored0_;
-    };
-    struct
-    {
-        real32 Ignored1_;
-        v2 yz;
-    };
-    struct
-    {
-        v2 uv;
-        real32 Ignored2_;
-    };
-    struct
-    {
-        real32 Ignored3_;
-        v2 vw;
-    };
-    real32 E[3];
-};
-
-union v4
-{
-    struct
-    {
-        union
-        {
-            v3 xyz;
-            struct
-            {
-                real32 x, y, z;
-            };
-        };
-
-        real32 w;
-    };
-
-    struct
-    {
-        union
-        {
-            v3 rgb;
-            struct
-            {
-                real32 r, g, b;
-            };
-        };
-
-        real32 a;
-    };
-
-    struct
-    {
-        v2 xy;
-        real32 Ignored0_;
-        real32 Ignored1_;
-    };
-
-    struct
-    {
-        real32 Ignored2_;
-        v2 yz;
-        real32 Ignored3_;
-    };
-
-    struct
-    {
-        real32 Ignored4_;
-        real32 Ignored5_;
-        v2 zw;
-    };
-    
-    real32 E[4];
-};
-
-struct rectangle2
-{
-    v2 Min;
-    v2 Max;
-};
-
-struct rectangle3
-{
-    v3 Min;
-    v3 Max;
-};
-
 inline v2
 V2i(int32 X, int32 Y)
 {
@@ -169,14 +53,6 @@ V3(v2 XY, real32 Z)
     Result.x = XY.x;
     Result.y = XY.y;
     Result.z = Z;
-
-    return(Result);
-}
-
-inline v3
-V3i(uint32 X, uint32 Y, uint32 Z)
-{
-    v3 Result = {(real32)X, (real32)Y, (real32)Z};
 
     return(Result);
 }
@@ -254,9 +130,9 @@ inline real32
 Clamp01MapToRange(real32 Min, real32 t, real32 Max)
 {
     real32 Result = 0.0f;
-
+    
     real32 Range = Max - Min;
-    if(Range != 0)
+    if(Range != 0.0f)
     {
         Result = Clamp01((t - Min) / Range);
     }
@@ -297,7 +173,7 @@ SafeRatio1(real32 Numerator, real32 Divisor)
 // NOTE(casey): v2 operations
 //
 
-inline v2 
+inline v2
 Perp(v2 A)
 {
     v2 Result = {-A.y, A.x};
@@ -311,7 +187,7 @@ operator*(real32 A, v2 B)
 
     Result.x = A*B.x;
     Result.y = A*B.y;
-
+    
     return(Result);
 }
 
@@ -372,6 +248,14 @@ operator-(v2 A, v2 B)
     return(Result);
 }
 
+inline v2 &
+operator-=(v2 &A, v2 B)
+{
+    A = A - B;
+
+    return(A);
+}
+
 inline v2
 Hadamard(v2 A, v2 B)
 {
@@ -410,6 +294,22 @@ Clamp01(v2 Value)
 
     Result.x = Clamp01(Value.x);
     Result.y = Clamp01(Value.y);
+
+    return(Result);
+}
+
+inline v2
+Arm2(r32 Angle)
+{
+    v2 Result = {Cos(Angle), Sin(Angle)};
+
+    return(Result);
+}
+
+inline v2
+Normalize(v2 A)
+{
+    v2 Result = A * (1.0f / Length(A));
 
     return(Result);
 }
@@ -488,6 +388,14 @@ operator-(v3 A, v3 B)
     Result.z = A.z - B.z;
 
     return(Result);
+}
+
+inline v3 &
+operator-=(v3 &A, v3 B)
+{
+    A = A - B;
+
+    return(A);
 }
 
 inline v3
@@ -629,6 +537,14 @@ operator-(v4 A, v4 B)
     return(Result);
 }
 
+inline v4 &
+operator-=(v4 &A, v4 B)
+{
+    A = A - B;
+
+    return(A);
+}
+
 inline v4
 Hadamard(v4 A, v4 B)
 {
@@ -685,6 +601,30 @@ Lerp(v4 A, real32 t, v4 B)
 // NOTE(casey): Rectangle2
 //
 
+inline rectangle2
+InvertedInfinityRectangle2(void)
+{
+    rectangle2 Result;
+
+    Result.Min.x = Result.Min.y = Real32Maximum;
+    Result.Max.x = Result.Max.y = -Real32Maximum;
+
+    return(Result);
+}
+
+inline rectangle2
+Union(rectangle2 A, rectangle2 B)
+{
+    rectangle2 Result;
+    
+    Result.Min.x = (A.Min.x < B.Min.x) ? A.Min.x : B.Min.x;
+    Result.Min.y = (A.Min.y < B.Min.y) ? A.Min.y : B.Min.y;
+    Result.Max.x = (A.Max.x > B.Max.x) ? A.Max.x : B.Max.x;
+    Result.Max.y = (A.Max.y > B.Max.y) ? A.Max.y : B.Max.y;
+
+    return(Result);
+}
+
 inline v2
 GetMinCorner(rectangle2 Rect)
 {
@@ -703,15 +643,6 @@ inline v2
 GetDim(rectangle2 Rect)
 {
     v2 Result = Rect.Max - Rect.Min;
-
-    return(Result);
-}
-
-inline v3
-GetDim(rectangle3 Rect)
-{
-    v3 Result = Rect.Max - Rect.Min;
-
     return(Result);
 }
 
@@ -766,6 +697,17 @@ AddRadiusTo(rectangle2 A, v2 Radius)
 }
 
 inline rectangle2
+Offset(rectangle2 A, v2 Offset)
+{
+    rectangle2 Result;
+
+    Result.Min = A.Min + Offset;
+    Result.Max = A.Max + Offset;
+
+    return(Result);
+}
+
+inline rectangle2
 RectCenterDim(v2 Center, v2 Dim)
 {
     rectangle2 Result = RectCenterHalfDim(Center, 0.5f*Dim);
@@ -799,6 +741,18 @@ GetBarycentric(rectangle2 A, v2 P)
 // NOTE(casey): Rectangle3
 //
 
+inline rectangle3
+InvertedInfinityRectangle3(void)
+{
+    rectangle3 Result;
+
+    Result.Min.x = Result.Min.y = Real32Maximum;
+    Result.Max.x = Result.Max.y = -Real32Maximum;
+    Result.Max.z = Result.Max.z = 0;
+
+    return(Result);
+}
+
 inline v3
 GetMinCorner(rectangle3 Rect)
 {
@@ -810,6 +764,13 @@ inline v3
 GetMaxCorner(rectangle3 Rect)
 {
     v3 Result = Rect.Max;
+    return(Result);
+}
+
+inline v3
+GetDim(rectangle3 Rect)
+{
+    v3 Result = Rect.Max - Rect.Min;
     return(Result);
 }
 
@@ -945,11 +906,11 @@ inline rectangle2i
 Intersect(rectangle2i A, rectangle2i B)
 {
     rectangle2i Result;
-
+    
     Result.MinX = (A.MinX < B.MinX) ? B.MinX : A.MinX;
     Result.MinY = (A.MinY < B.MinY) ? B.MinY : A.MinY;
     Result.MaxX = (A.MaxX > B.MaxX) ? B.MaxX : A.MaxX;
-    Result.MaxY = (A.MaxY > B.MaxY) ? B.MaxY : A.MaxY;
+    Result.MaxY = (A.MaxY > B.MaxY) ? B.MaxY : A.MaxY;    
 
     return(Result);
 }
@@ -958,7 +919,7 @@ inline rectangle2i
 Union(rectangle2i A, rectangle2i B)
 {
     rectangle2i Result;
-
+    
     Result.MinX = (A.MinX < B.MinX) ? A.MinX : B.MinX;
     Result.MinY = (A.MinY < B.MinY) ? A.MinY : B.MinY;
     Result.MaxX = (A.MaxX > B.MaxX) ? A.MaxX : B.MaxX;
@@ -975,7 +936,7 @@ GetClampedRectArea(rectangle2i A)
     int32 Result = 0;
     if((Width > 0) && (Height > 0))
     {
-        Result = Width* Height;
+        Result = Width*Height;
     }
 
     return(Result);
@@ -990,12 +951,42 @@ HasArea(rectangle2i A)
 }
 
 inline rectangle2i
-InvertedInfinityRectangle(void)
+InvertedInfinityRectangle2i(void)
 {
     rectangle2i Result;
 
     Result.MinX = Result.MinY = INT_MAX;
     Result.MaxX = Result.MaxY = -INT_MAX;
+
+    return(Result);
+}
+
+inline v4
+SRGB255ToLinear1(v4 C)
+{
+    v4 Result;
+
+    real32 Inv255 = 1.0f / 255.0f;
+    
+    Result.r = Square(Inv255*C.r);
+    Result.g = Square(Inv255*C.g);
+    Result.b = Square(Inv255*C.b);
+    Result.a = Inv255*C.a;
+
+    return(Result);
+}
+
+inline v4
+Linear1ToSRGB255(v4 C)
+{
+    v4 Result;
+
+    real32 One255 = 255.0f;
+
+    Result.r = One255*SquareRoot(C.r);
+    Result.g = One255*SquareRoot(C.g);
+    Result.b = One255*SquareRoot(C.b);
+    Result.a = One255*C.a;
 
     return(Result);
 }

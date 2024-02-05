@@ -1,4 +1,4 @@
-#if !defined(VIEW_TILEMAP_PLATFORM_H)
+#if !defined(EDITOR_PLATFORM_H)
 /* ========================================================================
    $File: $
    $Date: $
@@ -9,11 +9,11 @@
 /*
   NOTE(casey):
 
-  VIEW_TILEMAP_INTERNAL:
+  EDITOR_INTERNAL:
     0 - Build for public release
     1 - Build for developer only
 
-  VIEW_TILEMAP_SLOW:
+  EDITOR_SLOW:
     0 - Not slow code allowed!
     1 - Slow code welcome.
 */
@@ -93,7 +93,128 @@ typedef uint64 u64;
 typedef real32 r32;
 typedef real64 r64;
 
+typedef real32 r32;
+typedef real64 r64;
+
+typedef uintptr_t umm;
+
+#define U32FromPointer(Pointer) ((u32)(memory_index)(Pointer))
+#define PointerFromU32(type, Value) (type *)((memory_index)Value)
+
+union v2
+{
+    struct
+    {
+        real32 x, y;
+    };
+    struct
+    {
+        real32 u, v;
+    };
+    real32 E[2];
+};
+
+union v3
+{
+    struct
+    {
+        real32 x, y, z;
+    };
+    struct
+    {
+        real32 u, v, w;
+    };
+    struct
+    {
+        real32 r, g, b;
+    };
+    struct
+    {
+        v2 xy;
+        real32 Ignored0_;
+    };
+    struct
+    {
+        real32 Ignored1_;
+        v2 yz;
+    };
+    struct
+    {
+        v2 uv;
+        real32 Ignored2_;
+    };
+    struct
+    {
+        real32 Ignored3_;
+        v2 vw;
+    };
+    real32 E[3];
+};
+
+union v4
+{
+    struct
+    {
+        union
+        {
+            v3 xyz;
+            struct
+            {
+                real32 x, y, z;
+            };
+        };
+        
+        real32 w;        
+    };
+    struct
+    {
+        union
+        {
+            v3 rgb;
+            struct
+            {
+                real32 r, g, b;
+            };
+        };
+        
+        real32 a;        
+    };
+    struct
+    {
+        v2 xy;
+        real32 Ignored0_;
+        real32 Ignored1_;
+    };
+    struct
+    {
+        real32 Ignored2_;
+        v2 yz;
+        real32 Ignored3_;
+    };
+    struct
+    {
+        real32 Ignored4_;
+        real32 Ignored5_;
+        v2 zw;
+    };
+    real32 E[4];
+};
+
+struct rectangle2
+{
+    v2 Min;
+    v2 Max;
+};
+
+struct rectangle3
+{
+    v3 Min;
+    v3 Max;
+};
+
+    
 #define Real32Maximum FLT_MAX
+#define Real32Minimum -FLT_MAX
     
 #define internal static 
 #define local_persist static 
@@ -101,7 +222,7 @@ typedef real64 r64;
 
 #define Pi32 3.14159265359f
 
-#if VIEW_TILEMAP_SLOW
+#if EDITOR_SLOW
 // TODO(casey): Complete assertion macro - don't worry everyone!
 #define Assert(Expression) if(!(Expression)) {*(int *)0 = 0;}
 #else
@@ -123,6 +244,15 @@ typedef real64 r64;
 #define Align4(Value) ((Value + 3) & ~3)
 #define Align8(Value) ((Value + 7) & ~7)
 #define Align16(Value) ((Value + 15) & ~15)
+
+inline u16
+SafeTruncateToU16(uint32 Value)
+{
+    // TODO(casey): Defines for maximum values
+    Assert(Value <= 0xFFFF);
+    u16 Result = (u16)Value;
+    return(Result);
+}
     
 inline uint32
 SafeTruncateUInt64(uint64 Value)
@@ -177,7 +307,7 @@ typedef struct thread_context
 /*
   NOTE(casey): Services that the platform layer provides to the game
 */
-#if VIEW_TILEMAP_INTERNAL
+#if EDITOR_INTERNAL
 /* IMPORTANT(casey):
 
    These are NOT for doing anything in the shipping game - they are
@@ -217,6 +347,28 @@ typedef struct game_offscreen_buffer
     int Height;
     int Pitch;
 } game_offscreen_buffer;
+
+typedef struct game_render_commands
+{
+    u32 Width;
+    u32 Height;
+    
+    u32 MaxPushBufferSize;
+    u32 PushBufferSize;
+    u8 *PushBufferBase;
+    
+    u32 PushBufferElementCount;
+    u32 SortEntryAt;
+    
+    u32 ClipRectCount;
+    struct render_entry_cliprect *ClipRects;
+    
+    render_entry_cliprect *FirstRect;
+    render_entry_cliprect *LastRect;
+} game_render_commands;
+
+#define RenderCommandStruct(MaxPushBufferSize, PushBuffer, Width, Height) \
+    {Width, Height, MaxPushBufferSize, 0, (u8 *)PushBuffer, 0, MaxPushBufferSize};
 
 typedef struct game_sound_output_buffer
 {
@@ -288,6 +440,13 @@ typedef struct game_input
     game_controller_input Controllers[5];
 } game_input;
 
+inline b32 WasPressed(game_button_state State)
+{
+    b32 Result = ((State.HalfTransitionCount > 1) ||
+                  ((State.HalfTransitionCount == 1) && (State.EndedDown)));
+
+    return(Result);
+}
 
 typedef struct platform_file_handle
 {
@@ -330,6 +489,12 @@ struct platform_work_queue;
 #define PLATFORM_WORK_QUEUE_CALLBACK(name) void name(platform_work_queue *Queue, void *Data)
 typedef PLATFORM_WORK_QUEUE_CALLBACK(platform_work_queue_callback);
 
+#define PLATFORM_ALLOCATE_TEXTURE(name) void *name(u32 Width, u32 Height, void *Data)
+typedef PLATFORM_ALLOCATE_TEXTURE(platform_allocate_texture);
+
+#define PLATFORM_DEALLOCATE_TEXTURE(name) void name(void *Texture)
+typedef PLATFORM_DEALLOCATE_TEXTURE(platform_deallocate_texture);
+
 #define PLATFORM_ALLOCATE_MEMORY(name) void *name(memory_index Size)
 typedef PLATFORM_ALLOCATE_MEMORY(platform_allocate_memory);
 
@@ -343,6 +508,9 @@ typedef struct platform_api
 {
     platform_add_entry *AddEntry;
     platform_complete_all_work *CompleteAllWork;
+    
+    platform_allocate_texture *AllocateTexture;
+    platform_deallocate_texture *DeallocateTexture;
 
     platform_get_all_files_of_type_begin *GetAllFilesOfTypeBegin;
     platform_get_all_files_of_type_end *GetAllFilesOfTypeEnd;
@@ -375,7 +543,7 @@ typedef struct game_memory
     platform_api PlatformAPI;
 } game_memory;
 
-#define GAME_UPDATE_AND_RENDER(name) void name(thread_context *Thread, game_memory *Memory, game_input *Input, game_offscreen_buffer *Buffer)
+#define GAME_UPDATE_AND_RENDER(name) void name(thread_context *Thread, game_memory *Memory, game_input *Input, game_render_commands *RenderCommands)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
 
 // NOTE(casey): At the moment, this has to be a very fast function, it cannot be
@@ -439,5 +607,5 @@ GetThreadID(void)
 }
 #endif
 
-#define VIEW_TILEMAP_PLATFORM_H
+#define EDITOR_PLATFORM_H
 #endif
