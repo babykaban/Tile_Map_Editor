@@ -171,8 +171,8 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
 }
 
 internal void
-InitializeWorldTilesAndDecorations(game_assets *Assets, game_state *GameState,
-                                   char *TilesFileName, char *DecorationsFileName)
+InitializeWorldTilesAndDecorations(game_assets *Assets, game_state *GameState, char *TilesFileName,
+                                   char *DecorationsFileName, char *CollisionsFileName)
 {
     debug_read_file_result WorldTiles = Platform.DEBUGReadEntireFile(0, TilesFileName);
     if(WorldTiles.Contents)
@@ -189,20 +189,14 @@ InitializeWorldTilesAndDecorations(game_assets *Assets, game_state *GameState,
     }
     else
     {
-        asset_vector MatchVector = {};
-        asset_vector WeightVector = {};
-        WeightVector.E[Tag_TileID] = 1.0f;
-        MatchVector.E[Tag_TileID] = 3.0f;
-        bitmap_id TileBitmapID = GetBestMatchBitmapFrom(Assets, Asset_Tile,
-                                                        &MatchVector, &WeightVector);
         for(u32 TileIndex = 0;
             TileIndex < GameState->WorldTileCount;
             ++TileIndex)
         {
             world_tile *WorldTile = GameState->WorldTiles + TileIndex;
-            GameState->TileIDs[TileIndex] = 3;
-            WorldTile->TileID = 3;
-            WorldTile->TileBitmapID = TileBitmapID;
+            GameState->TileIDs[TileIndex] = 20;
+            WorldTile->TileID = 20;
+            WorldTile->TileBitmapID.Value = 421;
         }
     }
 
@@ -210,6 +204,12 @@ InitializeWorldTilesAndDecorations(game_assets *Assets, game_state *GameState,
     if(Decorations.Contents)
     {
         GameState->Decorations = (decoration *)Decorations.Contents;
+    }
+
+    debug_read_file_result Collisions = Platform.DEBUGReadEntireFile(0, CollisionsFileName);
+    if(Collisions.Contents)
+    {
+        GameState->Collisions = (collision *)Collisions.Contents;
     }
 
     GameState->WorldTilesInitialized = true;
@@ -260,7 +260,16 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         GameState->WorldTileCount = WORLD_HEIGHT_TILE_COUNT*WORLD_WIDTH_TILE_COUNT;
         GameState->WorldTiles = PushArray(&GameState->WorldArena, GameState->WorldTileCount, world_tile);
         GameState->Decorations = PushArray(&GameState->WorldArena, GameState->WorldTileCount, decoration);
+        GameState->Collisions = PushArray(&GameState->WorldArena, GameState->WorldTileCount, collision);
         GameState->TileIDs = PushArray(&GameState->WorldArena, GameState->WorldTileCount, u32);
+
+        for(u32 CollisionIndex = 0;
+            CollisionIndex < GameState->WorldTileCount;
+            ++CollisionIndex)
+        {
+            collision *Collision = GameState->Collisions + CollisionIndex;
+            Collision->P = NullPosition();
+        }
         
         GameState->World = PushStruct(&GameState->WorldArena, world);
         world *World = GameState->World;
@@ -546,7 +555,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     GlobalTilesetInfo = GetTilesetInfo(TranState->Assets, GameState->GlobalTilesetID);
     if(!GameState->WorldTilesInitialized)
     {
-        InitializeWorldTilesAndDecorations(TranState->Assets, GameState, "worldtiles.bin", "decorations.bin");
+        InitializeWorldTilesAndDecorations(TranState->Assets, GameState,
+                                           "worldtiles.bin", "decorations.bin", "collisions.bin");
     }
     
     // NOTE(paul): Reset font spacing
@@ -663,7 +673,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             PushBitmap(RenderGroup, Transform, Bitmap, GroundSideInMeters, V3(Delta, 0));
 
             PushRectOutline(RenderGroup, Transform, V3(Delta, 0), V2(GroundSideInMeters, GroundSideInMeters),
-                            V4(1.0f, 1.0f, 0.0f, 1.0f), 0.025f);
+                            V4(1.0f, 1.0f, 0.0f, 1.0f), 0.03f);
         }
     }
 
@@ -708,16 +718,37 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     }
     else if(GameState->EditMode == EditMode_Collision)
     {
+        // NOTE(paul): Render collisions
+        for(u32 CollisionIndex = 0;
+            CollisionIndex < GameState->WorldTileCount;
+            ++CollisionIndex)
+        {
+            collision *Collision = GameState->Collisions + CollisionIndex;
+            if(IsValid(Collision->P))
+            {
+                v2 Delta = Subtract(GameState->World, &Collision->P, &GameState->CameraP) - V2(2.0f, 2.0f);
+                if(IsInRectangle(SimBounds, Delta))
+                {
+                    Transform.OffsetP = V3(Delta, 0);
+                    PushRectOutline(RenderGroup, Transform, Collision->Rect, 0.0f, V4(0, 0, 1, 1), 0.025f);
+                }
+            }
+        }
+
         CollisionEditMode(RenderGroup, &TextRenderGroup, GameState, TranState, Input, &MouseChunkP,
-                           TileSideInMeters, PixelsToMeters);
+                          TileSideInMeters);
     }
+
+    Transform.OffsetP = V3(0, 0, 0);
 
     v2 Delta = Subtract(GameState->World, &GameState->CameraP, &MouseChunkP);
     PushRect(RenderGroup, Transform, V3(-Delta, 0),
              0.2f*V2(TileSideInMeters, TileSideInMeters), V4(0, 0, 1, 1));
 
+    Transform.SortBias = 10.0f;
     PushRectOutline(RenderGroup, Transform, V3(-D, 0), V2(TileSideInMeters, TileSideInMeters),
-                    V4(0.0f, 0.0f, 1.0f, 1), 0.02f);
+                    V4(1.0f, 0.0f, 0.0f, 1), 0.02f);
+    Transform.SortBias = 0.0f;
     
     PushRectOutline(RenderGroup, Transform, V3(0, 0, 0), GetDim(ScreenBounds), V4(1.0f, 1.0f, 0.0f, 1));
     PushRectOutline(RenderGroup, Transform, V3(0, 0, 0), GetDim(SimBounds), V4(1.0f, 0.0f, 1.0f, 1));
