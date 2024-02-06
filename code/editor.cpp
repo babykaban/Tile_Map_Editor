@@ -10,7 +10,6 @@
 #include "editor_render.cpp"
 #include "editor_render_group.cpp"
 #include "editor_world.cpp"
-#include "editor_sim_region.cpp"
 #include "editor_asset.cpp"
 
 inline world_position
@@ -33,6 +32,7 @@ ChunkPositionFromTilePosition(world *World, int32 AbsTileX, int32 AbsTileY,
 #include "editor_text_and_cursors.cpp"
 #include "editor_terrain_mode.cpp"
 #include "editor_decoration_mode.cpp"
+#include "editor_collision_mode.cpp"
 
 internal void
 ClearBitmap(loaded_bitmap *Bitmap)
@@ -110,22 +110,23 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
     Assert(Width == Height);
     v2 HalfDim = 0.5f*V2(Width, Height);
 
-    u32 PushBufferSize = Megabytes(4);
-    void *PushBuffer = Platform.AllocateMemory(PushBufferSize);
-    void *SortMemory = Platform.AllocateMemory(PushBufferSize);
-    void *ClipRectMemory = Platform.AllocateMemory(PushBufferSize);
+    u32 PushBufferSize = Megabytes(1);
+    void *PushBuffer = PushSize(GroundMemory.Arena, PushBufferSize);
+    void *SortMemory = PushSize(GroundMemory.Arena, PushBufferSize/2);
+    void *ClipRectMemory = PushSize(GroundMemory.Arena, PushBufferSize/2);
+
     game_render_commands Commands = RenderCommandStruct(PushBufferSize, PushBuffer, 
-                                                              (u32)Buffer->Width,
-                                                              (u32)Buffer->Height);
-//    render_group RenderGroup = BeginRenderGroup(TranState->Assets, &Commands, TranState->MainGenerationID, true);
-//    Orthographic(&RenderGroup, Buffer->Width, Buffer->Height, Buffer->Width / Width);
-//    Clear(&RenderGroup, V4(1.0f, 0.0f, 1.0f, 1.0f));
+                                                        (u32)Buffer->Width,
+                                                        (u32)Buffer->Height);
+
+    render_group RenderGroup = BeginRenderGroup(TranState->Assets, &Commands, TranState->MainGenerationID, true);
+    Orthographic(&RenderGroup, Buffer->Width, Buffer->Height, Buffer->Width / Width);
+    Clear(&RenderGroup, V4(1.0f, 0.0f, 0.0f, 1.0f));
     object_transform Transform = DefaultFlatTransform();
     GroundBuffer->P = *ChunkP;
 
     int32 TileCountX = WORLD_WIDTH_TILE_COUNT;
     int32 TileCountY = WORLD_HEIGHT_TILE_COUNT;
-
     if((ChunkP->ChunkX >= 0) && (ChunkP->ChunkY >= 0))
     {
         int32 MinTileX = TILES_PER_CHUNK*ChunkP->ChunkX;
@@ -141,8 +142,8 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
                 TileX < MaxTileX;
                 ++TileX)
             {
-//                if((TileX < TileCountX) && (TileY < TileCountY))
-                if((TileX < 8) && (TileY < 8))
+                if((TileX < TileCountX) && (TileY < TileCountY))
+//                if((TileX < 8) && (TileY < 8))
                 {
                     world_tile *WorldTile = GameState->WorldTiles + TileY*TileCountX + TileX;
 
@@ -151,18 +152,21 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
                     v2 P = -HalfDim + V2(TileSideInMeters*X, TileSideInMeters*Y);
                     
                     bitmap_id ID = WorldTile->TileBitmapID;
-//                    PushBitmap(&RenderGroup, Transform, ID, 1.0f, V3(P, 0));
+                    Transform.OffsetP = V3(P, 0);
+                    PushBitmap(&RenderGroup, Transform, ID, 1.0f, V3(0, 0, 0));
                 }
             }
         }
     }
 
-//    Platform.DeallocateMemory(PushBuffer);
     SortEntries(&Commands, SortMemory);
     LinearizeClipRects(&Commands, ClipRectMemory);
+    SoftwareRenderCommands(TranState->HighPriorityQueue, &Commands, Buffer);        
+    EndRenderGroup(&RenderGroup);
 
-//    SoftwareRenderCommands(TranState->HighPriorityQueue, &Commands, Buffer);        
-//    EndRenderGroup(&RenderGroup);
+    Buffer->TextureHandle = 
+        Platform.AllocateTexture(Buffer->Width, Buffer->Height, Buffer->Memory);
+
     EndTemporaryMemory(GroundMemory);
 }
 
@@ -379,7 +383,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     
     if(Input->ExecutableReloaded)
     {
-        ResetGroundBuffers(TranState);
+        ResetGroundBuffers(TranState, 0);
     }
 
     world *World = GameState->World;
@@ -532,8 +536,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     render_group *RenderGroup = &RenderGroup_;
     real32 WidthOfMonitor = 0.635f; // NOTE(casey): Horizontal measurement of monitor in meters
     real32 MetersToPixels = (real32)DrawBuffer.Width*WidthOfMonitor;// / 2.0f;
-    real32 FocalLength = 0.4f;
-    real32 DistanceAboveTarget = 9.0f;
+    real32 FocalLength = 0.5f;
+    real32 DistanceAboveTarget = 10.0f;
     Perspective(RenderGroup, DrawBuffer.Width, DrawBuffer.Height, MetersToPixels, FocalLength, DistanceAboveTarget);
 
 
@@ -656,10 +660,10 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
             real32 GroundSideInMeters = World->ChunkDimInMeters.x;
             Transform.SortBias = -1000.0f;
-//            PushBitmap(RenderGroup, Transform, Bitmap, GroundSideInMeters, V3(Delta, 0));
+            PushBitmap(RenderGroup, Transform, Bitmap, GroundSideInMeters, V3(Delta, 0));
 
             PushRectOutline(RenderGroup, Transform, V3(Delta, 0), V2(GroundSideInMeters, GroundSideInMeters),
-                            V4(1.0f, 1.0f, 0.0f, 1.0f), 0.015f);
+                            V4(1.0f, 1.0f, 0.0f, 1.0f), 0.025f);
         }
     }
 
@@ -680,6 +684,18 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             }
         }
     }
+
+    tile_position Tp = TilePositionFromChunkPosition(&MouseChunkP);
+    tile_position TCp = TilePositionFromChunkPosition(&GameState->CameraP);
+    
+
+    v2 dTile =
+        {
+            (real32)TCp.TileX - (real32)Tp.TileX,
+            (real32)TCp.TileY - (real32)Tp.TileY
+        };
+
+    v2 D = dTile*TileSideInMeters - V2(0.5f, 0.5f);
     
     if(GameState->EditMode == EditMode_Terrain)
     {
@@ -688,8 +704,20 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     else if(GameState->EditMode == EditMode_Decoration)
     {
         DecorationEditMode(RenderGroup, &TextRenderGroup, GameState, TranState, Input, &MouseChunkP,
+                           TileSideInMeters, PixelsToMeters, D);
+    }
+    else if(GameState->EditMode == EditMode_Collision)
+    {
+        CollisionEditMode(RenderGroup, &TextRenderGroup, GameState, TranState, Input, &MouseChunkP,
                            TileSideInMeters, PixelsToMeters);
     }
+
+    v2 Delta = Subtract(GameState->World, &GameState->CameraP, &MouseChunkP);
+    PushRect(RenderGroup, Transform, V3(-Delta, 0),
+             0.2f*V2(TileSideInMeters, TileSideInMeters), V4(0, 0, 1, 1));
+
+    PushRectOutline(RenderGroup, Transform, V3(-D, 0), V2(TileSideInMeters, TileSideInMeters),
+                    V4(0.0f, 0.0f, 1.0f, 1), 0.02f);
     
     PushRectOutline(RenderGroup, Transform, V3(0, 0, 0), GetDim(ScreenBounds), V4(1.0f, 1.0f, 0.0f, 1));
     PushRectOutline(RenderGroup, Transform, V3(0, 0, 0), GetDim(SimBounds), V4(1.0f, 0.0f, 1.0f, 1));

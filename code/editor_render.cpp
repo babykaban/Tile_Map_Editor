@@ -49,7 +49,7 @@ UnscaleAndBiasNormal(v4 Normal)
 
 internal void
 DrawFetchlessRect(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Color,
-                  loaded_bitmap *Texture, rectangle2i ClipRect, b32 Even)
+                  loaded_bitmap *Texture, rectangle2i ClipRect)
 {
     // NOTE(casey): Premultiply color up front
     Color.rgb *= Color.a;
@@ -74,12 +74,6 @@ DrawFetchlessRect(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Color
         if(FillRect.MinY > FloorY) {FillRect.MinY = FloorY;}
         if(FillRect.MaxX < CeilX) {FillRect.MaxX = CeilX;}
         if(FillRect.MaxY < CeilY) {FillRect.MaxY = CeilY;}
-    }
-
-    FillRect = Intersect(ClipRect, FillRect);
-    if(!Even == (FillRect.MinY & 1))
-    {
-        FillRect.MinY += 1;
     }
 
     if(HasArea(FillRect))
@@ -149,7 +143,7 @@ DrawFetchlessRect(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Color
                       FillRect.MinY*Buffer->Pitch);
 
         void *TextureMemory = Texture->Memory;
-        int32 RowAdvance = 2*Buffer->Pitch;
+        int32 RowAdvance = Buffer->Pitch;
     
         int MinY = FillRect.MinY;
         int MaxY = FillRect.MaxY;
@@ -157,7 +151,7 @@ DrawFetchlessRect(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Color
         int MaxX = FillRect.MaxX;
         for(int Yi = MinY;
             Yi < MaxY;
-            Yi += 2)
+            ++Yi)
         {
             __m128 PixelPy = _mm_set1_ps((real32)Yi);
             __m128 PixelPx = _mm_set_ps((real32)(MinX + 3),
@@ -960,6 +954,7 @@ RenderCommandsToBitmap(game_render_commands *Commands, loaded_bitmap *OutputTarg
     {
         render_group_entry_header *Header = (render_group_entry_header *)
             (Commands->PushBufferBase + SortEntry->Index);
+#if 0
         if(ClipRectIndex != Header->ClipRectIndex)
         {
             ClipRectIndex = Header->ClipRectIndex;
@@ -968,6 +963,7 @@ RenderCommandsToBitmap(game_render_commands *Commands, loaded_bitmap *OutputTarg
             render_entry_cliprect *Clip = Commands->ClipRects + ClipRectIndex;
             ClipRect = Intersect(BaseClipRect, Clip->Rect);
         }
+#endif
 
         void *Data = (uint8 *)Header + sizeof(*Header);
         switch(Header->Type)
@@ -988,10 +984,16 @@ RenderCommandsToBitmap(game_render_commands *Commands, loaded_bitmap *OutputTarg
 
                 v2 XAxis = {1, 0};
                 v2 YAxis = {0, 1};
+                DrawFetchlessRect(OutputTarget, Entry->P,
+                                  Entry->Size.x*XAxis,
+                                  Entry->Size.y*YAxis, Entry->Color,
+                                  Entry->Bitmap, ClipRect);
+#if 0
                 DrawRectangleQuickly(OutputTarget, Entry->P,
                                      Entry->Size.x*XAxis,
                                      Entry->Size.y*YAxis, Entry->Color,
                                      Entry->Bitmap, NullPixelsToMeters, ClipRect);
+#endif
             } break;
 
             case RenderGroupEntryType_render_entry_rectangle:
@@ -1031,8 +1033,8 @@ SoftwareRenderCommands(platform_work_queue *RenderQueue,
       - Re-test some of our instruction choices
     */
     
-    int const TileCountX = 4;
-    int const TileCountY = 4;
+    int const TileCountX = 1;
+    int const TileCountY = 1;
     tile_render_work WorkArray[TileCountX*TileCountY];
 
     Assert(((uintptr)OutputTarget->Memory & 15) == 0);    

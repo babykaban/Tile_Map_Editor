@@ -290,7 +290,6 @@ Copy(memory_index Size, void *SourceInit, void *DestInit)
 //#include "editor_file_formats.h"
 #include "editor_intrinsics.h"
 #include "editor_math.h"
-#include "editor_sim_region.h"
 #include "editor_render_group.h"
 #include "editor_random.h"
 #include "editor_asset.h"
@@ -330,6 +329,7 @@ enum edit_mode
 {
     EditMode_Terrain,
     EditMode_Decoration,
+    EditMode_Collision,
     EditMode_Count,
 };
 
@@ -337,6 +337,7 @@ static const char *EditModeText[] =
 {
     "Terrain",
     "Decoration",
+    "Collision",
 };
 
 struct world_tile
@@ -352,6 +353,12 @@ struct decoration
     bitmap_id BitmapID;
     asset_vector MatchVector;
     asset_vector WeightVector;
+};
+
+struct collision
+{
+    world_position P;
+    rectangle2 Rect;
 };
 
 struct game_state
@@ -378,6 +385,7 @@ struct game_state
     u32 *TileIDs;
     world_tile *WorldTiles;
     decoration *Decorations;
+    collision *Collisions;
 
     tileset_id GlobalTilesetID;
 };
@@ -400,7 +408,7 @@ struct transient_state
     task_with_memory Tasks[4];
 
     game_assets *Assets;
-    
+
     uint32 GroundBufferCount;
     ground_buffer *GroundBuffers;
 

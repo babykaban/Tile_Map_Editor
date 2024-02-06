@@ -140,17 +140,19 @@ RemoveDecoration(render_group *RenderGroup, game_state *GameState, world_positio
 internal void
 DecorationEditMode(render_group *RenderGroup, render_group *TextRenderGroup, game_state *GameState,
                    transient_state *TranState, game_input *Input, world_position *MouseChunkP,
-                   r32 TileSideInMeters, r32 PixelsToMeters)
+                   r32 TileSideInMeters, r32 PixelsToMeters, v2 MouseCameraRelP)
 {
     object_transform Transform = DefaultUprightTransform();
     if(Input->MouseButtons[0].EndedDown)
     {
         AddDecoration(RenderGroup, GameState, MouseChunkP, PixelsToMeters);
+        WriteDecorations("decorations.bin", GameState->WorldTileCount, GameState->Decorations);
     }
 
     if(Input->MouseButtons[2].EndedDown)
     {
         RemoveDecoration(RenderGroup, GameState, MouseChunkP, PixelsToMeters);
+        WriteDecorations("decorations.bin", GameState->WorldTileCount, GameState->Decorations);
     }
 
     ssa_assetset *Info = GetAssetsetInfo(TranState->Assets, AssetsetID);
@@ -160,28 +162,9 @@ DecorationEditMode(render_group *RenderGroup, render_group *TextRenderGroup, gam
     ShowAssetsetStats(TextRenderGroup, GameState);
 
 
-//    WriteDecorations("decorations.bin", GameState->WorldTileCount, GameState->Decorations);
     ReloadAssetset(TranState->Assets, GameState);
 
-
-    v2 Delta = Subtract(GameState->World, &GameState->CameraP, MouseChunkP);
-    PushRect(RenderGroup, Transform, V3(-Delta, 0),
-             0.2f*V2(TileSideInMeters, TileSideInMeters), V4(0, 0, 1, 1));
-
-    tile_position Tp = TilePositionFromChunkPosition(MouseChunkP);
-    tile_position TCp = TilePositionFromChunkPosition(&GameState->CameraP);
-    
-
-    v2 dTile =
-        {
-            (real32)TCp.TileX - (real32)Tp.TileX,
-            (real32)TCp.TileY - (real32)Tp.TileY
-        };
-
-    v2 D = dTile*TileSideInMeters - V2(0.5f, 0.5f);
-
-    PushRectOutline(RenderGroup, Transform, V3(-D, 0), V2(TileSideInMeters, TileSideInMeters),
-                    V4(0.0f, 0.0f, 1.0f, 1), 0.02f);
+    v2 D = MouseCameraRelP;
 
     loaded_assetset *Assetset = PushAssetset(RenderGroup, AssetsetID, true);
     ssa_assetset *AssetsetInfo = GetAssetsetInfo(TranState->Assets, AssetsetID);

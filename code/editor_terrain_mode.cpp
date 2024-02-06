@@ -65,16 +65,37 @@ GetTileIndexFromChunkPosition(game_state *GameState, world_position *MouseP)
     return(Result);
 }
 
+
+// TODO(paul): Reset only groundbuffers that was changed
 inline void
-ResetGroundBuffers(transient_state *TranState)
+ResetGroundBuffers(transient_state *TranState, world_position *ChunkP)
 {
-    for(uint32 GroundBufferIndex = 0;
-        GroundBufferIndex < TranState->GroundBufferCount;
-        ++GroundBufferIndex)
+    if(ChunkP)
     {
-        ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
-        GroundBuffer->P = NullPosition();            
-    }        
+        for(uint32 GroundBufferIndex = 0;
+            GroundBufferIndex < TranState->GroundBufferCount;
+            ++GroundBufferIndex)
+        {
+            ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
+            if(IsValid(GroundBuffer->P) &&
+               (GroundBuffer->P.ChunkX == ChunkP->ChunkX) &&
+               (GroundBuffer->P.ChunkY == ChunkP->ChunkY))
+            {
+                GroundBuffer->P = NullPosition();            
+                break;
+            }
+        }        
+    }
+    else
+    {
+        for(uint32 GroundBufferIndex = 0;
+            GroundBufferIndex < TranState->GroundBufferCount;
+            ++GroundBufferIndex)
+        {
+            ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
+            GroundBuffer->P = NullPosition();            
+        }        
+    }
 }
 
 internal void
@@ -93,7 +114,7 @@ ChangeTile(render_group *RenderGroup, game_state *GameState, world_position *Mou
 
             GameState->TileIDs[TileToChange] = Tile->UniqueID;
 
-            ResetGroundBuffers(RenderGroup->Assets->TranState);
+            ResetGroundBuffers(RenderGroup->Assets->TranState, MouseP);
         }
     }
 }
@@ -115,6 +136,7 @@ internal void
 ShowTileMenuBar(render_group *RenderGroup, array_cursor *Cursor, r32 TileDimInMeters)
 {
     object_transform Transform = DefaultUprightTransform();
+    Transform.SortBias = 100.0f;
     loaded_tileset *Tileset = PushTileset(RenderGroup, TilesetID);
     u32 TileCountInBar = Cursor->ArrayCount;
 
@@ -141,6 +163,7 @@ ShowTileMenuBar(render_group *RenderGroup, array_cursor *Cursor, r32 TileDimInMe
     }
 
     r32 CursorOffsetX = (TileHalfDim - HalfMenuBarWidth) + Cursor->ArrayPosition*TileDimInMeters;
+    Transform.SortBias = 1000.0f;
     PushRectOutline(RenderGroup, Transform, V3(CursorOffsetX, OffsetY, 0), V2(TileDimInMeters, TileDimInMeters), V4(1, 1, 1, 1), 0.05f);
 }
 
@@ -213,26 +236,7 @@ TerrainEditMode(render_group *RenderGroup, render_group *TextRenderGroup, game_s
     ShowTileMenuBar(RenderGroup, &GameState->TileMenuBarCursor, TileSideInMeters);
     ShowTilesetStats(TextRenderGroup, GameState);
     
-//    WriteMap("tilemap.bin", GameState->WorldTileCount, GameState->TileIDs);
-//    WriteWorldTiles("worldtiles.bin", GameState->WorldTileCount, GameState->WorldTiles);
+    WriteMap("tilemap.bin", GameState->WorldTileCount, GameState->TileIDs);
+    WriteWorldTiles("worldtiles.bin", GameState->WorldTileCount, GameState->WorldTiles);
     ReloadTileset(RenderGroup->Assets, GameState);
-
-    v2 Delta = Subtract(GameState->World, &GameState->CameraP, MouseChunkP);
-    PushRect(RenderGroup, Transform, V3(-Delta, 0),
-             0.2f*V2(TileSideInMeters, TileSideInMeters), V4(0, 0, 1, 1));
-
-    tile_position Tp = TilePositionFromChunkPosition(MouseChunkP);
-    tile_position TCp = TilePositionFromChunkPosition(&GameState->CameraP);
-    
-
-    v2 dTile =
-        {
-            (real32)TCp.TileX - (real32)Tp.TileX,
-            (real32)TCp.TileY - (real32)Tp.TileY
-        };
-
-    v2 D = dTile*TileSideInMeters - V2(0.5f, 0.5f);
-
-    PushRectOutline(RenderGroup, Transform, V3(-D, 0), V2(TileSideInMeters, TileSideInMeters),
-                    V4(0.0f, 0.0f, 1.0f, 1), 0.02f);
 }
