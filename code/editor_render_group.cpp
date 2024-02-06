@@ -25,10 +25,7 @@ GetRenderEntityBasisP(camera_transform CameraTransform, object_transform ObjectT
         real32 DistanceAboveTarget = CameraTransform.DistanceAboveTarget;
 
 #if 0
-        if(Global_Renderer_Camera_UseDebug)
-        {
-            DistanceAboveTarget += Global_Renderer_Camera_DebugDistance;
-        }
+        DistanceAboveTarget += 30.0f;
 #endif    
         real32 DistanceToPZ = (DistanceAboveTarget - P.z);
         real32 NearClipPlane = 0.1f;
