@@ -102,7 +102,7 @@ internal void
 ChangeTile(render_group *RenderGroup, game_state *GameState, world_position *MouseP)
 {
     u32 TileToChange = GetTileIndexFromChunkPosition(GameState, MouseP);
-    if((MouseP->ChunkX >= 0) && (MouseP->ChunkY >= 0))
+    if((MouseP->ChunkX >= 0) && (MouseP->ChunkY >= 0) && (TileToChange < GameState->WorldTileCount))
     {
         loaded_tileset *Tileset = PushTileset(RenderGroup, TilesetID);
         if(Tileset)
