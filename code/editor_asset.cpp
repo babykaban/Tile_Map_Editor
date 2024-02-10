@@ -477,6 +477,71 @@ LoadAssetset(game_assets *Assets, assetset_id ID, b32 Immediate)
 }
 
 internal void
+LoadSpriteSheet(game_assets *Assets, spritesheet_id ID, b32 Immediate)
+{
+    asset *Asset = Assets->Assets + ID.Value;
+    if(ID.Value)
+    {
+        if(AtomicCompareExchangeUInt32((uint32 *)&Asset->State, AssetState_Queued, AssetState_Unloaded) ==
+           AssetState_Unloaded)
+        {
+            task_with_memory *Task = 0;
+
+            if(!Immediate)
+            {
+                Task = BeginTaskWithMemory(Assets->TranState);
+            }
+        
+            if(Immediate || Task)
+            {
+                ssa_spritesheet *Info = &Asset->SSA.SpriteSheet;
+
+                u32 TilesSize = sizeof(bitmap_id)*Info->SpriteCount;
+                u32 SizeData = TilesSize;
+                u32 SizeTotal = SizeData + sizeof(asset_memory_header);
+
+                Asset->Header = AcquireAssetMemory(Assets, SizeTotal, ID.Value, AssetType_SpriteSheet);
+
+                loaded_spritesheet *SpriteSheet = &Asset->Header->SpriteSheet;
+                SpriteSheet->BitmapIDOffset = GetFile(Assets, Asset->FileIndex)->AssetTypeOffsets[Asset_Sprite];
+                SpriteSheet->SpriteIDs = (bitmap_id *)(Asset->Header + 1);
+                
+                load_asset_work Work;
+                Work.Task = Task;
+                Work.Asset = Assets->Assets + ID.Value;
+                Work.Handle = GetFileHandleFor(Assets, Asset->FileIndex);
+                Work.Offset = Asset->SSA.DataOffset;
+                Work.Size = SizeData;
+                Work.Destination = SpriteSheet->SpriteIDs;
+                Work.FinalizeOperation = FinalizeAsset_None;
+                Work.FinalState = AssetState_Loaded;
+
+                if(Task)
+                {
+                    load_asset_work *TaskWork = PushStruct(&Task->Arena, load_asset_work);
+                    *TaskWork = Work;
+                
+                    Platform.AddEntry(Assets->TranState->LowPriorityQueue, LoadAssetWork, TaskWork);
+                }
+                else
+                {
+                    LoadAssetWorkDirectly(&Work);
+                }
+            }
+            else
+            {
+                Asset->State = AssetState_Unloaded;
+            }
+        }
+        else if(Immediate)
+        {
+            asset_state volatile *State = (asset_state volatile *)&Asset->State;
+            while(*State == AssetState_Queued) {}
+        }
+    }
+}
+
+internal void
 LoadSound(game_assets *Assets, sound_id ID)
 {
     asset *Asset = Assets->Assets + ID.Value;
@@ -735,6 +800,24 @@ GetBestMatchTilesetFrom(game_assets *Assets, asset_type_id TypeID, asset_vector 
     tileset_id Result = {};
     Result.Value = GetBestMatchAssetFrom(Assets, TypeID, MatchVector, WeightVector);
 
+    return(Result);
+}
+
+inline spritesheet_id
+GetBestMatchSpriteSheetFrom(game_assets *Assets, asset_type_id TypeID, asset_vector *MatchVector, asset_vector *WeightVector)
+{
+    spritesheet_id Result = {};
+    Result.Value = GetBestMatchAssetFrom(Assets, TypeID, MatchVector, WeightVector);
+
+    return(Result);
+}
+
+inline spritesheet_id
+GetFirstSpriteSheetFrom(game_assets *Assets, asset_type_id TypeID)
+{
+    spritesheet_id Result = {};
+    Result.Value = GetFirstAssetFrom(Assets, TypeID);
+    
     return(Result);
 }
 
@@ -1018,6 +1101,17 @@ GetBitmapFromAssetset(game_assets *Assets, ssa_assetset *Info, loaded_assetset *
     Assert(AssetIndex < Info->AssetCount);
     bitmap_id Result = {Assetset->AssetIDs[AssetIndex]};
     Result.Value += Assetset->IDOffset;
+    
+    return(Result);
+}
+
+internal u32
+GetAssetIDFromAssetset(game_assets *Assets, ssa_assetset *Info, loaded_assetset *Assetset,
+                       u32 AssetIndex)
+{
+    Assert(AssetIndex < Info->AssetCount);
+    u32 Result = {Assetset->AssetIDs[AssetIndex]};
+    Result += Assetset->IDOffset;
     
     return(Result);
 }

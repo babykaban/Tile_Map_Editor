@@ -30,6 +30,12 @@ struct loaded_tileset
     u32 BitmapIDOffset;
 };
 
+struct loaded_spritesheet
+{
+    bitmap_id *SpriteIDs;
+    u32 BitmapIDOffset;
+};
+
 struct loaded_assetset
 {
     u32 *AssetIDs;
@@ -70,6 +76,7 @@ struct asset_memory_header
         loaded_font Font;
         loaded_tileset Tileset;
         loaded_assetset Assetset;
+        loaded_spritesheet SpriteSheet;
     };
 };
 
@@ -313,6 +320,15 @@ GetAssetsetInfo(game_assets *Assets, assetset_id ID)
     return(Result);
 }
 
+inline ssa_spritesheet *
+GetSpriteSheetInfo(game_assets *Assets, spritesheet_id ID)
+{
+    Assert(ID.Value <= Assets->AssetCount);
+    ssa_spritesheet *Result = &Assets->Assets[ID.Value].SSA.SpriteSheet;
+
+    return(Result);
+}
+
 inline bool32
 IsValid(bitmap_id ID)
 {
@@ -343,6 +359,9 @@ inline void PrefetchTileset(game_assets *Assets, tileset_id ID) {LoadTileset(Ass
 
 internal void LoadAssetset(game_assets *Assets, assetset_id ID, b32 Immediate);
 inline void PrefetchAssetset(game_assets *Assets, assetset_id ID) {LoadAssetset(Assets, ID, false);}
+
+internal void LoadSpriteSheet(game_assets *Assets, spritesheet_id ID, b32 Immediate);
+inline void PrefetchSpriteSheet(game_assets *Assets, spritesheet_id ID) {LoadSpriteSheet(Assets, ID, false);}
 
 inline sound_id
 GetNextSoundInChain(game_assets *Assets, sound_id ID)

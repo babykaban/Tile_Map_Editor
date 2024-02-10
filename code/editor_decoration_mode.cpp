@@ -170,14 +170,26 @@ DecorationEditMode(render_group *RenderGroup, render_group *TextRenderGroup, gam
     ssa_assetset *AssetsetInfo = GetAssetsetInfo(TranState->Assets, AssetsetID);
     if(Assetset && AssetsetInfo)
     {
-        u32 ArrayIndex = GameState->AssetMenuBarCursor.Array[GameState->AssetMenuBarCursor.ArrayPosition];
-        bitmap_id BitmapID = GetBitmapFromAssetset(TranState->Assets, AssetsetInfo, Assetset,
-                                                   ArrayIndex);
+        if(AssetsetInfo->DataType == Asset_SpriteSheet)
+        {
+            u32 ArrayIndex = GameState->AssetMenuBarCursor.Array[GameState->AssetMenuBarCursor.ArrayPosition];
+            spritesheet_id ID = {};
+//            ID.Value = GetAssetIDFromAssetset(TranState->Assets, AssetsetInfo, Assetset, ArrayIndex);
+//            ssa_spritesheet *SpriteSheetInfo = GetSpriteSheetInfo(TranState->Assets, ID);
 
-        ssa_bitmap *BitmapInfo = GetBitmapInfo(TranState->Assets, BitmapID);
-        v2 BitmapDimInMeters = PixelsToMeters*V2i(BitmapInfo->Dim[0], BitmapInfo->Dim[1]);
+            int a = 1;
+        }
+        else
+        {
+            u32 ArrayIndex = GameState->AssetMenuBarCursor.Array[GameState->AssetMenuBarCursor.ArrayPosition];
+            bitmap_id BitmapID = GetBitmapFromAssetset(TranState->Assets, AssetsetInfo, Assetset,
+                                                       ArrayIndex);
 
-        PushBitmap(RenderGroup, Transform, BitmapID, BitmapDimInMeters.y, V3(-D, 0) - V3(0.5f, 0.5f, 0));
+            ssa_bitmap *BitmapInfo = GetBitmapInfo(TranState->Assets, BitmapID);
+            v2 BitmapDimInMeters = PixelsToMeters*V2i(BitmapInfo->Dim[0], BitmapInfo->Dim[1]);
+
+            PushBitmap(RenderGroup, Transform, BitmapID, BitmapDimInMeters.y, V3(-D, 0) - V3(0.5f, 0.5f, 0));
+        }
     }
 }
 
