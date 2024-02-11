@@ -320,6 +320,16 @@ GetAssetsetInfo(game_assets *Assets, assetset_id ID)
     return(Result);
 }
 
+inline loaded_spritesheet *
+GetSpriteSheet(game_assets *Assets, spritesheet_id ID, u32 GenerationID)
+{
+    asset_memory_header *Header = GetAsset(Assets, ID.Value, GenerationID);
+
+    loaded_spritesheet *Result = Header ? &Header->SpriteSheet : 0;
+
+    return(Result);
+}
+
 inline ssa_spritesheet *
 GetSpriteSheetInfo(game_assets *Assets, spritesheet_id ID)
 {

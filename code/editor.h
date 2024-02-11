@@ -349,10 +349,26 @@ struct world_tile
 struct decoration
 {
     world_position P;
+
+    b32 IsSpriteSheet;
+    u32 DecorationIndex;
+
     r32 Height;
-    bitmap_id BitmapID;
     asset_vector MatchVector;
     asset_vector WeightVector;
+
+    union
+    {
+        bitmap_id BitmapID;
+        spritesheet_id SpriteSheetID;
+    };
+};
+
+struct animated_decoration
+{
+    u32 SpriteIndex;
+    ssa_spritesheet *Info;
+    loaded_spritesheet *SpriteSheet;
 };
 
 struct collision
@@ -387,7 +403,12 @@ struct game_state
     decoration *Decorations;
     collision *Collisions;
 
+    // NOTE(paul): Only for drawing
+    animated_decoration *AnimatedDecorations;
+    
     tileset_id GlobalTilesetID;
+
+    r32 Time;
 };
 
 struct task_with_memory
@@ -415,6 +436,22 @@ struct transient_state
     platform_work_queue *HighPriorityQueue;
     platform_work_queue *LowPriorityQueue;
 };
+
+inline u32
+GetSpriteIndex(r32 Time, u32 SpriteCount, u32 Speed = 0)
+{
+    u32 Result = 0;
+    if(Speed)
+    {
+        Result = FloorReal32ToInt32(Time*Speed) % SpriteCount;
+    }
+    else
+    {
+        Result = FloorReal32ToInt32(Time*SpriteCount) % SpriteCount;
+    }
+    
+    return(Result);
+}
 
 global_variable platform_api Platform;
 

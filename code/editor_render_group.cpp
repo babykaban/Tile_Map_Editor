@@ -204,6 +204,30 @@ PushAssetset(render_group *Group, assetset_id ID, b32 Immidiate = false)
     return(Assetset);
 }
 
+inline loaded_spritesheet *
+PushSpriteSheet(render_group *Group, spritesheet_id ID, b32 Immidiate = false)
+{
+    loaded_spritesheet *Spritesheet = GetSpriteSheet(Group->Assets, ID, Group->GenerationID);
+    if((Group->RendersInBackground || Immidiate) && !Spritesheet)
+    {
+        LoadSpriteSheet(Group->Assets, ID, true);
+        Spritesheet = GetSpriteSheet(Group->Assets, ID, Group->GenerationID);
+    }
+    
+    if(Spritesheet)
+    {
+        // NOTE(casey): Nothing to do
+    }
+    else
+    {
+        Assert(!Group->RendersInBackground);
+        LoadSpriteSheet(Group->Assets, ID, false);
+        ++Group->MissingResourceCount;
+    }
+
+    return(Spritesheet);
+}
+
 inline void
 PushRect(render_group *Group, object_transform ObjectTransform, v3 Offset, v2 Dim, v4 Color = V4(1, 1, 1, 1))
 {

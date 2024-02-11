@@ -262,7 +262,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         GameState->Decorations = PushArray(&GameState->WorldArena, GameState->WorldTileCount, decoration);
         GameState->Collisions = PushArray(&GameState->WorldArena, GameState->WorldTileCount, collision);
         GameState->TileIDs = PushArray(&GameState->WorldArena, GameState->WorldTileCount, u32);
-
+        GameState->AnimatedDecorations = PushArray(&GameState->WorldArena, GameState->WorldTileCount,
+                                                   animated_decoration);
+            
         for(u32 CollisionIndex = 0;
             CollisionIndex < GameState->WorldTileCount;
             ++CollisionIndex)
@@ -685,12 +687,33 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         ++DecorationIndex)
     {
         decoration *Decoration = GameState->Decorations + DecorationIndex;
-        if(IsValid(Decoration->BitmapID))
+        if(Decoration->IsSpriteSheet)
         {
-            v2 Delta = Subtract(GameState->World, &Decoration->P, &GameState->CameraP) - V2(2.0f, 2.0f);
-            if(IsInRectangle(SimBounds, Delta))
+            animated_decoration *AnimatedDecoration = GameState->AnimatedDecorations + Decoration->DecorationIndex;
+            AnimatedDecoration->SpriteIndex = GetSpriteIndex(GameState->Time,
+                                                             AnimatedDecoration->Info->SpriteCount);
+
+            bitmap_id BitmapID = AnimatedDecoration->SpriteSheet->SpriteIDs[AnimatedDecoration->SpriteIndex];
+            BitmapID.Value += AnimatedDecoration->SpriteSheet->BitmapIDOffset;
+
+            if(IsValid(Decoration->BitmapID))
             {
-                PushBitmap(RenderGroup, Transform, Decoration->BitmapID, Decoration->Height, V3(Delta, 0));
+                v2 Delta = Subtract(GameState->World, &Decoration->P, &GameState->CameraP) - V2(2.0f, 2.0f);
+                if(IsInRectangle(SimBounds, Delta))
+                {
+                    PushBitmap(RenderGroup, Transform, BitmapID, Decoration->Height, V3(Delta, 0));
+                }
+            }
+        }
+        else
+        {
+            if(IsValid(Decoration->BitmapID))
+            {
+                v2 Delta = Subtract(GameState->World, &Decoration->P, &GameState->CameraP) - V2(2.0f, 2.0f);
+                if(IsInRectangle(SimBounds, Delta))
+                {
+                    PushBitmap(RenderGroup, Transform, Decoration->BitmapID, Decoration->Height, V3(Delta, 0));
+                }
             }
         }
     }
@@ -739,6 +762,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                           TileSideInMeters);
     }
 
+    GameState->Time += Input->dtForFrame;
+    
     Transform.OffsetP = V3(0, 0, 0);
 
     v2 Delta = Subtract(GameState->World, &GameState->CameraP, &MouseChunkP);

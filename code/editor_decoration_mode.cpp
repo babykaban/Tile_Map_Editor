@@ -7,6 +7,7 @@
    ======================================================================== */
 
 global_variable assetset_id AssetsetID;
+global_variable u32 SpriteIndex;
 
 internal void
 WriteDecorations(char *FileName, u32 Count, decoration *Decorations)
@@ -100,27 +101,63 @@ AddDecoration(render_group *RenderGroup, game_state *GameState, world_position *
     if((MouseP->ChunkX >= 0) && (MouseP->ChunkY >= 0))
     {
         loaded_assetset *Assetset = PushAssetset(RenderGroup, AssetsetID);
+        ssa_assetset *AssetsetInfo = GetAssetsetInfo(RenderGroup->Assets, AssetsetID);
         if(Assetset)
         {
-            u32 AssetIndex = GameState->AssetMenuBarCursor.Array[GameState->AssetMenuBarCursor.ArrayPosition];
+            GameState->Decorations[DecorationIndex].DecorationIndex = DecorationIndex;
+            if(AssetsetInfo->DataType == Asset_SpriteSheet)
+            {
+                u32 ArrayIndex = GameState->AssetMenuBarCursor.Array[GameState->AssetMenuBarCursor.ArrayPosition];
+                spritesheet_id ID = {};
+                ID.Value = GetAssetIDFromAssetset(RenderGroup->Assets, AssetsetInfo, Assetset, ArrayIndex);
 
-            bitmap_id ID = {}; 
-            ID.Value = Assetset->AssetIDs[AssetIndex] + Assetset->IDOffset;
+                ssa_spritesheet *SpriteSheetInfo = GetSpriteSheetInfo(RenderGroup->Assets, ID);
+                loaded_spritesheet *SpriteSheet = PushSpriteSheet(RenderGroup, ID, RenderGroup->GenerationID);
 
-            ssa_bitmap *BitmapInfo = GetBitmapInfo(RenderGroup->Assets, ID);
-            v2 BitmapDimInMeters = PixelsToMeters*V2i(BitmapInfo->Dim[0], BitmapInfo->Dim[1]);
+                bitmap_id BitmapID = SpriteSheet->SpriteIDs[0];
+                BitmapID.Value += SpriteSheet->BitmapIDOffset;
+                ssa_bitmap *BitmapInfo = GetBitmapInfo(RenderGroup->Assets, BitmapID);
+                v2 BitmapDimInMeters = PixelsToMeters*V2i(BitmapInfo->Dim[0], BitmapInfo->Dim[1]);
 
-            asset_tag_result Tags = GetAssetTags(RenderGroup->Assets, ID.Value);
-            GameState->Decorations[DecorationIndex].MatchVector = Tags.MatchVector;
-            GameState->Decorations[DecorationIndex].WeightVector = Tags.WeightVector;
+                asset_tag_result Tags = GetAssetTags(RenderGroup->Assets, ID.Value);
+                GameState->Decorations[DecorationIndex].IsSpriteSheet = true;
+                GameState->Decorations[DecorationIndex].MatchVector = Tags.MatchVector;
+                GameState->Decorations[DecorationIndex].WeightVector = Tags.WeightVector;
             
-            GameState->Decorations[DecorationIndex].BitmapID = ID;
-            GameState->Decorations[DecorationIndex].Height = BitmapDimInMeters.y;
+                GameState->Decorations[DecorationIndex].SpriteSheetID = ID;
+                GameState->Decorations[DecorationIndex].Height = BitmapDimInMeters.y;
 
-            tile_position TileP = TilePositionFromChunkPosition(MouseP);
-            GameState->Decorations[DecorationIndex].P =
-                ChunkPositionFromTilePosition(GameState->World, TileP.TileX, TileP.TileY);
+                tile_position TileP = TilePositionFromChunkPosition(MouseP);
+                GameState->Decorations[DecorationIndex].P =
+                    ChunkPositionFromTilePosition(GameState->World, TileP.TileX, TileP.TileY);
+
+                // NOTE(paul): Only for drawing
+                GameState->AnimatedDecorations[DecorationIndex].SpriteIndex = 0;
+                GameState->AnimatedDecorations[DecorationIndex].Info = SpriteSheetInfo;
+                GameState->AnimatedDecorations[DecorationIndex].SpriteSheet = SpriteSheet;
+            }
+            else
+            {
+                u32 AssetIndex = GameState->AssetMenuBarCursor.Array[GameState->AssetMenuBarCursor.ArrayPosition];
+
+                bitmap_id ID = {}; 
+                ID.Value = Assetset->AssetIDs[AssetIndex] + Assetset->IDOffset;
+
+                ssa_bitmap *BitmapInfo = GetBitmapInfo(RenderGroup->Assets, ID);
+                v2 BitmapDimInMeters = PixelsToMeters*V2i(BitmapInfo->Dim[0], BitmapInfo->Dim[1]);
+
+                asset_tag_result Tags = GetAssetTags(RenderGroup->Assets, ID.Value);
+                GameState->Decorations[DecorationIndex].IsSpriteSheet = false;
+                GameState->Decorations[DecorationIndex].MatchVector = Tags.MatchVector;
+                GameState->Decorations[DecorationIndex].WeightVector = Tags.WeightVector;
             
+                GameState->Decorations[DecorationIndex].BitmapID = ID;
+                GameState->Decorations[DecorationIndex].Height = BitmapDimInMeters.y;
+
+                tile_position TileP = TilePositionFromChunkPosition(MouseP);
+                GameState->Decorations[DecorationIndex].P =
+                    ChunkPositionFromTilePosition(GameState->World, TileP.TileX, TileP.TileY);
+            }
         }
     }
 }
@@ -131,6 +168,7 @@ RemoveDecoration(render_group *RenderGroup, game_state *GameState, world_positio
     u32 DecorationIndex = GetTileIndexFromChunkPosition(GameState, MouseP);
     if((MouseP->ChunkX >= 0) && (MouseP->ChunkY >= 0))
     {
+        GameState->Decorations[DecorationIndex].IsSpriteSheet = 0;
         GameState->Decorations[DecorationIndex].BitmapID.Value = 0;
         GameState->Decorations[DecorationIndex].Height = 0;
         GameState->Decorations[DecorationIndex].P = {};
@@ -142,17 +180,19 @@ DecorationEditMode(render_group *RenderGroup, render_group *TextRenderGroup, gam
                    transient_state *TranState, game_input *Input, world_position *MouseChunkP,
                    r32 TileSideInMeters, r32 PixelsToMeters, v2 MouseCameraRelP)
 {
+    // TODO(paul): Make this work with spritesheets
+
     object_transform Transform = DefaultUprightTransform();
     if(Input->MouseButtons[0].EndedDown)
     {
         AddDecoration(RenderGroup, GameState, MouseChunkP, PixelsToMeters);
-        WriteDecorations("decorations.bin", GameState->WorldTileCount, GameState->Decorations);
+//        WriteDecorations("decorations.bin", GameState->WorldTileCount, GameState->Decorations);
     }
 
     if(Input->MouseButtons[2].EndedDown)
     {
         RemoveDecoration(RenderGroup, GameState, MouseChunkP, PixelsToMeters);
-        WriteDecorations("decorations.bin", GameState->WorldTileCount, GameState->Decorations);
+//        WriteDecorations("decorations.bin", GameState->WorldTileCount, GameState->Decorations);
     }
 
     ssa_assetset *Info = GetAssetsetInfo(TranState->Assets, AssetsetID);
@@ -174,10 +214,18 @@ DecorationEditMode(render_group *RenderGroup, render_group *TextRenderGroup, gam
         {
             u32 ArrayIndex = GameState->AssetMenuBarCursor.Array[GameState->AssetMenuBarCursor.ArrayPosition];
             spritesheet_id ID = {};
-//            ID.Value = GetAssetIDFromAssetset(TranState->Assets, AssetsetInfo, Assetset, ArrayIndex);
-//            ssa_spritesheet *SpriteSheetInfo = GetSpriteSheetInfo(TranState->Assets, ID);
+            ID.Value = GetAssetIDFromAssetset(TranState->Assets, AssetsetInfo, Assetset, ArrayIndex);
+            ssa_spritesheet *SpriteSheetInfo = GetSpriteSheetInfo(TranState->Assets, ID);
+            loaded_spritesheet *SpriteSheet = PushSpriteSheet(RenderGroup, ID, RenderGroup->GenerationID);
 
-            int a = 1;
+            SpriteIndex = GetSpriteIndex(GameState->Time, SpriteSheetInfo->SpriteCount);
+
+            bitmap_id BitmapID = SpriteSheet->SpriteIDs[SpriteIndex];
+            BitmapID.Value += SpriteSheet->BitmapIDOffset;
+            ssa_bitmap *BitmapInfo = GetBitmapInfo(TranState->Assets, BitmapID);
+            v2 BitmapDimInMeters = PixelsToMeters*V2i(BitmapInfo->Dim[0], BitmapInfo->Dim[1]);
+
+            PushBitmap(RenderGroup, Transform, BitmapID, BitmapDimInMeters.y, V3(-D, 0) - V3(0.5f, 0.5f, 0));
         }
         else
         {
