@@ -13,14 +13,14 @@ internal void
 WriteMap(char *FileName, u32 TileCount, u32 *TileIDs)
 {
     uint32 ContentSize = sizeof(u32)*TileCount;
-    Platform.DEBUGWriteEntireFile(0, FileName, ContentSize, TileIDs);
+    Platform.DEBUGWriteEntireFile(FileName, ContentSize, TileIDs);
 }
 
 internal void
 WriteWorldTiles(char *FileName, u32 TileCount, world_tile *WorldTiles)
 {
     uint32 ContentSize = sizeof(world_tile)*TileCount;
-    Platform.DEBUGWriteEntireFile(0, FileName, ContentSize, WorldTiles);
+    Platform.DEBUGWriteEntireFile(FileName, ContentSize, WorldTiles);
 }
 
 inline tile_position

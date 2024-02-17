@@ -48,6 +48,7 @@ enum win32_rendering_type
 global_variable win32_rendering_type GlobalRenderingType;
 global_variable bool32 GlobalRunning;
 global_variable bool32 GlobalPause;
+global_variable bool32 GlobalAppIsActive;
 global_variable win32_offscreen_buffer GlobalBackbuffer;
 global_variable int64 GlobalPerfCountFrequency;
 global_variable bool32 DEBUGGlobalShowCursor;
@@ -198,7 +199,7 @@ DEBUG_PLATFORM_READ_ENTIRE_FILE(DEBUGPlatformReadEntireFile)
                 else
                 {                    
                     // TODO(casey): Logging
-                    DEBUGPlatformFreeFileMemory(Thread, Result.Contents);
+                    DEBUGPlatformFreeFileMemory(Result.Contents);
                     Result.Contents = 0;
                 }
             }
@@ -621,6 +622,7 @@ Win32MainWindowCallback(HWND Window,
         
         case WM_ACTIVATEAPP:
         {
+            GlobalAppIsActive = (b32)WParam;
 #if 0
             if(WParam == TRUE)
             {
@@ -734,7 +736,6 @@ Win32ProcessPendingMessages(win32_state *State, game_controller_input *KeyboardC
             {
                 *MouseRotated = (s16)(Message.wParam >> 16);
             } break;
-
             
             case WM_SYSKEYUP:
             case WM_SYSKEYDOWN:
@@ -1323,24 +1324,27 @@ WinMain(HINSTANCE Instance,
                         POINT MouseP;
                         GetCursorPos(&MouseP);
                         ScreenToClient(Window, &MouseP);
-                        NewInput->MouseX = MouseP.x;
-                        NewInput->MouseY = (GlobalBackbuffer.Height - 1) - MouseP.y;
-                        // NOTE(paul): 120 is the mouse wheel delta, thus
-                        // this division will convert the number to the
-                        // number of rotations
-                        NewInput->MouseZ = MouseZ / 120;
-                        Win32ProcessKeyboardMessage(&NewInput->MouseButtons[0],
-                                                    GetKeyState(VK_LBUTTON) & (1 << 15));
-                        Win32ProcessKeyboardMessage(&NewInput->MouseButtons[1],
-                                                    GetKeyState(VK_MBUTTON) & (1 << 15));
-                        Win32ProcessKeyboardMessage(&NewInput->MouseButtons[2],
-                                                    GetKeyState(VK_RBUTTON) & (1 << 15));
-                        Win32ProcessKeyboardMessage(&NewInput->MouseButtons[3],
-                                                    GetKeyState(VK_XBUTTON1) & (1 << 15));
-                        Win32ProcessKeyboardMessage(&NewInput->MouseButtons[4],
-                                                    GetKeyState(VK_XBUTTON2) & (1 << 15));
-                        thread_context Thread = {};
 
+                        if(GlobalAppIsActive)
+                        {
+                            NewInput->MouseX = MouseP.x;
+                            NewInput->MouseY = (GlobalBackbuffer.Height - 1) - MouseP.y;
+                            // NOTE(paul): 120 is the mouse wheel delta, thus
+                            // this division will convert the number to the
+                            // number of rotations
+                            NewInput->MouseZ = MouseZ / 120;
+                            Win32ProcessKeyboardMessage(&NewInput->MouseButtons[0],
+                                                        GetKeyState(VK_LBUTTON) & (1 << 15));
+                            Win32ProcessKeyboardMessage(&NewInput->MouseButtons[1],
+                                                        GetKeyState(VK_MBUTTON) & (1 << 15));
+                            Win32ProcessKeyboardMessage(&NewInput->MouseButtons[2],
+                                                        GetKeyState(VK_RBUTTON) & (1 << 15));
+                            Win32ProcessKeyboardMessage(&NewInput->MouseButtons[3],
+                                                        GetKeyState(VK_XBUTTON1) & (1 << 15));
+                            Win32ProcessKeyboardMessage(&NewInput->MouseButtons[4],
+                                                        GetKeyState(VK_XBUTTON2) & (1 << 15));
+                        }
+                        
                         game_render_commands RenderCommands = RenderCommandStruct(
                             PushBufferSize, PushBuffer,
                             (u32)GlobalBackbuffer.Width,
@@ -1354,7 +1358,7 @@ WinMain(HINSTANCE Instance,
 
                         if(Game.UpdateAndRender)
                         {
-                            Game.UpdateAndRender(&Thread, &GameMemory, NewInput, &RenderCommands);
+                            Game.UpdateAndRender(&GameMemory, NewInput, &RenderCommands);
 //                            HandleDebugCycleCounters(&GameMemory);
                         }
 

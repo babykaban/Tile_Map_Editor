@@ -13,7 +13,7 @@ internal void
 WriteDecorations(char *FileName, u32 Count, decoration *Decorations)
 {
     uint32 ContentSize = sizeof(decoration)*Count;
-    Platform.DEBUGWriteEntireFile(0, FileName, ContentSize, Decorations);
+    Platform.DEBUGWriteEntireFile(FileName, ContentSize, Decorations);
 }
 
 internal void
@@ -186,13 +186,13 @@ DecorationEditMode(render_group *RenderGroup, render_group *TextRenderGroup, gam
     if(Input->MouseButtons[0].EndedDown)
     {
         AddDecoration(RenderGroup, GameState, MouseChunkP, PixelsToMeters);
-//        WriteDecorations("decorations.bin", GameState->WorldTileCount, GameState->Decorations);
+        WriteDecorations("decorations.bin", GameState->WorldTileCount, GameState->Decorations);
     }
 
     if(Input->MouseButtons[2].EndedDown)
     {
         RemoveDecoration(RenderGroup, GameState, MouseChunkP, PixelsToMeters);
-//        WriteDecorations("decorations.bin", GameState->WorldTileCount, GameState->Decorations);
+        WriteDecorations("decorations.bin", GameState->WorldTileCount, GameState->Decorations);
     }
 
     ssa_assetset *Info = GetAssetsetInfo(TranState->Assets, AssetsetID);

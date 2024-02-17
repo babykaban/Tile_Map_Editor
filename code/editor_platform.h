@@ -298,11 +298,6 @@ MemoryCopy(void *Dest, void *Source, uint32 Size)
 
     return(Dest);
 }
-    
-typedef struct thread_context
-{
-    int Placeholder;
-} thread_context;
 
 /*
   NOTE(casey): Services that the platform layer provides to the game
@@ -319,13 +314,13 @@ typedef struct debug_read_file_result
     void *Contents;
 } debug_read_file_result;
 
-#define DEBUG_PLATFORM_FREE_FILE_MEMORY(name) void name(thread_context *Thread, void *Memory)
+#define DEBUG_PLATFORM_FREE_FILE_MEMORY(name) void name(void *Memory)
 typedef DEBUG_PLATFORM_FREE_FILE_MEMORY(debug_platform_free_file_memory);
 
-#define DEBUG_PLATFORM_READ_ENTIRE_FILE(name) debug_read_file_result name(thread_context *Thread, char *Filename)
+#define DEBUG_PLATFORM_READ_ENTIRE_FILE(name) debug_read_file_result name(char *Filename)
 typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(debug_platform_read_entire_file);
 
-#define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) bool32 name(thread_context *Thread, char *Filename, uint32 MemorySize, void *Memory)
+#define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) bool32 name(char *Filename, uint32 MemorySize, void *Memory)
 typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(debug_platform_write_entire_file);
     
 #endif
@@ -543,7 +538,7 @@ typedef struct game_memory
     platform_api PlatformAPI;
 } game_memory;
 
-#define GAME_UPDATE_AND_RENDER(name) void name(thread_context *Thread, game_memory *Memory, game_input *Input, game_render_commands *RenderCommands)
+#define GAME_UPDATE_AND_RENDER(name) void name(game_memory *Memory, game_input *Input, game_render_commands *RenderCommands)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
 
 // NOTE(casey): At the moment, this has to be a very fast function, it cannot be

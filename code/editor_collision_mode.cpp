@@ -10,7 +10,7 @@ internal void
 WriteCollisions(char *FileName, u32 Count, collision *Collisions)
 {
     uint32 ContentSize = sizeof(collision)*Count;
-    Platform.DEBUGWriteEntireFile(0, FileName, ContentSize, Collisions);
+    Platform.DEBUGWriteEntireFile(FileName, ContentSize, Collisions);
 }
 
 internal void

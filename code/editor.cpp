@@ -171,10 +171,10 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
 }
 
 internal void
-InitializeWorldTilesAndDecorations(game_assets *Assets, game_state *GameState, char *TilesFileName,
-                                   char *DecorationsFileName, char *CollisionsFileName)
+InitializeWorldTilesAndDecorations(render_group *RenderGroup, game_assets *Assets, game_state *GameState,
+                                   char *TilesFileName, char *DecorationsFileName, char *CollisionsFileName)
 {
-    debug_read_file_result WorldTiles = Platform.DEBUGReadEntireFile(0, TilesFileName);
+    debug_read_file_result WorldTiles = Platform.DEBUGReadEntireFile(TilesFileName);
     if(WorldTiles.Contents)
     {
         GameState->WorldTiles = (world_tile *)WorldTiles.Contents;
@@ -200,13 +200,27 @@ InitializeWorldTilesAndDecorations(game_assets *Assets, game_state *GameState, c
         }
     }
 
-    debug_read_file_result Decorations = Platform.DEBUGReadEntireFile(0, DecorationsFileName);
+    debug_read_file_result Decorations = Platform.DEBUGReadEntireFile(DecorationsFileName);
     if(Decorations.Contents)
     {
         GameState->Decorations = (decoration *)Decorations.Contents;
+
+        for(u32 DecorationIndex = 0;
+            DecorationIndex < GameState->WorldTileCount;
+            ++DecorationIndex)
+        {
+            decoration *Decoration = GameState->Decorations + DecorationIndex;
+            if(Decoration->IsSpriteSheet)
+            {
+                animated_decoration *AnimatedDecoration = GameState->AnimatedDecorations + DecorationIndex;
+                AnimatedDecoration->SpriteSheet = PushSpriteSheet(RenderGroup, Decoration->SpriteSheetID, true);
+                AnimatedDecoration->Info = GetSpriteSheetInfo(Assets, Decoration->SpriteSheetID);
+                AnimatedDecoration->SpriteIndex = 0;
+            }
+        }
     }
 
-    debug_read_file_result Collisions = Platform.DEBUGReadEntireFile(0, CollisionsFileName);
+    debug_read_file_result Collisions = Platform.DEBUGReadEntireFile(CollisionsFileName);
     if(Collisions.Contents)
     {
         GameState->Collisions = (collision *)Collisions.Contents;
@@ -557,7 +571,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     GlobalTilesetInfo = GetTilesetInfo(TranState->Assets, GameState->GlobalTilesetID);
     if(!GameState->WorldTilesInitialized)
     {
-        InitializeWorldTilesAndDecorations(TranState->Assets, GameState,
+        InitializeWorldTilesAndDecorations(RenderGroup, TranState->Assets, GameState,
                                            "worldtiles.bin", "decorations.bin", "collisions.bin");
     }
     
