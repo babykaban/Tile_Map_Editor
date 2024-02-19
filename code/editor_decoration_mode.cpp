@@ -120,6 +120,7 @@ AddDecoration(render_group *RenderGroup, game_state *GameState, world_position *
                 v2 BitmapDimInMeters = PixelsToMeters*V2i(BitmapInfo->Dim[0], BitmapInfo->Dim[1]);
 
                 asset_tag_result Tags = GetAssetTags(RenderGroup->Assets, ID.Value);
+                GameState->Decorations[DecorationIndex].AssetTypeID = AssetsetInfo->DataType;
                 GameState->Decorations[DecorationIndex].IsSpriteSheet = true;
                 GameState->Decorations[DecorationIndex].MatchVector = Tags.MatchVector;
                 GameState->Decorations[DecorationIndex].WeightVector = Tags.WeightVector;
@@ -147,6 +148,7 @@ AddDecoration(render_group *RenderGroup, game_state *GameState, world_position *
                 v2 BitmapDimInMeters = PixelsToMeters*V2i(BitmapInfo->Dim[0], BitmapInfo->Dim[1]);
 
                 asset_tag_result Tags = GetAssetTags(RenderGroup->Assets, ID.Value);
+                GameState->Decorations[DecorationIndex].AssetTypeID = AssetsetInfo->DataType;
                 GameState->Decorations[DecorationIndex].IsSpriteSheet = false;
                 GameState->Decorations[DecorationIndex].MatchVector = Tags.MatchVector;
                 GameState->Decorations[DecorationIndex].WeightVector = Tags.WeightVector;

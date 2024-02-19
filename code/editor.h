@@ -350,6 +350,7 @@ struct decoration
 {
     world_position P;
 
+    u32 AssetTypeID;
     b32 IsSpriteSheet;
     u32 DecorationIndex;
 
@@ -363,6 +364,26 @@ struct decoration
         spritesheet_id SpriteSheetID;
     };
 };
+
+#if 0
+struct decoration
+{
+    world_position P;
+
+    b32 IsSpriteSheet;
+    u32 DecorationIndex;
+
+    r32 Height;
+    asset_vector MatchVector;
+    asset_vector WeightVector;
+
+    union
+    {
+        bitmap_id BitmapID;
+        spritesheet_id SpriteSheetID;
+    };
+};
+#endif
 
 struct animated_decoration
 {
@@ -401,6 +422,7 @@ struct game_state
     u32 *TileIDs;
     world_tile *WorldTiles;
     decoration *Decorations;
+//    decoration_ *Decorations_;
     collision *Collisions;
 
     // NOTE(paul): Only for drawing

@@ -218,6 +218,27 @@ InitializeWorldTilesAndDecorations(render_group *RenderGroup, game_assets *Asset
                 AnimatedDecoration->SpriteIndex = 0;
             }
         }
+
+#if 0
+        for(u32 DecorationIndex = 0;
+            DecorationIndex < GameState->WorldTileCount;
+            ++DecorationIndex)
+        {
+            decoration *Decoration = GameState->Decorations + DecorationIndex;
+            decoration_ *Decoration_ = GameState->Decorations_ + DecorationIndex;
+            Decoration_->P = Decoration->P;
+            Decoration_->DecorationIndex = Decoration->DecorationIndex;
+            Decoration_->AssetTypeID = 0;
+            Decoration_->IsSpriteSheet = Decoration->IsSpriteSheet;
+            Decoration_->Height = Decoration->Height;
+            Decoration_->MatchVector = Decoration->MatchVector;
+            Decoration_->WeightVector = Decoration->WeightVector;
+            Decoration_->BitmapID = Decoration->BitmapID;
+        }
+
+        uint32 ContentSize = sizeof(decoration_)*GameState->WorldTileCount;
+        Platform.DEBUGWriteEntireFile("decorations_.bin", ContentSize, GameState->Decorations_);
+#endif
     }
 
     debug_read_file_result Collisions = Platform.DEBUGReadEntireFile(CollisionsFileName);
@@ -274,6 +295,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         GameState->WorldTileCount = WORLD_HEIGHT_TILE_COUNT*WORLD_WIDTH_TILE_COUNT;
         GameState->WorldTiles = PushArray(&GameState->WorldArena, GameState->WorldTileCount, world_tile);
         GameState->Decorations = PushArray(&GameState->WorldArena, GameState->WorldTileCount, decoration);
+//        GameState->Decorations_ = PushArray(&GameState->WorldArena, GameState->WorldTileCount, decoration_);
         GameState->Collisions = PushArray(&GameState->WorldArena, GameState->WorldTileCount, collision);
         GameState->TileIDs = PushArray(&GameState->WorldArena, GameState->WorldTileCount, u32);
         GameState->AnimatedDecorations = PushArray(&GameState->WorldArena, GameState->WorldTileCount,
@@ -572,7 +594,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     if(!GameState->WorldTilesInitialized)
     {
         InitializeWorldTilesAndDecorations(RenderGroup, TranState->Assets, GameState,
-                                           "worldtiles.bin", "decorations.bin", "collisions.bin");
+                                           "worldtiles.bin", "decorations_.bin", "collisions.bin");
     }
     
     // NOTE(paul): Reset font spacing
