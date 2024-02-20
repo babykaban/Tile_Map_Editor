@@ -594,7 +594,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     if(!GameState->WorldTilesInitialized)
     {
         InitializeWorldTilesAndDecorations(RenderGroup, TranState->Assets, GameState,
-                                           "worldtiles.bin", "decorations_.bin", "collisions.bin");
+                                           "worldtiles.bin", "decorations.bin", "collisions.bin");
     }
     
     // NOTE(paul): Reset font spacing
