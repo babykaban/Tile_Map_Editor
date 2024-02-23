@@ -286,7 +286,7 @@ Copy(memory_index Size, void *SourceInit, void *DestInit)
     return(DestInit);
 }
 
-#include "c:/paul/Spellweaver_Saga_game/AssetFileBuilder/code/file_formats.h"
+#include "d:/paul/Spellweaver_Saga_game/AssetFileBuilder/code/file_formats.h"
 //#include "editor_file_formats.h"
 #include "editor_intrinsics.h"
 #include "editor_math.h"
@@ -365,26 +365,6 @@ struct decoration
     };
 };
 
-#if 0
-struct decoration
-{
-    world_position P;
-
-    b32 IsSpriteSheet;
-    u32 DecorationIndex;
-
-    r32 Height;
-    asset_vector MatchVector;
-    asset_vector WeightVector;
-
-    union
-    {
-        bitmap_id BitmapID;
-        spritesheet_id SpriteSheetID;
-    };
-};
-#endif
-
 struct animated_decoration
 {
     u32 SpriteIndex;
@@ -422,7 +402,6 @@ struct game_state
     u32 *TileIDs;
     world_tile *WorldTiles;
     decoration *Decorations;
-//    decoration_ *Decorations_;
     collision *Collisions;
 
     // NOTE(paul): Only for drawing
