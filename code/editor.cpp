@@ -205,6 +205,37 @@ InitializeWorldTilesAndDecorations(render_group *RenderGroup, game_assets *Asset
     {
         GameState->Decorations = (decoration *)Decorations.Contents;
 
+#if 0
+        spritesheet_id a = GetBestMatchSpriteSheetFrom(Assets,
+                                                       Asset_SpriteSheet,
+                                                       &(GameState->Decorations + 23715)->MatchVector,
+                                                       &(GameState->Decorations + 23715)->WeightVector);
+        spritesheet_id b = GetBestMatchSpriteSheetFrom(Assets,
+                                                       Asset_SpriteSheet,
+                                                       &(GameState->Decorations + 24473)->MatchVector,
+                                                       &(GameState->Decorations + 24473)->WeightVector);
+#endif
+        for(u32 DecorationIndex = 0;
+            DecorationIndex < GameState->WorldTileCount;
+            ++DecorationIndex)
+        {
+            decoration *Decoration = GameState->Decorations + DecorationIndex;
+            if(Decoration->IsSpriteSheet)
+            {
+                Decoration->SpriteSheetID = GetBestMatchSpriteSheetFrom(Assets,
+                                                                        Asset_SpriteSheet,
+                                                                        &Decoration->MatchVector,
+                                                                        &Decoration->WeightVector);
+            }
+            else
+            {
+                Decoration->BitmapID = GetBestMatchBitmapFrom(Assets,
+                                                              (asset_type_id)Decoration->AssetTypeID,
+                                                              &Decoration->MatchVector,
+                                                              &Decoration->WeightVector);
+            }
+        }
+        
         for(u32 DecorationIndex = 0;
             DecorationIndex < GameState->WorldTileCount;
             ++DecorationIndex)
@@ -572,7 +603,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     if(!GameState->WorldTilesInitialized)
     {
         InitializeWorldTilesAndDecorations(RenderGroup, TranState->Assets, GameState,
-                                           "worldtiles.bin", "decorations_.bin", "collisions.bin");
+                                           "worldtiles.bin", "decorations.bin", "collisions.bin");
     }
     
     // NOTE(paul): Reset font spacing
