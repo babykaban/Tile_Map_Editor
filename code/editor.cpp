@@ -220,19 +220,30 @@ InitializeWorldTilesAndDecorations(render_group *RenderGroup, game_assets *Asset
             ++DecorationIndex)
         {
             decoration *Decoration = GameState->Decorations + DecorationIndex;
+            asset_vector MatchVector = {};
+            asset_vector WeightVector = {};
+            for(u32 DecorationTagIndex = 0;
+                DecorationTagIndex < Decoration->TagCount;
+                ++DecorationTagIndex)
+            {
+                ssa_tag *Tag = Decoration->Tags + DecorationTagIndex;
+                MatchVector.E[Tag->ID] = Tag->Value;
+                WeightVector.E[Tag->ID] = 1.0f;
+            }
+
             if(Decoration->IsSpriteSheet)
             {
                 Decoration->SpriteSheetID = GetBestMatchSpriteSheetFrom(Assets,
                                                                         Asset_SpriteSheet,
-                                                                        &Decoration->MatchVector,
-                                                                        &Decoration->WeightVector);
+                                                                        &MatchVector,
+                                                                        &WeightVector);
             }
             else
             {
                 Decoration->BitmapID = GetBestMatchBitmapFrom(Assets,
                                                               (asset_type_id)Decoration->AssetTypeID,
-                                                              &Decoration->MatchVector,
-                                                              &Decoration->WeightVector);
+                                                              &MatchVector,
+                                                              &WeightVector);
             }
         }
         
@@ -249,6 +260,39 @@ InitializeWorldTilesAndDecorations(render_group *RenderGroup, game_assets *Asset
                 AnimatedDecoration->SpriteIndex = 0;
             }
         }
+#if 0
+        for(u32 DecorationIndex = 0;
+            DecorationIndex < GameState->WorldTileCount;
+            ++DecorationIndex)
+        {
+            decoration *Decoration = GameState->Decorations + DecorationIndex;
+            decoration_ *Decoration_ = GameState->Decorations_ + DecorationIndex;
+            Decoration_->P = Decoration->P;
+            Decoration_->AssetTypeID = Decoration->AssetTypeID;
+            Decoration_->IsSpriteSheet = Decoration->IsSpriteSheet;
+            Decoration_->DecorationIndex = Decoration->DecorationIndex;
+            Decoration_->Height = Decoration->Height;
+
+            u32 TagCount = 0;
+            for(u32 TagIndex = 0;
+                TagIndex < Tag_Count;
+                ++TagIndex)
+            {
+                if((Decoration->WeightVector.E[TagIndex]) != 0.0f)
+                {
+                    Decoration_->Tags[TagCount].ID = TagIndex;
+                    Decoration_->Tags[TagCount].Value = Decoration->MatchVector.E[TagIndex];
+                    ++TagCount;
+                }
+            }
+
+            Decoration_->TagCount = TagCount;
+            Decoration_->BitmapID = Decoration->BitmapID;
+        }
+
+        uint32 ContentSize = sizeof(decoration_)*GameState->WorldTileCount;
+        Platform.DEBUGWriteEntireFile("decorations_.bin", ContentSize, GameState->Decorations_);
+#endif
     }
 
     debug_read_file_result Collisions = Platform.DEBUGReadEntireFile(CollisionsFileName);
@@ -305,6 +349,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         GameState->WorldTileCount = WORLD_HEIGHT_TILE_COUNT*WORLD_WIDTH_TILE_COUNT;
         GameState->WorldTiles = PushArray(&GameState->WorldArena, GameState->WorldTileCount, world_tile);
         GameState->Decorations = PushArray(&GameState->WorldArena, GameState->WorldTileCount, decoration);
+//        GameState->Decorations_ = PushArray(&GameState->WorldArena, GameState->WorldTileCount, decoration_);
         GameState->Collisions = PushArray(&GameState->WorldArena, GameState->WorldTileCount, collision);
         GameState->TileIDs = PushArray(&GameState->WorldArena, GameState->WorldTileCount, u32);
         GameState->AnimatedDecorations = PushArray(&GameState->WorldArena, GameState->WorldTileCount,

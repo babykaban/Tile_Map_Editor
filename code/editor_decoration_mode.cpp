@@ -104,7 +104,9 @@ AddDecoration(render_group *RenderGroup, game_state *GameState, world_position *
         ssa_assetset *AssetsetInfo = GetAssetsetInfo(RenderGroup->Assets, AssetsetID);
         if(Assetset)
         {
-            GameState->Decorations[DecorationIndex].DecorationIndex = DecorationIndex;
+            decoration *Decoration = GameState->Decorations + DecorationIndex;
+            animated_decoration *AnimatedDecoration = GameState->AnimatedDecorations + DecorationIndex;
+            Decoration->DecorationIndex = DecorationIndex;
             if(AssetsetInfo->DataType == Asset_SpriteSheet)
             {
                 u32 ArrayIndex = GameState->AssetMenuBarCursor.Array[GameState->AssetMenuBarCursor.ArrayPosition];
@@ -120,22 +122,31 @@ AddDecoration(render_group *RenderGroup, game_state *GameState, world_position *
                 v2 BitmapDimInMeters = PixelsToMeters*V2i(BitmapInfo->Dim[0], BitmapInfo->Dim[1]);
 
                 asset_tag_result Tags = GetAssetTags(RenderGroup->Assets, ID.Value);
-                GameState->Decorations[DecorationIndex].AssetTypeID = AssetsetInfo->DataType;
-                GameState->Decorations[DecorationIndex].IsSpriteSheet = true;
-                GameState->Decorations[DecorationIndex].MatchVector = Tags.MatchVector;
-                GameState->Decorations[DecorationIndex].WeightVector = Tags.WeightVector;
+                Decoration->AssetTypeID = AssetsetInfo->DataType;
+                Decoration->IsSpriteSheet = true;
+
+                for(u32 TagIndex = 0;
+                    TagIndex < Tag_Count;
+                    ++TagIndex)
+                {
+                    if(Tags.WeightVector.E[TagIndex] != 0.0f)
+                    {
+                        Decoration->Tags[Decoration->TagCount].ID = TagIndex;
+                        Decoration->Tags[Decoration->TagCount].Value = Tags.MatchVector.E[TagIndex];
+                        ++Decoration->TagCount;
+                    }
+                }
             
-                GameState->Decorations[DecorationIndex].SpriteSheetID = ID;
-                GameState->Decorations[DecorationIndex].Height = BitmapDimInMeters.y;
+                Decoration->SpriteSheetID = ID;
+                Decoration->Height = BitmapDimInMeters.y;
 
                 tile_position TileP = TilePositionFromChunkPosition(MouseP);
-                GameState->Decorations[DecorationIndex].P =
-                    ChunkPositionFromTilePosition(GameState->World, TileP.TileX, TileP.TileY);
+                Decoration->P = ChunkPositionFromTilePosition(GameState->World, TileP.TileX, TileP.TileY);
 
                 // NOTE(paul): Only for drawing
-                GameState->AnimatedDecorations[DecorationIndex].SpriteIndex = 0;
-                GameState->AnimatedDecorations[DecorationIndex].Info = SpriteSheetInfo;
-                GameState->AnimatedDecorations[DecorationIndex].SpriteSheet = SpriteSheet;
+                AnimatedDecoration->SpriteIndex = 0;
+                AnimatedDecoration->Info = SpriteSheetInfo;
+                AnimatedDecoration->SpriteSheet = SpriteSheet;
             }
             else
             {
@@ -148,17 +159,26 @@ AddDecoration(render_group *RenderGroup, game_state *GameState, world_position *
                 v2 BitmapDimInMeters = PixelsToMeters*V2i(BitmapInfo->Dim[0], BitmapInfo->Dim[1]);
 
                 asset_tag_result Tags = GetAssetTags(RenderGroup->Assets, ID.Value);
-                GameState->Decorations[DecorationIndex].AssetTypeID = AssetsetInfo->DataType;
-                GameState->Decorations[DecorationIndex].IsSpriteSheet = false;
-                GameState->Decorations[DecorationIndex].MatchVector = Tags.MatchVector;
-                GameState->Decorations[DecorationIndex].WeightVector = Tags.WeightVector;
+                Decoration->AssetTypeID = AssetsetInfo->DataType;
+                Decoration->IsSpriteSheet = false;
+
+                for(u32 TagIndex = 0;
+                    TagIndex < Tag_Count;
+                    ++TagIndex)
+                {
+                    if(Tags.WeightVector.E[TagIndex] != 0.0f)
+                    {
+                        Decoration->Tags[Decoration->TagCount].ID = TagIndex;
+                        Decoration->Tags[Decoration->TagCount].Value = Tags.MatchVector.E[TagIndex];
+                        ++Decoration->TagCount;
+                    }
+                }
             
-                GameState->Decorations[DecorationIndex].BitmapID = ID;
-                GameState->Decorations[DecorationIndex].Height = BitmapDimInMeters.y;
+                Decoration->BitmapID = ID;
+                Decoration->Height = BitmapDimInMeters.y;
 
                 tile_position TileP = TilePositionFromChunkPosition(MouseP);
-                GameState->Decorations[DecorationIndex].P =
-                    ChunkPositionFromTilePosition(GameState->World, TileP.TileX, TileP.TileY);
+                Decoration->P = ChunkPositionFromTilePosition(GameState->World, TileP.TileX, TileP.TileY);
             }
         }
     }

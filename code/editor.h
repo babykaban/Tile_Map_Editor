@@ -355,8 +355,8 @@ struct decoration
     u32 DecorationIndex;
 
     r32 Height;
-    asset_vector MatchVector;
-    asset_vector WeightVector;
+    u32 TagCount;
+    ssa_tag Tags[64];
 
     union
     {
@@ -402,6 +402,7 @@ struct game_state
     u32 *TileIDs;
     world_tile *WorldTiles;
     decoration *Decorations;
+//    decoration_ *Decorations_;
     collision *Collisions;
 
     // NOTE(paul): Only for drawing
