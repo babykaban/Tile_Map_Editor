@@ -245,6 +245,11 @@ InitializeWorldTilesAndDecorations(render_group *RenderGroup, game_assets *Asset
                                                               &MatchVector,
                                                               &WeightVector);
             }
+
+            if(Decoration->Height == 0.0f)
+            {
+                ZeroStruct(*Decoration);
+            }
         }
         
         for(u32 DecorationIndex = 0;
@@ -792,7 +797,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 v2 Delta = Subtract(GameState->World, &Decoration->P, &GameState->CameraP) - V2(2.0f, 2.0f);
                 if(IsInRectangle(SimBounds, Delta))
                 {
-                    PushBitmap(RenderGroup, Transform, BitmapID, Decoration->Height, V3(Delta, 0));
+//                    PushBitmap(RenderGroup, Transform, BitmapID, Decoration->Height, V3(Delta, 0));
                 }
             }
         }
@@ -803,7 +808,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 v2 Delta = Subtract(GameState->World, &Decoration->P, &GameState->CameraP) - V2(2.0f, 2.0f);
                 if(IsInRectangle(SimBounds, Delta))
                 {
-                    PushBitmap(RenderGroup, Transform, Decoration->BitmapID, Decoration->Height, V3(Delta, 0));
+//                    PushBitmap(RenderGroup, Transform, Decoration->BitmapID, Decoration->Height, V3(Delta, 0));
                 }
             }
         }
