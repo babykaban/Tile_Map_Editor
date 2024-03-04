@@ -164,8 +164,9 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
     SoftwareRenderCommands(TranState->HighPriorityQueue, &Commands, Buffer);        
     EndRenderGroup(&RenderGroup);
 
-    Buffer->TextureHandle = 
-        Platform.AllocateTexture(Buffer->Width, Buffer->Height, Buffer->Memory);
+    // TODO(paul): Findout when to deallocate textures for groundchunks
+//    Buffer->TextureHandle = 
+//        Platform.AllocateTexture(Buffer->Width, Buffer->Height, Buffer->Memory);
 
     EndTemporaryMemory(GroundMemory);
 }
@@ -771,6 +772,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
             PushRectOutline(RenderGroup, Transform, V3(Delta, 0), V2(GroundSideInMeters, GroundSideInMeters),
                             V4(1.0f, 1.0f, 0.0f, 1.0f), 0.03f);
+
+//            Platform.DeallocateTexture(Bitmap->TextureHandle);
         }
     }
 
