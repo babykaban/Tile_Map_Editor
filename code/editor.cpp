@@ -165,9 +165,18 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
     EndRenderGroup(&RenderGroup);
 
     // TODO(paul): Findout when to deallocate textures for groundchunks
-//    Buffer->TextureHandle = 
-//        Platform.AllocateTexture(Buffer->Width, Buffer->Height, Buffer->Memory);
-
+    if(Buffer->TextureHandle)
+    {
+        Platform.DeallocateTexture(Buffer->TextureHandle);
+        Buffer->TextureHandle = 
+            Platform.AllocateTexture(Buffer->Width, Buffer->Height, Buffer->Memory);
+    }
+    else
+    {
+        Buffer->TextureHandle = 
+            Platform.AllocateTexture(Buffer->Width, Buffer->Height, Buffer->Memory);
+    }
+    
     EndTemporaryMemory(GroundMemory);
 }
 
