@@ -781,8 +781,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
             PushRectOutline(RenderGroup, Transform, V3(Delta, 0), V2(GroundSideInMeters, GroundSideInMeters),
                             V4(1.0f, 1.0f, 0.0f, 1.0f), 0.03f);
-
-//            Platform.DeallocateTexture(Bitmap->TextureHandle);
         }
     }
 
@@ -809,7 +807,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 v2 Delta = Subtract(GameState->World, &Decoration->P, &GameState->CameraP) - V2(2.0f, 2.0f);
                 if(IsInRectangle(SimBounds, Delta))
                 {
-//                    PushBitmap(RenderGroup, Transform, BitmapID, Decoration->Height, V3(Delta, 0));
+                    PushBitmap(RenderGroup, Transform, BitmapID, Decoration->Height, V3(Delta, 0));
                 }
             }
         }
@@ -820,7 +818,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 v2 Delta = Subtract(GameState->World, &Decoration->P, &GameState->CameraP) - V2(2.0f, 2.0f);
                 if(IsInRectangle(SimBounds, Delta))
                 {
-//                    PushBitmap(RenderGroup, Transform, Decoration->BitmapID, Decoration->Height, V3(Delta, 0));
+                    PushBitmap(RenderGroup, Transform, Decoration->BitmapID, Decoration->Height, V3(Delta, 0));
                 }
             }
         }
