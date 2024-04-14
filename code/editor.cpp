@@ -180,10 +180,45 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
     EndTemporaryMemory(GroundMemory);
 }
 
+static u32 MainTileSurfaces[8][7] = 
+{
+    {  21,   60,   99,  138,  177,  216,  255},
+    { 294,  333,  372,  411,  450,  489,  528},
+    { 567,  609,  651,  693,  735,  777,  819},
+    { 861,  903,  945,  987, 1029, 1071, 1113},
+    {1155, 1194, 1233, 1272, 1311, 1350, 1389},
+    {1428, 1456, 1484, 1512, 1540, 1568, 1596},
+    {1624, 1663, 1702, 1741, 1780, 1819, 1858},
+    {1897, 1936, 1975, 2014, 2053, 2092, 2131}
+};
+
+static u32 SubTileSurfaceCounts[8] = 
+{
+    18, 18, 21, 21, 18, 7, 18, 18, 
+};
+
+static u32 SubTileSurfaces[8][21] = 
+{
+    {  22,   23,   24,   25,   26,   27,   28,   29,   30,   31,   32,   33,   34,   35,   36,   37,   38,   39},
+    { 295,  296,  297,  298,  299,  300,  301,  302,  303,  304,  305,  306,  307,  308,  309,  310,  311,  312},
+    { 568,  569,  570,  571,  572,  573,  574,  575,  576,  577,  578,  579,  580,  581,  582,  583,  584,  585,  586,  587,  588},
+    { 862,  863,  864,  865,  866,  867,  868,  869,  870,  871,  872,  873,  874,  875,  876,  877,  878,  879,  880,  881,  882},
+    {1156, 1157, 1158, 1159, 1160, 1161, 1162, 1163, 1164, 1165, 1166, 1167, 1168, 1169, 1170, 1171, 1172, 1173},
+    {1429, 1430, 1431, 1432, 1433, 1434, 1435},
+    {1625, 1626, 1627, 1628, 1629, 1630, 1631, 1632, 1633, 1634, 1635, 1636, 1637, 1638, 1639, 1640, 1641, 1642},
+    {1898, 1899, 1900, 1901, 1902, 1903, 1904, 1905, 1906, 1907, 1908, 1909, 1910, 1911, 1912, 1913, 1914, 1915}
+};
+
+#include <stdlib.h>
+#include <time.h>
+
 internal void
 InitializeWorldTilesAndDecorations(render_group *RenderGroup, game_assets *Assets, game_state *GameState,
                                    char *TilesFileName, char *DecorationsFileName, char *CollisionsFileName)
 {
+    time_t t;
+    srand((unsigned) time(&t));
+
     debug_read_file_result WorldTiles = Platform.DEBUGReadEntireFile(TilesFileName);
     if(WorldTiles.Contents)
     {
@@ -192,9 +227,60 @@ InitializeWorldTilesAndDecorations(render_group *RenderGroup, game_assets *Asset
             TileIndex < GameState->WorldTileCount;
             ++TileIndex)
         {
+            b32 Found = false;
             world_tile *Tile = GameState->WorldTiles + TileIndex;
             GameState->TileIDs[TileIndex] = Tile->TileID;
             Tile->TileBitmapID = GetBitmapForTile(Assets, GlobalTilesetInfo, GlobalTileset, Tile->TileID);
+#if 1
+            for(u32 MainIndex = 0;
+                MainIndex < 8;
+                ++MainIndex)
+            {
+                for(u32 SubIndex = 0;
+                    SubIndex < SubTileSurfaceCounts[MainIndex];
+                    ++SubIndex)
+                {
+                    u32 TestTile = SubTileSurfaces[MainIndex][SubIndex] + GlobalTileset->BitmapIDOffset;
+                    if(Tile->TileBitmapID.Value == TestTile)
+                    {
+                        Tile->TileID = MainTileSurfaces[MainIndex][0] - 1;
+                        Tile->TileBitmapID.Value = MainTileSurfaces[MainIndex][0] + GlobalTileset->BitmapIDOffset;
+                        Found = true;
+                        break;
+                    }
+                }
+
+                if(Found)
+                {
+                    break;
+                }
+            }
+#endif
+
+#if 1
+            for(u32 MainIndex = 0;
+                MainIndex < 8;
+                ++MainIndex)
+            {
+                u32 RandomChance = 1 + rand() % (100 - 1 + 1);
+
+                u32 TestTile = MainTileSurfaces[MainIndex][0] + GlobalTileset->BitmapIDOffset;
+                if(Tile->TileBitmapID.Value == TestTile)
+                {
+                    if(RandomChance > 85)
+                    {
+                        u32 Min = 1;
+                        u32 Max = SubTileSurfaceCounts[MainIndex];
+                        u32 RandomIndex = Min + rand() % (Max - Min + 1);
+
+                        Tile->TileID = SubTileSurfaces[MainIndex][RandomIndex - 1] - 1;
+                        Tile->TileBitmapID.Value = SubTileSurfaces[MainIndex][RandomIndex - 1] + GlobalTileset->BitmapIDOffset;
+                    }
+
+                    break;
+                }
+            }
+#endif
         }
     }
     else
@@ -215,16 +301,6 @@ InitializeWorldTilesAndDecorations(render_group *RenderGroup, game_assets *Asset
     {
         GameState->Decorations = (decoration *)Decorations.Contents;
 
-#if 0
-        spritesheet_id a = GetBestMatchSpriteSheetFrom(Assets,
-                                                       Asset_SpriteSheet,
-                                                       &(GameState->Decorations + 23715)->MatchVector,
-                                                       &(GameState->Decorations + 23715)->WeightVector);
-        spritesheet_id b = GetBestMatchSpriteSheetFrom(Assets,
-                                                       Asset_SpriteSheet,
-                                                       &(GameState->Decorations + 24473)->MatchVector,
-                                                       &(GameState->Decorations + 24473)->WeightVector);
-#endif
         for(u32 DecorationIndex = 0;
             DecorationIndex < GameState->WorldTileCount;
             ++DecorationIndex)
@@ -275,39 +351,6 @@ InitializeWorldTilesAndDecorations(render_group *RenderGroup, game_assets *Asset
                 AnimatedDecoration->SpriteIndex = 0;
             }
         }
-#if 0
-        for(u32 DecorationIndex = 0;
-            DecorationIndex < GameState->WorldTileCount;
-            ++DecorationIndex)
-        {
-            decoration *Decoration = GameState->Decorations + DecorationIndex;
-            decoration_ *Decoration_ = GameState->Decorations_ + DecorationIndex;
-            Decoration_->P = Decoration->P;
-            Decoration_->AssetTypeID = Decoration->AssetTypeID;
-            Decoration_->IsSpriteSheet = Decoration->IsSpriteSheet;
-            Decoration_->DecorationIndex = Decoration->DecorationIndex;
-            Decoration_->Height = Decoration->Height;
-
-            u32 TagCount = 0;
-            for(u32 TagIndex = 0;
-                TagIndex < Tag_Count;
-                ++TagIndex)
-            {
-                if((Decoration->WeightVector.E[TagIndex]) != 0.0f)
-                {
-                    Decoration_->Tags[TagCount].ID = TagIndex;
-                    Decoration_->Tags[TagCount].Value = Decoration->MatchVector.E[TagIndex];
-                    ++TagCount;
-                }
-            }
-
-            Decoration_->TagCount = TagCount;
-            Decoration_->BitmapID = Decoration->BitmapID;
-        }
-
-        uint32 ContentSize = sizeof(decoration_)*GameState->WorldTileCount;
-        Platform.DEBUGWriteEntireFile("decorations_.bin", ContentSize, GameState->Decorations_);
-#endif
     }
 
     debug_read_file_result Collisions = Platform.DEBUGReadEntireFile(CollisionsFileName);
