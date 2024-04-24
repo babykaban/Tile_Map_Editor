@@ -293,6 +293,7 @@ Copy(memory_index Size, void *SourceInit, void *DestInit)
 #include "editor_render_group.h"
 #include "editor_random.h"
 #include "editor_asset.h"
+#include "editor_ui.h"
 #include "editor_world.h"
 
 struct ground_buffer
@@ -376,6 +377,49 @@ struct collision
 {
     world_position P;
     rectangle2 Rect;
+};
+
+struct ui_state
+{
+    b32 Initialized;
+
+    memory_arena UIArena;
+
+    u32 DefaultClipRect;
+    render_group RenderGroup;
+    loaded_font *UIFont;
+    ssa_font *UIFontInfo;
+
+    object_transform TextTransform;
+    object_transform ShadowTransform;
+    object_transform UITransform;
+    object_transform BackingTransform;
+
+    v2 MenuP;
+    b32 MenuActive;
+
+//    debug_view *ViewHash[4096];
+
+    v2 LastMouseP;
+    b32 AltUI;
+    ui_interaction Interaction;
+    ui_interaction HotInteraction;
+    ui_interaction NextHotInteraction;
+    b32 Paused;
+
+    r32 LeftEdge;
+    r32 RightEdge;
+    r32 FontScale;
+    font_id FontID;
+    r32 GlobalWidth;
+    r32 GlobalHeight;
+
+    layout MouseTextLayout;
+
+
+    
+    u32 RootInfoSize;
+    char *RootInfo;
 };
 
 struct game_state

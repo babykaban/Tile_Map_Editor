@@ -11,6 +11,7 @@
 #include "editor_render_group.cpp"
 #include "editor_world.cpp"
 #include "editor_asset.cpp"
+#include "editor_ui.cpp"
 
 inline world_position
 ChunkPositionFromTilePosition(world *World, int32 AbsTileX, int32 AbsTileY,
