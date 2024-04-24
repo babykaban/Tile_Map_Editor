@@ -445,6 +445,7 @@ BeginInteract(ui_state *UIState, game_input *Input, v2 MouseP)
     {
         if(UIState->HotInteraction.Type == Interaction_AutoModifyVariable)
         {
+#if 0 
             switch(UIState->HotInteraction.Element->Frames[FrameOrdinal].MostRecentEvent->Event.Type)
             {
                 case DebugType_b32:
@@ -462,25 +463,17 @@ BeginInteract(ui_state *UIState, game_input *Input, v2 MouseP)
                     UIState->HotInteraction.Type = DebugInteraction_ToggleValue;
                 } break;
             }
+#endif
         }
 
         switch(UIState->HotInteraction.Type)
         {
-            case DebugInteraction_TearValue:
+            case Interaction_TearValue:
             {
-                debug_variable_link *RootGroup = CloneVariableLink(UIState, UIState->HotInteraction.Link);
-                debug_tree *Tree = AddTree(UIState, RootGroup, MouseP);
-                UIState->HotInteraction.Type = DebugInteraction_Move;
-                UIState->HotInteraction.P = &Tree->UIP;
             } break;
 
-            case DebugInteraction_Select:
+            case Interaction_Select:
             {
-                if(!Input->ShiftDown)
-                {
-                    ClearSelection(UIState);
-                }
-                AddToSelection(UIState, UIState->HotInteraction.ID);
             } break;                
         }
 
@@ -488,8 +481,38 @@ BeginInteract(ui_state *UIState, game_input *Input, v2 MouseP)
     }
     else
     {
-        UIState->Interaction.Type = DebugInteraction_NOP;
+        UIState->Interaction.Type = Interaction_NOP;
     }
+}
+
+internal void
+EndInteract(ui_state *UIState, game_input *Input, v2 MouseP)
+{
+    switch(UIState->Interaction.Type)
+    {
+        case Interaction_ToggleExpansion:
+        {
+//            interaction_view *View = GetOrCreateDebugViewFor(DebugState, DebugState->Interaction.ID);
+//            View->Collapsible.ExpandedAlways = !View->Collapsible.ExpandedAlways;
+        } break;
+        
+        case Interaction_SetUInt32:
+        {
+            *(u32 *)UIState->Interaction.Target = UIState->Interaction.UInt32;
+        } break;
+        
+        case Interaction_SetPointer:
+        {
+            *(void **)UIState->Interaction.Target = UIState->Interaction.Pointer;
+        } break;
+
+        case Interaction_ToggleValue:
+        {
+        } break;
+    }
+
+    UIState->Interaction.Type = Interaction_None;
+    UIState->Interaction.Generic = 0;
 }
 
 internal void

@@ -413,7 +413,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         GameState->TileIDs = PushArray(&GameState->WorldArena, GameState->WorldTileCount, u32);
         GameState->AnimatedDecorations = PushArray(&GameState->WorldArena, GameState->WorldTileCount,
                                                    animated_decoration);
-            
+
+        InitializeArena(&GameState->UIState.UIArena, Megabytes(2), &GameState->WorldArena);
+
         for(u32 CollisionIndex = 0;
             CollisionIndex < GameState->WorldTileCount;
             ++CollisionIndex)
@@ -879,6 +881,10 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         };
 
     v2 D = dTile*TileSideInMeters - V2(0.5f, 0.5f);
+
+    ui_state *UIState = &GameState->UIState;
+    BeginUI(UIState, RenderCommands, TranState->Assets, TranState->MainGenerationID, DrawBuffer.Width, DrawBuffer.Height);
+    
     
     if(GameState->EditMode == EditMode_Terrain)
     {
@@ -928,6 +934,29 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     PushRectOutline(RenderGroup, Transform, V3(0, 0, 0), GetDim(ScreenBounds), V4(1.0f, 1.0f, 0.0f, 1));
     PushRectOutline(RenderGroup, Transform, V3(0, 0, 0), GetDim(SimBounds), V4(1.0f, 0.0f, 1.0f, 1));
     PushRect(RenderGroup, Transform, V3(0, 0, 0), 0.2f*V2(TileSideInMeters, TileSideInMeters), V4(1, 0, 0, 1));
+
+    layout Layout = BeginLayout(UIState, UIState->LastMouseP, V2(0, 0));
+
+    BeginRow(&Layout);
+    Label(&Layout, "HEELLPPP");
+    Label(&Layout, "HEELLPPP");
+    Label(&Layout, "HEELLPPP");
+    ui_interaction Interaction = {};
+    BooleanButton(&Layout, "Button", true, Interaction);
+    EndRow(&Layout);
+
+    v2 Dim = V2(100.0f, 100.0f);
+    layout_element Element = BeginElementRectangle(&Layout, &Dim);
+    Interaction.Type = Interaction_Resize;
+    Interaction.P = &Dim;
+    DefaultInteraction(&Element, Interaction);
+    MakeElementSizable(&Element);
+    EndElement(&Element);
+
+
+    EndLayout(&Layout);
+
+    EndUI(&GameState->UIState, Input);
 
     EndRenderGroup(RenderGroup);
     EndRenderGroup(&TextRenderGroup);
