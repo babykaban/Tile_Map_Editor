@@ -286,7 +286,7 @@ Copy(memory_index Size, void *SourceInit, void *DestInit)
     return(DestInit);
 }
 
-#include "c:/paul/Spellweaver_Saga_game/AssetFileBuilder/code/file_formats.h"
+#include "d:/paul/Spellweaver_Saga_game/AssetFileBuilder/code/file_formats.h"
 //#include "editor_file_formats.h"
 #include "editor_intrinsics.h"
 #include "editor_math.h"
@@ -398,7 +398,7 @@ struct ui_state
     v2 MenuP;
     b32 MenuActive;
 
-//    debug_view *ViewHash[4096];
+    view *ViewHash[64];
 
     v2 LastMouseP;
     b32 AltUI;
@@ -450,8 +450,6 @@ struct game_state
     tileset_id GlobalTilesetID;
 
     r32 Time;
-
-    ui_state UIState;
 };
 
 struct task_with_memory
@@ -466,6 +464,7 @@ struct transient_state
 {
     bool32 IsInitialized;
     memory_arena TranArena;
+    ui_state *UIState;
 
     u32 MainGenerationID;
     

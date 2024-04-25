@@ -10,7 +10,7 @@ struct ui_state;
 
 struct interaction_id
 {
-    void *Value[2];
+    u32 Value;
 };
 
 enum text_op
@@ -54,6 +54,51 @@ struct ui_interaction
         void *Pointer;
         u32 UInt32;
         v2 *P;
+    };
+};
+
+struct view_inline_block
+{
+    v2 Dim;
+};
+
+struct view_profile_graph
+{
+    view_inline_block Block;
+    char *GUID;
+};
+
+struct view_arena_graph
+{
+    view_inline_block Block;
+};
+
+struct view_collapsible
+{
+    b32 ExpandedAlways;
+    b32 ExpandedAltView;
+};
+
+enum view_type
+{
+    ViewType_Unknown,
+
+    ViewType_Basic,
+    ViewType_InlineBlock,
+    ViewType_Collapsible,
+};
+
+struct view
+{
+    interaction_id ID;
+
+    view_type Type;
+    union
+    {
+        view_inline_block InlineBlock;
+        view_profile_graph ProfileGraph;
+        view_collapsible Collapsible;
+        view_arena_graph ArenaGraph;
     };
 };
 

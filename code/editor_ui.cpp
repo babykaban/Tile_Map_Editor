@@ -9,8 +9,7 @@
 inline b32
 InteractionIDsAreEqual(interaction_id A, interaction_id B)
 {
-    b32 Result = ((A.Value[0] == B.Value[0]) &&
-            (A.Value[1] == B.Value[1]));
+    b32 Result = (A.Value == B.Value);
 
     return(Result);
 }
@@ -485,6 +484,24 @@ BeginInteract(ui_state *UIState, game_input *Input, v2 MouseP)
     }
 }
 
+internal view *
+GetOrCreateViewFor(ui_state *UIState, interaction_id ID)
+{
+    // TODO(casey): Better hash function
+//    u32 HashIndex = ((U32FromPointer(ID.Value[0]) >> 2) + (U32FromPointer(ID.Value[1]) >> 2)) % ArrayCount(UIState->ViewHash);
+    u32 HashIndex = ID.Value;
+    view *Result = UIState->ViewHash[HashIndex];
+
+    if(!Result)
+    {
+        Result = PushStruct(&UIState->UIArena, view);
+        Result->ID = ID;
+        Result->Type = ViewType_Unknown;
+    }
+
+    return(Result);
+}
+
 internal void
 EndInteract(ui_state *UIState, game_input *Input, v2 MouseP)
 {
@@ -492,8 +509,8 @@ EndInteract(ui_state *UIState, game_input *Input, v2 MouseP)
     {
         case Interaction_ToggleExpansion:
         {
-//            interaction_view *View = GetOrCreateDebugViewFor(DebugState, DebugState->Interaction.ID);
-//            View->Collapsible.ExpandedAlways = !View->Collapsible.ExpandedAlways;
+            view *View = GetOrCreateViewFor(UIState, UIState->Interaction.ID);
+            View->Collapsible.ExpandedAlways = !View->Collapsible.ExpandedAlways;
         } break;
         
         case Interaction_SetUInt32:

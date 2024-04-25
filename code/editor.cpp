@@ -414,8 +414,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         GameState->AnimatedDecorations = PushArray(&GameState->WorldArena, GameState->WorldTileCount,
                                                    animated_decoration);
 
-        InitializeArena(&GameState->UIState.UIArena, Megabytes(2), &GameState->WorldArena);
-
         for(u32 CollisionIndex = 0;
             CollisionIndex < GameState->WorldTileCount;
             ++CollisionIndex)
@@ -532,6 +530,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                                                 &MatchVector, &WeightVector);
 
         GameState->GlobalTilesetID = ID;
+
+        TranState->UIState = PushStruct(&TranState->TranArena, ui_state);
+        SubArena(&TranState->UIState->UIArena, &TranState->TranArena, Megabytes(2));
         
         TranState->IsInitialized = true;
     }
@@ -882,7 +883,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     v2 D = dTile*TileSideInMeters - V2(0.5f, 0.5f);
 
-    ui_state *UIState = &GameState->UIState;
+    ui_state *UIState = TranState->UIState;
     BeginUI(UIState, RenderCommands, TranState->Assets, TranState->MainGenerationID, DrawBuffer.Width, DrawBuffer.Height);
     
     
@@ -935,28 +936,39 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     PushRectOutline(RenderGroup, Transform, V3(0, 0, 0), GetDim(SimBounds), V4(1.0f, 0.0f, 1.0f, 1));
     PushRect(RenderGroup, Transform, V3(0, 0, 0), 0.2f*V2(TileSideInMeters, TileSideInMeters), V4(1, 0, 0, 1));
 
+    interaction_id ID = {};
+    ID.Value = 1;
+
+    ui_interaction Interaction = {};
+    Interaction.ID = ID;
+    Interaction.Type = Interaction_Resize;
+    
     layout Layout = BeginLayout(UIState, UIState->LastMouseP, V2(0, 0));
 
     BeginRow(&Layout);
     Label(&Layout, "HEELLPPP");
     Label(&Layout, "HEELLPPP");
     Label(&Layout, "HEELLPPP");
-    ui_interaction Interaction = {};
     BooleanButton(&Layout, "Button", true, Interaction);
     EndRow(&Layout);
 
-    v2 Dim = V2(100.0f, 100.0f);
-    layout_element Element = BeginElementRectangle(&Layout, &Dim);
-    Interaction.Type = Interaction_Resize;
-    Interaction.P = &Dim;
+    view *View = GetOrCreateViewFor(UIState, Interaction.ID);
+    
+   view_inline_block *Block = &View->InlineBlock;
+    layout_element Element = BeginElementRectangle(&Layout, &Block->Dim);
+    if((Block->Dim.x == 0) && (Block->Dim.y == 0))
+    {
+        Block->Dim.x = 100;
+        Block->Dim.y = 100;
+    }
+
     DefaultInteraction(&Element, Interaction);
     MakeElementSizable(&Element);
     EndElement(&Element);
 
-
     EndLayout(&Layout);
 
-    EndUI(&GameState->UIState, Input);
+    EndUI(UIState, Input);
 
     EndRenderGroup(RenderGroup);
     EndRenderGroup(&TextRenderGroup);
