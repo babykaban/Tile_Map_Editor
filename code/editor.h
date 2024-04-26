@@ -398,13 +398,13 @@ struct ui_state
     v2 MenuP;
     b32 MenuActive;
 
-    view *ViewHash[64];
+//    view *ViewHash[64];
 
     v2 LastMouseP;
     b32 AltUI;
-    ui_interaction Interaction;
-    ui_interaction HotInteraction;
-    ui_interaction NextHotInteraction;
+//    ui_interaction Interaction;
+//    ui_interaction HotInteraction;
+//    ui_interaction NextHotInteraction;
     b32 Paused;
 
     r32 LeftEdge;
@@ -414,7 +414,7 @@ struct ui_state
     r32 GlobalWidth;
     r32 GlobalHeight;
 
-    layout MouseTextLayout;
+//    layout MouseTextLayout;
 };
 
 struct game_state
@@ -464,7 +464,7 @@ struct transient_state
 {
     bool32 IsInitialized;
     memory_arena TranArena;
-    ui_state *UIState;
+    ui_context *UIContext;
 
     u32 MainGenerationID;
     

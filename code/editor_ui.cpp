@@ -6,10 +6,36 @@
    $Notice: (C) Copyright 2023 by Handy Paul, Inc. All Rights Reserved. $
    ======================================================================== */
 
-inline b32
-InteractionIDsAreEqual(interaction_id A, interaction_id B)
+inline ui_interaction
+SetPointerInteraction(ui_item_id ID, void **Target, void *Value)
 {
-    b32 Result = (A.Value == B.Value);
+    ui_interaction Result = {};
+    Result.ID = ID;
+    Result.Type = Interaction_SetPointer;
+    Result.Target = Target;
+    Result.Pointer = Value;
+
+    return(Result);
+}
+
+inline ui_interaction
+SetUInt32Interaction(ui_item_id ID, u32 *Target, u32 Value)
+{
+    ui_interaction Result = {};
+    Result.ID = ID;
+    Result.Type = Interaction_SetUInt32;
+    Result.Target = Target;
+    Result.UInt32 = Value;
+
+    return(Result);
+}
+
+inline b32
+InteractionIDsAreEqual(ui_item_id A, ui_item_id B)
+{
+    b32 Result = ((A.Value == B.Value) &&
+                  (A.ItemOwner == B.ItemOwner) &&
+                  (A.ItemIndex == B.ItemIndex));
 
     return(Result);
 }
@@ -27,9 +53,9 @@ InteractionsAreEqual(ui_interaction A, ui_interaction B)
 }
 
 inline b32
-InteractionIsHot(ui_state *UIState, ui_interaction B)
+InteractionIsHot(ui_context *UIContext, ui_interaction B)
 {
-    b32 Result = InteractionsAreEqual(UIState->HotInteraction, B);
+    b32 Result = InteractionsAreEqual(UIContext->HotInteraction, B);
 
     if(B.Type == Interaction_None)
     {
@@ -66,18 +92,18 @@ GetHex(char Char)
 }
 
 internal rectangle2
-TextOp(ui_state *UIState, text_op Op, v2 P, char *String, v4 Color = V4(1, 1, 1, 1),
+TextOp(ui_context *UIContext, text_op Op, v2 P, char *String, v4 Color = V4(1, 1, 1, 1),
     r32 AtZ = 0.0f)
 {
     rectangle2 Result = InvertedInfinityRectangle2();
-    if(UIState && UIState->UIFont)
+    if(UIContext && UIContext->UIFont)
     {
-        render_group *RenderGroup = &UIState->RenderGroup;
-        loaded_font *Font = UIState->UIFont;
-        ssa_font *Info = UIState->UIFontInfo;
+        render_group *RenderGroup = &UIContext->RenderGroup;
+        loaded_font *Font = UIContext->UIFont;
+        ssa_font *Info = UIContext->UIFontInfo;
 
         u32 PrevCodePoint = 0;
-        r32 CharScale = UIState->FontScale;
+        r32 CharScale = UIContext->FontScale;
         r32 AtY = P.y;
         r32 AtX = P.x;
         for(char *At = String;
@@ -102,7 +128,7 @@ TextOp(ui_state *UIState, text_op Op, v2 P, char *String, v4 Color = V4(1, 1, 1,
                     (At[2] != 0))
             {
                 r32 CScale = 1.0f / 9.0f;
-                CharScale = UIState->FontScale*Clamp01(CScale*(r32)(At[2] - '0'));
+                CharScale = UIContext->FontScale*Clamp01(CScale*(r32)(At[2] - '0'));
                 At += 3;
             }
             else
@@ -133,9 +159,9 @@ TextOp(ui_state *UIState, text_op Op, v2 P, char *String, v4 Color = V4(1, 1, 1,
                     v3 BitmapOffset = V3(AtX, AtY, AtZ);
                     if(Op == TextOp_DrawText)
                     {
-                        PushBitmap(RenderGroup, UIState->TextTransform, BitmapID, BitmapScale,
+                        PushBitmap(RenderGroup, UIContext->TextTransform, BitmapID, BitmapScale,
                             BitmapOffset, Color, 1.0f);
-                        PushBitmap(RenderGroup, UIState->ShadowTransform, BitmapID, BitmapScale,
+                        PushBitmap(RenderGroup, UIContext->ShadowTransform, BitmapID, BitmapScale,
                             BitmapOffset + V3(2.0f, -2.0f, 0.0f), V4(0, 0, 0, 1.0f), 1.0f);
                     }
                     else                    
@@ -163,76 +189,33 @@ TextOp(ui_state *UIState, text_op Op, v2 P, char *String, v4 Color = V4(1, 1, 1,
 }
 
 inline void
-TextOutAt(ui_state *UIState, v2 P, char *String, v4 Color = V4(1, 1, 1, 1), r32 AtZ = 0.0f)
+TextOutAt(ui_context *UIContext, v2 P, char *String, v4 Color = V4(1, 1, 1, 1), r32 AtZ = 0.0f)
 {
-    render_group *RenderGroup = &UIState->RenderGroup;
+    render_group *RenderGroup = &UIContext->RenderGroup;
 
-    TextOp(UIState, TextOp_DrawText, P, String, Color, AtZ);    
+    TextOp(UIContext, TextOp_DrawText, P, String, Color, AtZ);    
 }
 
 inline rectangle2
-GetTextSize(ui_state *UIState, char *String)
+GetTextSize(ui_context *UIContext, char *String)
 {
-    rectangle2 Result = TextOp(UIState, TextOp_SizeText, V2(0, 0), String);
+    rectangle2 Result = TextOp(UIContext, TextOp_SizeText, V2(0, 0), String);
 
     return(Result);
 }
 
 inline r32
-GetLineAdvance(ui_state *UIState)
+GetLineAdvance(ui_state *UIContext)
 {
-    r32 Result = GetLineAdvanceFor(UIState->UIFontInfo)*UIState->FontScale;
+    r32 Result = GetLineAdvanceFor(UIContext->UIFontInfo)*UIContext->FontScale;
     return(Result);
 }
 
 inline r32
-GetBaseline(ui_state *UIState)
+GetBaseline(ui_state *UIContext)
 {
-    r32 Result = UIState->FontScale*GetStartingBaselineY(UIState->UIFontInfo);
+    r32 Result = UIContext->FontScale*GetStartingBaselineY(UIContext->UIFontInfo);
     return(Result);
-}
-
-inline ui_interaction
-SetPointerInteraction(interaction_id DebugID, void **Target, void *Value)
-{
-    ui_interaction Result = {};
-    Result.ID = DebugID;
-    Result.Type = Interaction_SetPointer;
-    Result.Target = Target;
-    Result.Pointer = Value;
-
-    return(Result);
-}
-
-inline ui_interaction
-SetUInt32Interaction(interaction_id ID, u32 *Target, u32 Value)
-{
-    ui_interaction Result = {};
-    Result.ID = ID;
-    Result.Type = Interaction_SetUInt32;
-    Result.Target = Target;
-    Result.UInt32 = Value;
-
-    return(Result);
-}
-
-inline layout 
-BeginLayout(ui_state *UIState, v2 MouseP, v2 UpperLeftCorner)
-{
-    layout Layout = {};
-    Layout.UIState = UIState;
-    Layout.MouseP = MouseP;
-    Layout.BaseCorner = Layout.At = UpperLeftCorner;
-    Layout.LineAdvance = UIState->FontScale*GetLineAdvanceFor(UIState->UIFontInfo);
-    Layout.SpacingY = 4.0f;
-    Layout.SpacingX = 4.0f;
-    
-    return(Layout);
-}
-
-inline void
-EndLayout(layout *Layout)
-{
 }
 
 inline layout_element
@@ -278,8 +261,8 @@ inline void
 EndElement(layout_element *Element)
 {
     layout *Layout = Element->Layout;
-    ui_state *UIState = Layout->UIState;
-    object_transform NoTransform = UIState->BackingTransform;
+    ui_context *UIContext = Layout->UIContext;
+    object_transform NoTransform = UIContext->BackingTransform;
     
     if(!Layout->LineInitialized)
     {
@@ -311,21 +294,21 @@ EndElement(layout_element *Element)
 
     if(Element->Interaction.Type && IsInRectangle(Element->Bounds, Layout->MouseP))
     {
-        UIState->NextHotInteraction = Element->Interaction;
+        UIContext->NextHotInteraction = Element->Interaction;
     }
 
     if(Element->Size)
     {
-        PushRect(&UIState->RenderGroup, NoTransform, RectMinMax(V2(TotalMinCorner.x, InteriorMinCorner.y),
+        PushRect(&UIContext->RenderGroup, NoTransform, RectMinMax(V2(TotalMinCorner.x, InteriorMinCorner.y),
                 V2(InteriorMinCorner.x, InteriorMaxCorner.y)), 0.0f,
                  V4(0, 0, 0, 1));
-        PushRect(&UIState->RenderGroup, NoTransform, RectMinMax(V2(InteriorMaxCorner.x, InteriorMinCorner.y),
+        PushRect(&UIContext->RenderGroup, NoTransform, RectMinMax(V2(InteriorMaxCorner.x, InteriorMinCorner.y),
                                                      V2(TotalMaxCorner.x, InteriorMaxCorner.y)), 0.0f,
                  V4(0, 0, 0, 1));
-        PushRect(&UIState->RenderGroup, NoTransform, RectMinMax(V2(InteriorMinCorner.x, TotalMinCorner.y),
+        PushRect(&UIContext->RenderGroup, NoTransform, RectMinMax(V2(InteriorMinCorner.x, TotalMinCorner.y),
                                                      V2(InteriorMaxCorner.x, InteriorMinCorner.y)), 0.0f,
                  V4(0, 0, 0, 1));
-        PushRect(&UIState->RenderGroup, NoTransform, RectMinMax(V2(InteriorMinCorner.x, InteriorMaxCorner.y),
+        PushRect(&UIContext->RenderGroup, NoTransform, RectMinMax(V2(InteriorMinCorner.x, InteriorMaxCorner.y),
                                                      V2(InteriorMaxCorner.x, TotalMaxCorner.y)), 0.0f,
                  V4(0, 0, 0, 1));
 
@@ -336,15 +319,34 @@ EndElement(layout_element *Element)
         rectangle2 SizeBox = AddRadiusTo(
             RectMinMax(V2(InteriorMaxCorner.x, TotalMinCorner.y),
                 V2(TotalMaxCorner.x, InteriorMinCorner.y)), V2(4.0f, 4.0f));
-        PushRect(&UIState->RenderGroup, NoTransform, SizeBox, 0.0f,
-                 (InteractionIsHot(UIState, SizeInteraction) ? V4(1, 1, 0, 1) : V4(1, 1, 1, 1)));
+        PushRect(&UIContext->RenderGroup, NoTransform, SizeBox, 0.0f,
+                 (InteractionIsHot(UIContext, SizeInteraction) ? V4(1, 1, 0, 1) : V4(1, 1, 1, 1)));
         if(IsInRectangle(SizeBox, Layout->MouseP))
         {
-            UIState->NextHotInteraction = SizeInteraction;
+            UIContext->NextHotInteraction = SizeInteraction;
         }
     }
 
     AdvanceElement(Layout, TotalBounds);
+}
+
+inline layout 
+BeginLayout(ui_context *UIContext, v2 MouseP, v2 UpperLeftCorner)
+{
+    layout Layout = {};
+    Layout.UIContext = UIContext;
+    Layout.MouseP = MouseP;
+    Layout.BaseCorner = Layout.At = UpperLeftCorner;
+    Layout.LineAdvance = UIContext->FontScale*GetLineAdvanceFor(UIContext->UIFontInfo);
+    Layout.SpacingY = 4.0f;
+    Layout.SpacingX = 4.0f;
+    
+    return(Layout);
+}
+
+inline void
+EndLayout(layout *Layout)
+{
 }
 
 internal v2
@@ -352,25 +354,25 @@ BasicTextElement(layout *Layout, char *Text, ui_interaction ItemInteraction,
                  v4 ItemColor = V4(0.8f, 0.8f, 0.8f, 1), v4 HotColor = V4(1, 1, 1, 1),
                  r32 Border = 0.0f, v4 BackdropColor = V4(0, 0, 0, 0))
 {
-    ui_state *UIState = Layout->UIState;
+    ui_context *UIContext = Layout->UIContext;
 
-    rectangle2 TextBounds = GetTextSize(UIState, Text);
+    rectangle2 TextBounds = GetTextSize(UIContext, Text);
     v2 Dim = {GetDim(TextBounds).x + 2.0f*Border, Layout->LineAdvance + 2.0f*Border};
     
     layout_element Element = BeginElementRectangle(Layout, &Dim);
     DefaultInteraction(&Element, ItemInteraction);
     EndElement(&Element);
 
-    b32 IsHot = InteractionIsHot(Layout->UIState, ItemInteraction);
+    b32 IsHot = InteractionIsHot(Layout->UIContext, ItemInteraction);
 
-    TextOutAt(UIState, V2(GetMinCorner(Element.Bounds).x + Border,
+    TextOutAt(UIContext, V2(GetMinCorner(Element.Bounds).x + Border,
                 GetMaxCorner(Element.Bounds).y - Border - 
-                UIState->FontScale*GetStartingBaselineY(UIState->UIFontInfo)),
+                UIContext->FontScale*GetStartingBaselineY(UIContext->UIFontInfo)),
             Text, IsHot ? HotColor : ItemColor);
     if(BackdropColor.w > 0.0f)
     {
-        PushRect(&UIState->RenderGroup, 
-                 UIState->BackingTransform, Element.Bounds, 0.0f, BackdropColor);
+        PushRect(&UIContext->RenderGroup, 
+                 UIContext->BackingTransform, Element.Bounds, 0.0f, BackdropColor);
     }
     
     return(Dim);
@@ -415,57 +417,11 @@ EndRow(layout *Layout)
 }
 
 internal void
-AddTooltip(ui_state *UIState, char *Text)
+BeginInteract(ui_context *UIContext, game_input *Input, v2 MouseP)
 {
-    render_group *RenderGroup = &UIState->RenderGroup;
-    u32 OldClipRect = RenderGroup->CurrentClipRectIndex;
-    RenderGroup->CurrentClipRectIndex = UIState->DefaultClipRect;
-    
-    layout *Layout = &UIState->MouseTextLayout;
-    
-    rectangle2 TextBounds = GetTextSize(UIState, Text);
-    v2 Dim = {GetDim(TextBounds).x, Layout->LineAdvance};
-    
-    layout_element Element = BeginElementRectangle(Layout, &Dim);
-    EndElement(&Element);
-    
-    TextOutAt(UIState, V2(GetMinCorner(Element.Bounds).x,
-                GetMaxCorner(Element.Bounds).y - 
-                UIState->FontScale*GetStartingBaselineY(UIState->UIFontInfo)),
-            Text, V4(1, 1, 1, 1), 10000.0f);
-        
-    RenderGroup->CurrentClipRectIndex = OldClipRect;
-}
-
-internal void
-BeginInteract(ui_state *UIState, game_input *Input, v2 MouseP)
-{
-    if(UIState->HotInteraction.Type)
+    if(UIContext->HotInteraction.Type)
     {
-        if(UIState->HotInteraction.Type == Interaction_AutoModifyVariable)
-        {
-#if 0 
-            switch(UIState->HotInteraction.Element->Frames[FrameOrdinal].MostRecentEvent->Event.Type)
-            {
-                case DebugType_b32:
-                {
-                    UIState->HotInteraction.Type = DebugInteraction_ToggleValue;
-                } break;
-
-                case DebugType_r32:
-                {
-                    UIState->HotInteraction.Type = DebugInteraction_DragValue;
-                } break;
-
-                case DebugType_OpenDataBlock:
-                {
-                    UIState->HotInteraction.Type = DebugInteraction_ToggleValue;
-                } break;
-            }
-#endif
-        }
-
-        switch(UIState->HotInteraction.Type)
+        switch(UIContext->HotInteraction.Type)
         {
             case Interaction_TearValue:
             {
@@ -476,51 +432,30 @@ BeginInteract(ui_state *UIState, game_input *Input, v2 MouseP)
             } break;                
         }
 
-        UIState->Interaction = UIState->HotInteraction;
+        UIContext->Interaction = UIContext->HotInteraction;
     }
     else
     {
-        UIState->Interaction.Type = Interaction_NOP;
+        UIContext->Interaction.Type = Interaction_NOP;
     }
-}
-
-internal view *
-GetOrCreateViewFor(ui_state *UIState, interaction_id ID)
-{
-    // TODO(casey): Better hash function
-//    u32 HashIndex = ((U32FromPointer(ID.Value[0]) >> 2) + (U32FromPointer(ID.Value[1]) >> 2)) % ArrayCount(UIState->ViewHash);
-    u32 HashIndex = ID.Value;
-    view *Result = UIState->ViewHash[HashIndex];
-
-    if(!Result)
-    {
-        Result = PushStruct(&UIState->UIArena, view);
-        Result->ID = ID;
-        Result->Type = ViewType_Unknown;
-    }
-
-    return(Result);
 }
 
 internal void
-EndInteract(ui_state *UIState, game_input *Input, v2 MouseP)
+EndInteract(ui_context *UIContext, game_input *Input, v2 MouseP)
 {
-    switch(UIState->Interaction.Type)
+    switch(UIContext->Interaction.Type)
     {
         case Interaction_ToggleExpansion:
         {
-            view *View = GetOrCreateViewFor(UIState, UIState->Interaction.ID);
-            View->Collapsible.ExpandedAlways = !View->Collapsible.ExpandedAlways;
         } break;
         
         case Interaction_SetUInt32:
         {
-            *(u32 *)UIState->Interaction.Target = UIState->Interaction.UInt32;
+            *(u32 *)UIContext->Interaction.Target = UIContext->Interaction.UInt32;
         } break;
         
         case Interaction_SetPointer:
         {
-            *(void **)UIState->Interaction.Target = UIState->Interaction.Pointer;
         } break;
 
         case Interaction_ToggleValue:
@@ -528,20 +463,20 @@ EndInteract(ui_state *UIState, game_input *Input, v2 MouseP)
         } break;
     }
 
-    UIState->Interaction.Type = Interaction_None;
-    UIState->Interaction.Generic = 0;
+    UIContext->Interaction.Type = Interaction_None;
+    UIContext->Interaction.Generic = 0;
 }
 
 internal void
-Interact(ui_state *UIState, game_input *Input, v2 MouseP)
+Interact(ui_context *UIContext, game_input *Input, v2 MouseP)
 {
-    v2 dMouseP = MouseP - UIState->LastMouseP;
-    if(UIState->Interaction.Type)
+    v2 dMouseP = MouseP - UIContext->LastMouseP;
+    if(UIContext->Interaction.Type)
     {
-        v2 *P = UIState->Interaction.P;
+        v2 *P = UIContext->Interaction.P;
 
         // NOTE(casey): Mouse move interaction
-        switch(UIState->Interaction.Type)
+        switch(UIContext->Interaction.Type)
         {
             case Interaction_DragValue:
             {
@@ -565,94 +500,90 @@ Interact(ui_state *UIState, game_input *Input, v2 MouseP)
             TransitionIndex > 1;
             --TransitionIndex)
         {
-            EndInteract(UIState, Input, MouseP);
-            BeginInteract(UIState, Input, MouseP);
+            EndInteract(UIContext, Input, MouseP);
+            BeginInteract(UIContext, Input, MouseP);
         }
 
         if(!Input->MouseButtons[0].EndedDown)
         {
-            EndInteract(UIState, Input, MouseP);
+            EndInteract(UIContext, Input, MouseP);
         }
     }
     else
     {
-        UIState->HotInteraction = UIState->NextHotInteraction;
+        UIContext->HotInteraction = UIContext->NextHotInteraction;
 
         for(u32 TransitionIndex = Input->MouseButtons[0].HalfTransitionCount;
             TransitionIndex > 1;
             --TransitionIndex)
         {
-            BeginInteract(UIState, Input, MouseP);
-            EndInteract(UIState, Input, MouseP);
+            BeginInteract(UIContext, Input, MouseP);
+            EndInteract(UIContext, Input, MouseP);
         }
 
         if(Input->MouseButtons[0].EndedDown)
         {
-            BeginInteract(UIState, Input, MouseP);
+            BeginInteract(UIContext, Input, MouseP);
         }
     }
 
-    UIState->LastMouseP = MouseP;
+    UIContext->LastMouseP = MouseP;
 }
 
 internal void
-BeginUI(ui_state *UIState, game_render_commands *Commands, game_assets *Assets, u32 MainGenerationID, u32 Width, u32 Height)
+BeginUI(ui_context *UIContext, game_render_commands *Commands, game_assets *Assets, u32 MainGenerationID,
+        u32 ContextWidth, u32 ContextHeight)
 {
-    if(!UIState->Initialized)
+    if(!UIContext->Initialized)
     {
-//        memory_index TotalMemorySize = DebugGlobalMemory->DebugStorageSize - sizeof(debug_state);
-//        InitializeArena(&UIState->UIArena, TotalMemorySize, UIState + 1);
-//        SubArena(&UIState->PerFrameArena, &UIState->DebugArena, (TotalMemorySize / 2));
-        UIState->Paused = false;
-        
-        UIState->Initialized = true;
+        UIContext->Initialized = true;
     }
 
-    UIState->RenderGroup = BeginRenderGroup(Assets, Commands, MainGenerationID, false);
+    UIContext->RenderGroup = BeginRenderGroup(Assets, Commands, MainGenerationID, false);
 
-    UIState->UIFont = PushFont(&UIState->RenderGroup, UIState->FontID);
-    UIState->UIFontInfo = GetFontInfo(UIState->RenderGroup.Assets, UIState->FontID);
+    UIContext->UIFont = PushFont(&UIContext->RenderGroup, UIContext->FontID);
+    UIContext->UIFontInfo = GetFontInfo(UIContext->RenderGroup.Assets, UIContext->FontID);
 
-    UIState->GlobalWidth = (r32)Width;
-    UIState->GlobalHeight = (r32)Height;
+    UIContext->Width = (r32)ContextWidth;
+    UIContext->Height = (r32)ContextHeight;
 
     asset_vector MatchVector = {};
     asset_vector WeightVector = {};
     MatchVector.E[Tag_FontType] = (r32)FontType_Debug;
     WeightVector.E[Tag_FontType] = 1.0f;
-    UIState->FontID = GetBestMatchFontFrom(Assets, Asset_Font, &MatchVector, &WeightVector);
+    UIContext->FontID = GetBestMatchFontFrom(Assets, Asset_Font, &MatchVector, &WeightVector);
 
-    UIState->FontScale = 1.0f;
-    Orthographic(&UIState->RenderGroup, Width, Height, 1.0f);
-    UIState->LeftEdge = -0.5f*Width;
-    UIState->RightEdge = 0.5f*Width;
+    UIContext->FontScale = 1.0f;
+    Orthographic(&UIContext->RenderGroup, ContextWidth, ContextHeight, 1.0f);
+    UIContext->LeftEdge = -0.5f*ContextWidth;
+    UIContext->RightEdge = 0.5f*ContextWidth;
 
-    UIState->TextTransform = DefaultFlatTransform();
-    UIState->ShadowTransform = DefaultFlatTransform();
-    UIState->UITransform = DefaultFlatTransform();
-    UIState->BackingTransform = DefaultFlatTransform();
+    UIContext->TextTransform = DefaultFlatTransform();
+    UIContext->ShadowTransform = DefaultFlatTransform();
+    UIContext->UITransform = DefaultFlatTransform();
+    UIContext->BackingTransform = DefaultFlatTransform();
 
-    UIState->BackingTransform.SortBias = 100000.0f;
-    UIState->ShadowTransform.SortBias = 200000.0f;
-    UIState->UITransform.SortBias = 300000.0f;
-    UIState->TextTransform.SortBias = 400000.0f;
+    UIContext->BackingTransform.SortBias = 100000.0f;
+    UIContext->ShadowTransform.SortBias = 200000.0f;
+    UIContext->UITransform.SortBias = 300000.0f;
+    UIContext->TextTransform.SortBias = 400000.0f;
 
-    UIState->DefaultClipRect = UIState->RenderGroup.CurrentClipRectIndex;
+    UIContext->DefaultClipRect = UIContext->RenderGroup.CurrentClipRectIndex;
 }
 
 internal void
-EndUI(ui_state *UIState, game_input *Input)
+EndUI(ui_context *UIContext, game_input *Input)
 {
-    render_group *RenderGroup = &UIState->RenderGroup;
+    render_group *RenderGroup = &UIContext->RenderGroup;
 
-    UIState->AltUI = Input->MouseButtons[1].EndedDown;
+    UIContext->AltUI = Input->MouseButtons[1].EndedDown;
     v2 MouseP = Unproject(RenderGroup, DefaultFlatTransform(), V2i(Input->MouseX, Input->MouseY)).xy;
-    UIState->MouseTextLayout = BeginLayout(UIState, MouseP, MouseP);
-    EndLayout(&UIState->MouseTextLayout);
-    Interact(UIState, Input, MouseP);
+    UIContext->MouseTextLayout = BeginLayout(UIContext, MouseP, MouseP);
+    EndLayout(&UIContext->MouseTextLayout);
+    Interact(UIContext, Input, MouseP);
     
-    EndRenderGroup(&UIState->RenderGroup);
+    EndRenderGroup(&UIContext->RenderGroup);
 
     // NOTE(casey): Clear the UI state for the next frame
-    ZeroStruct(UIState->NextHotInteraction);
+    ZeroStruct(UIContext->NextHotInteraction);
 }

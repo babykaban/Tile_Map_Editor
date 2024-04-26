@@ -531,8 +531,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
         GameState->GlobalTilesetID = ID;
 
-        TranState->UIState = PushStruct(&TranState->TranArena, ui_state);
-        SubArena(&TranState->UIState->UIArena, &TranState->TranArena, Megabytes(2));
+        TranState->UIContext = PushStruct(&TranState->TranArena, ui_context);
+        SubArena(&TranState->UIContext->ContextArena, &TranState->TranArena, Megabytes(2));
         
         TranState->IsInitialized = true;
     }
@@ -883,9 +883,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     v2 D = dTile*TileSideInMeters - V2(0.5f, 0.5f);
 
-    ui_state *UIState = TranState->UIState;
-    BeginUI(UIState, RenderCommands, TranState->Assets, TranState->MainGenerationID, DrawBuffer.Width, DrawBuffer.Height);
-    
+    ui_context *UIContext = TranState->UIContext;
+    BeginUI(UIContext, RenderCommands, TranState->Assets, TranState->MainGenerationID, DrawBuffer.Width, DrawBuffer.Height);
+   
     
     if(GameState->EditMode == EditMode_Terrain)
     {
@@ -935,7 +935,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     PushRectOutline(RenderGroup, Transform, V3(0, 0, 0), GetDim(ScreenBounds), V4(1.0f, 1.0f, 0.0f, 1));
     PushRectOutline(RenderGroup, Transform, V3(0, 0, 0), GetDim(SimBounds), V4(1.0f, 0.0f, 1.0f, 1));
     PushRect(RenderGroup, Transform, V3(0, 0, 0), 0.2f*V2(TileSideInMeters, TileSideInMeters), V4(1, 0, 0, 1));
-
+#if 0
     interaction_id ID = {};
     ID.Value = 1;
 
@@ -968,7 +968,25 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     EndLayout(&Layout);
 
-    EndUI(UIState, Input);
+#endif
+    layout Layout = BeginLayout(UIContext, UIContext->LastMouseP, V2(0, 0));
+    Label(&Layout, "HEELLPPP");
+    Label(&Layout, "HEELLPPP");
+    Label(&Layout, "HEELLPPP");
+
+    ui_item_id ID = {};
+    ID.Value = 12;
+    ID.ItemOwner = 11;
+    ID.ItemIndex = 8;
+    
+//    ActionButton(&Layout, "EditMode",
+//                  SetUInt32Interaction(ID, (u32 *)&GameState->EditMode, EditMode_Collision));
+
+    BasicTextElement(&Layout, "Mode", SetUInt32Interaction(ID, (u32 *)&GameState->EditMode, EditMode_Collision));
+
+    EndLayout(&Layout);
+
+    EndUI(UIContext, Input);
 
     EndRenderGroup(RenderGroup);
     EndRenderGroup(&TextRenderGroup);
