@@ -460,6 +460,7 @@ EndInteract(ui_context *UIContext, game_input *Input, v2 MouseP)
 
         case Interaction_ToggleValue:
         {
+            *(u32 *)UIContext->Interaction.Target = UIContext->Interaction.UInt32;
         } break;
     }
 
@@ -512,7 +513,7 @@ Interact(ui_context *UIContext, game_input *Input, v2 MouseP)
     else
     {
         UIContext->HotInteraction = UIContext->NextHotInteraction;
-
+#if 0
         for(u32 TransitionIndex = Input->MouseButtons[0].HalfTransitionCount;
             TransitionIndex > 1;
             --TransitionIndex)
@@ -520,6 +521,7 @@ Interact(ui_context *UIContext, game_input *Input, v2 MouseP)
             BeginInteract(UIContext, Input, MouseP);
             EndInteract(UIContext, Input, MouseP);
         }
+#endif
 
         if(Input->MouseButtons[0].EndedDown)
         {

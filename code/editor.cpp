@@ -982,8 +982,13 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 //    ActionButton(&Layout, "EditMode",
 //                  SetUInt32Interaction(ID, (u32 *)&GameState->EditMode, EditMode_Collision));
 
-    BasicTextElement(&Layout, "Mode", SetUInt32Interaction(ID, (u32 *)&GameState->EditMode, EditMode_Collision));
-
+    ui_interaction Interaction = {};
+    Interaction.ID = ID;
+    Interaction.Type = Interaction_ToggleValue;
+    Interaction.Target = (u32 *)&GameState->EditMode;
+    Interaction.UInt32 = EditMode_Collision;
+    v2 Dim = BasicTextElement(&Layout, "Mode", Interaction);
+    
     EndLayout(&Layout);
 
     EndUI(UIContext, Input);
