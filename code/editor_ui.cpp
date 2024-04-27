@@ -65,6 +65,37 @@ InteractionIsHot(ui_context *UIContext, ui_interaction B)
     return(Result);
 }
 
+internal ui_view *
+GetOrCreateDebugViewFor(ui_context *UIContext, ui_item_id ID)
+{
+    // TODO(casey): Better hash function
+    u32 HashIndex = ((ID.Value >> 2) + (ID.ItemOwner >> 2) + (ID.ItemIndex >> 2)) % ArrayCount(UIContext->ViewHash);
+    ui_view **HashSlot = UIContext->ViewHash + HashIndex;
+
+    ui_view *Result = 0;
+    for(ui_view *Search = *HashSlot;
+        Search;
+        Search = Search->NextInHash)
+    {
+        if(InteractionIDsAreEqual(Search->ID, ID))
+        {
+            Result = Search;
+            break;
+        }
+    }
+
+    if(!Result)
+    {
+        Result = PushStruct(&UIContext->ContextArena, ui_view);
+        Result->ID = ID;
+        Result->Type = ViewType_Unknown;
+        Result->NextInHash = *HashSlot;
+        *HashSlot = Result;
+    }
+
+    return(Result);
+}
+
 inline b32
 IsHex(char Char)
 {
@@ -573,6 +604,127 @@ BeginUI(ui_context *UIContext, game_render_commands *Commands, game_assets *Asse
     UIContext->DefaultClipRect = UIContext->RenderGroup.CurrentClipRectIndex;
 }
 
+internal void 
+DrawWindow(ui_context *UIContext, layout *Layout, v2 *D, ui_interaction WindowInteraction)
+{
+    render_group *RenderGroup = &UIContext->RenderGroup;
+
+    layout_element WindowElement = BeginElementRectangle(Layout, D);
+    DefaultInteraction(&WindowElement, WindowInteraction);
+    MakeElementSizable(&WindowElement);
+    EndElement(&WindowElement);
+
+    v2 Center = GetCenter(WindowElement.Bounds);
+    v2 Dim = GetDim(WindowElement.Bounds);
+    
+    UIContext->BackingTransform.OffsetP += V3(Center, 0.0f);
+    v2 HalfDim = 0.5f*Dim;
+    PushRect(RenderGroup, UIContext->BackingTransform, V3(0, 0, 0), Dim,
+             V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+    PushRect(RenderGroup, UIContext->BackingTransform, V3(0, 0, 2.0f), Dim - V2(4.0f, 4.0f),
+             V4(0.725490196078f, 0.478431372549f, 0.341176470588f, 1));
+    PushRect(RenderGroup, UIContext->BackingTransform, V3(0, 0, 3.0f), Dim - V2(12.0f, 12.0f),
+             V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+    PushRect(RenderGroup, UIContext->BackingTransform, V3(0, 0, 4.0f), Dim - V2(16.0f, 16.0f),
+             V4(0.403921568627f, 0.254901960784f, 0.172549019608f, 1));
+    PushRect(RenderGroup, UIContext->BackingTransform, V3(0, 0, 5.0f), Dim - V2(24.0f, 24.0f),
+             V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+    PushRect(RenderGroup, UIContext->BackingTransform, V3(0, 0, 6.0f), Dim - V2(28.0f, 28.0f),
+             V4(0.725490196078f, 0.478431372549f, 0.341176470588f, 1));
+    PushRect(RenderGroup, UIContext->BackingTransform, V3(0, 0, 7.0f), Dim - V2(32.0f, 32.0f),
+             V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+    PushRect(RenderGroup, UIContext->BackingTransform, V3(0, 0, 8.0f), Dim - V2(36.0f, 36.0f),
+             V4(0.403921568627f, 0.254901960784f, 0.172549019608f, 1));
+    PushRect(RenderGroup, UIContext->BackingTransform, V3(0, 0, 9.0f), Dim - V2(44.0f, 44.0f),
+             V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+
+    r32 YOffset = HalfDim.y - 42.0f;
+    PushRect(RenderGroup, UIContext->BackingTransform, V3(0, YOffset, 10.0f), V2(Dim.x - 44.0f, 48.0f),
+             V4(0.403921568627f, 0.254901960784f, 0.172549019608f, 1));
+    PushRect(RenderGroup, UIContext->BackingTransform, V3(0, YOffset, 11.0f), V2(Dim.x - 44.0f, 40.0f),
+             V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+    PushRect(RenderGroup, UIContext->BackingTransform, V3(0, YOffset, 12.0f), V2(Dim.x - 48.0f, 36.0f),
+             V4(0.725490196078f, 0.478431372549f, 0.341176470588f, 1));
+    PushRect(RenderGroup, UIContext->BackingTransform, V3(0, YOffset, 13.0f), V2(Dim.x - 52.0f, 32.0f),
+             V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+    PushRect(RenderGroup, UIContext->BackingTransform, V3(0, YOffset, 14.0f), V2(Dim.x - 56.0f, 28.0f),
+             V4(0.811764705882f, 0.933333333333f, 0.960784313725f, 1));
+
+    PushRect(RenderGroup, UIContext->BackingTransform, V3(0.5f, HalfDim.y - 43.0f, 15.0f), V2(Dim.x - 58.0f, 26.0f),
+             V4(0.0f, 0.635294117647f, 0.909803921569f, 1));
+    PushRect(RenderGroup, UIContext->BackingTransform, V3(0.0f, YOffset, 16.0f), V2(Dim.x - 60.0f, 24.0f),
+             V4(0.6f, 0.850980392157f, 0.917647058824f, 1));
+
+    r32 Ax[2] = {HalfDim.x - 12.0f, -(HalfDim.x - 12.0f)};
+    r32 Ay[2] = {HalfDim.y - 3.0f, -(HalfDim.y - 3.0f)};
+
+    r32 Bx[2] = {HalfDim.x - 3.0f, -(HalfDim.x - 3.0f)};
+    r32 By[2] = {HalfDim.y - 12.0f, -(HalfDim.y - 12.0f)};
+
+    r32 Cx[2] = {HalfDim.x - 10.0f, -(HalfDim.x - 10.0f)};
+    r32 Cy[2] = {HalfDim.y - 10.0f, -(HalfDim.y - 10.0f)};
+
+    r32 Dx[2] = {HalfDim.x - 8.0f, -(HalfDim.x - 8.0f)};
+    r32 Dy[2] = {HalfDim.y - 8.0f, -(HalfDim.y - 8.0f)};
+
+    r32 Ex[2] = {HalfDim.x - 1.0f, -(HalfDim.x - 1.0f)};
+    r32 Ey[2] = {HalfDim.y - 1.0f, -(HalfDim.y - 1.0f)};
+
+    r32 Fx[2] = {HalfDim.x - 5.0f, -(HalfDim.x - 5.0f)};
+    r32 Fy[2] = {HalfDim.y - 6.0f, -(HalfDim.y - 6.0f)};
+
+    r32 Gx[2] = {HalfDim.x - 11.0f, -(HalfDim.x - 11.0f)};
+    r32 Gy[2] = {HalfDim.y - 7.0f, -(HalfDim.y - 7.0f)};
+
+    r32 Hx[2] = {HalfDim.x - 13.0f, -(HalfDim.x - 13.0f)};
+
+    u32 Indecies[4][2] = {{0, 0}, {0, 1}, {1, 0}, {1, 1}};
+
+    for(u32 Itter = 0;
+        Itter < 4;
+        ++Itter)
+    {
+        u32 IndexX = Indecies[Itter][0];
+        u32 IndexY = Indecies[Itter][1];
+
+        PushRect(RenderGroup, UIContext->BackingTransform, V3(Ax[IndexX], Ay[IndexY], 10.0f), V2(32.0f, 14.0f),
+                 V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+        PushRect(RenderGroup, UIContext->BackingTransform, V3(Bx[IndexX], By[IndexY], 10.0f), V2(14.0f, 32.0f),
+                 V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+
+        PushRect(RenderGroup, UIContext->BackingTransform, V3(Ax[IndexX], Ay[IndexY], 11.0f), V2(28.0f, 10.0f),
+                 V4(0.725490196078f, 0.478431372549f, 0.341176470588f, 1));
+        PushRect(RenderGroup, UIContext->BackingTransform, V3(Bx[IndexX], By[IndexY], 11.0f), V2(10.0f, 28.0f),
+                 V4(0.725490196078f, 0.478431372549f, 0.341176470588f, 1));
+
+        PushRect(RenderGroup, UIContext->BackingTransform, V3(Cx[IndexX], Cy[IndexY], 12.0f), V2(12.0f, 12.0f),
+                 V4(0.247058823529f, 0.282352941176f, 0.8f, 1));
+        PushRect(RenderGroup, UIContext->BackingTransform, V3(Dx[IndexX], Dy[IndexY], 12.0f), V2(12.0f, 12.0f),
+                 V4(0.247058823529f, 0.282352941176f, 0.8f, 1));
+        PushRect(RenderGroup, UIContext->BackingTransform, V3(Dx[IndexX], Ey[IndexY], 12.0f), V2(8.0f, 2.0f),
+                 V4(0.247058823529f, 0.282352941176f, 0.8f, 1));
+        PushRect(RenderGroup, UIContext->BackingTransform, V3(Ex[IndexX], Dy[IndexY], 12.0f), V2(2.0f, 8.0f),
+                 V4(0.247058823529f, 0.282352941176f, 0.8f, 1));
+
+        PushRect(RenderGroup, UIContext->BackingTransform, V3(Bx[IndexX], Dy[IndexY], 13.0f), V2(2.0f, 8.0f),
+                 V4(0.6f, 0.850980392157f, 0.917647058824f, 1));
+        PushRect(RenderGroup, UIContext->BackingTransform, V3(Fx[IndexX], Dy[IndexY], 13.0f), V2(2.0f, 12.0f),
+                 V4(0.6f, 0.850980392157f, 0.917647058824f, 1));
+        PushRect(RenderGroup, UIContext->BackingTransform, V3(Dx[IndexX], Fy[IndexY], 13.0f), V2(4.0f, 8.0f),
+                 V4(0.6f, 0.850980392157f, 0.917647058824f, 1));
+
+        PushRect(RenderGroup, UIContext->BackingTransform, V3(Gx[IndexX], Fy[IndexY], 14.0f), V2(2.0f, 8.0f),
+                 V4(0.0f, 0.635294117647f, 0.909803921569f, 1));
+        PushRect(RenderGroup, UIContext->BackingTransform, V3(Hx[IndexX], Gy[IndexY], 13.0f), V2(2.0f, 6.0f),
+                 V4(0.0f, 0.635294117647f, 0.909803921569f, 1));
+        PushRect(RenderGroup, UIContext->BackingTransform, V3(Cx[IndexX], By[IndexY], 13.0f), V2(8.0f, 4.0f),
+                 V4(0.0f, 0.635294117647f, 0.909803921569f, 1));
+
+        PushRect(RenderGroup, UIContext->BackingTransform, V3(Dx[IndexX], Dy[IndexY], 14.0f), V2(4.0f, 4.0f),
+                 V4(1, 1, 1, 1));
+    }
+}
+
 internal void
 EndUI(ui_context *UIContext, game_input *Input)
 {
@@ -583,6 +735,7 @@ EndUI(ui_context *UIContext, game_input *Input)
     UIContext->MouseTextLayout = BeginLayout(UIContext, MouseP, MouseP);
     EndLayout(&UIContext->MouseTextLayout);
     Interact(UIContext, Input, MouseP);
+
     
     EndRenderGroup(&UIContext->RenderGroup);
 

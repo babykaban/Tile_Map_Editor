@@ -969,28 +969,73 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     EndLayout(&Layout);
 
 #endif
-    layout Layout = BeginLayout(UIContext, UIContext->LastMouseP, V2(0, 0));
-    Label(&Layout, "HEELLPPP");
-    Label(&Layout, "HEELLPPP");
-    Label(&Layout, "HEELLPPP");
 
-    ui_item_id ID = {};
-    ID.Value = 12;
-    ID.ItemOwner = 11;
-    ID.ItemIndex = 8;
+    layout Layout = BeginLayout(UIContext, UIContext->LastMouseP,
+                                V2(UIContext->LeftEdge + 10.0f, 0.5f*UIContext->Height - 10.0f));
+    Label(&Layout, "HEELLPPP");
+    Label(&Layout, "HEELLPPP");
+    Label(&Layout, "HEELLPPP");
     
 //    ActionButton(&Layout, "EditMode",
 //                  SetUInt32Interaction(ID, (u32 *)&GameState->EditMode, EditMode_Collision));
 
-    ui_interaction Interaction = {};
-    Interaction.ID = ID;
-    Interaction.Type = Interaction_ToggleValue;
-    Interaction.Target = (u32 *)&GameState->EditMode;
-    Interaction.UInt32 = EditMode_Collision;
-    v2 Dim = BasicTextElement(&Layout, "Mode", Interaction);
+    ui_item_id CID = {};
+    CID.Value = 10;
+    CID.ItemOwner = 1;
+    CID.ItemIndex = 4;
+
+    ui_item_id TID = {};
+    TID.Value = 8;
+    TID.ItemOwner = 2;
+    TID.ItemIndex = 6;
+
+    ui_item_id DID = {};
+    DID.Value = 12;
+    DID.ItemOwner = 523;
+    DID.ItemIndex = 333;
+
+    ui_item_id WID = {};
+    WID.Value = 13;
+    WID.ItemOwner = 55;
+    WID.ItemIndex = 14;
+
+    ui_view *WView = GetOrCreateDebugViewFor(UIContext, WID);
+    if((WView->InlineBlock.Dim.x == 0) && (WView->InlineBlock.Dim.y == 0))
+    {
+        WView->InlineBlock.Dim.x = 1000;
+        WView->InlineBlock.Dim.y = 500;
+    }
+
+    ui_interaction WindowInteraction = {};
+
+    DrawWindow(UIContext, &Layout, &WView->InlineBlock.Dim, WindowInteraction);
+
+    BeginRow(&Layout);
+    ActionButton(&Layout, "Collision", SetUInt32Interaction(CID, (u32 *)&GameState->EditMode, EditMode_Collision));
+    ActionButton(&Layout, "Terrain", SetUInt32Interaction(TID, (u32 *)&GameState->EditMode, EditMode_Terrain));
+    ActionButton(&Layout, "Decoration", SetUInt32Interaction(DID, (u32 *)&GameState->EditMode, EditMode_Decoration));
+    EndRow(&Layout);
+
+    ui_item_id ViewID = {};
+    ViewID.Value = 3;
+    ViewID.ItemOwner = 2;
+    ViewID.ItemIndex = 1;
+
+    ui_view *View = GetOrCreateDebugViewFor(UIContext, ViewID);
+    if((View->InlineBlock.Dim.x == 0) && (View->InlineBlock.Dim.y == 0))
+    {
+        View->InlineBlock.Dim.x = 200;
+        View->InlineBlock.Dim.y = 100;
+    }
+
+    ui_interaction NullInteraction = {};
+    layout_element Element = BeginElementRectangle(&Layout, &View->InlineBlock.Dim);
+    DefaultInteraction(&Element, NullInteraction);
+    MakeElementSizable(&Element);
+    EndElement(&Element);
     
     EndLayout(&Layout);
-
+    
     EndUI(UIContext, Input);
 
     EndRenderGroup(RenderGroup);

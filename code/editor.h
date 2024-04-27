@@ -286,7 +286,7 @@ Copy(memory_index Size, void *SourceInit, void *DestInit)
     return(DestInit);
 }
 
-#include "c:/paul/Spellweaver_Saga_game/AssetFileBuilder/code/file_formats.h"
+#include "d:/paul/Spellweaver_Saga_game/AssetFileBuilder/code/file_formats.h"
 //#include "editor_file_formats.h"
 #include "editor_intrinsics.h"
 #include "editor_math.h"
@@ -398,7 +398,6 @@ struct ui_state
     v2 MenuP;
     b32 MenuActive;
 
-//    view *ViewHash[64];
 
     v2 LastMouseP;
     b32 AltUI;

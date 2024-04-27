@@ -13,51 +13,6 @@ struct interaction_id
 {
     u32 Value;
 };
-
-struct view_inline_block
-{
-    v2 Dim;
-};
-
-struct view_profile_graph
-{
-    view_inline_block Block;
-    char *GUID;
-};
-
-struct view_arena_graph
-{
-    view_inline_block Block;
-};
-
-struct view_collapsible
-{
-    b32 ExpandedAlways;
-    b32 ExpandedAltView;
-};
-
-enum view_type
-{
-    ViewType_Unknown,
-
-    ViewType_Basic,
-    ViewType_InlineBlock,
-    ViewType_Collapsible,
-};
-
-struct view
-{
-    interaction_id ID;
-
-    view_type Type;
-    union
-    {
-        view_inline_block InlineBlock;
-        view_profile_graph ProfileGraph;
-        view_collapsible Collapsible;
-        view_arena_graph ArenaGraph;
-    };
-};
 #endif
 
 struct ui_context;
@@ -73,6 +28,32 @@ struct ui_item_id
     u32 Value;
     u32 ItemOwner;
     u32 ItemIndex;
+};
+
+struct view_inline_block
+{
+    v2 Dim;
+};
+
+enum view_type
+{
+    ViewType_Unknown,
+
+    ViewType_Basic,
+    ViewType_InlineBlock,
+    ViewType_Collapsible,
+};
+
+struct ui_view
+{
+    ui_item_id ID;
+    ui_view *NextInHash;
+
+    view_type Type;
+    union
+    {
+        view_inline_block InlineBlock;
+    };
 };
 
 enum interaction_type
@@ -191,6 +172,9 @@ struct ui_context
     ui_menu ContextMenues[32];
     
     layout MouseTextLayout;
+    ui_view *ViewHash[64];
+
+    v2 WindowP;
 };
 
 #define EDITOR_UI_H
