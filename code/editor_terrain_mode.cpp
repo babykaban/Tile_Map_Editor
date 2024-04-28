@@ -225,18 +225,21 @@ TerrainEditMode(render_group *RenderGroup, render_group *TextRenderGroup, game_s
                 r32 TileSideInMeters)
 {
     object_transform Transform = DefaultUprightTransform();
-    if(Input->MouseButtons[0].EndedDown)
+    if(GameState->AllowEdit)
     {
-        ChangeTile(RenderGroup, GameState, MouseChunkP);
-    }
+        if(Input->MouseButtons[0].EndedDown)
+        {
+            ChangeTile(RenderGroup, GameState, MouseChunkP);
+        }
 
-    ssa_tileset *Info = GetTilesetInfo(RenderGroup->Assets, TilesetID);
-    ChangeCursorPositionFor(&GameState->TileMenuBarCursor, Info->TileCount, Input->MouseZ);
-    ShowTest(TextRenderGroup, &GameState->TileMenuBarCursor);
-    ShowTileMenuBar(RenderGroup, &GameState->TileMenuBarCursor, TileSideInMeters);
-    ShowTilesetStats(TextRenderGroup, GameState);
+        ssa_tileset *Info = GetTilesetInfo(RenderGroup->Assets, TilesetID);
+        ChangeCursorPositionFor(&GameState->TileMenuBarCursor, Info->TileCount, Input->MouseZ);
+        ShowTest(TextRenderGroup, &GameState->TileMenuBarCursor);
+        ShowTileMenuBar(RenderGroup, &GameState->TileMenuBarCursor, TileSideInMeters);
+        ShowTilesetStats(TextRenderGroup, GameState);
     
-    WriteMap("tilemap.bin", GameState->WorldTileCount, GameState->TileIDs);
-    WriteWorldTiles("worldtiles.bin", GameState->WorldTileCount, GameState->WorldTiles);
-    ReloadTileset(RenderGroup->Assets, GameState);
+        WriteMap("tilemap.bin", GameState->WorldTileCount, GameState->TileIDs);
+        WriteWorldTiles("worldtiles.bin", GameState->WorldTileCount, GameState->WorldTiles);
+        ReloadTileset(RenderGroup->Assets, GameState);
+    }
 }

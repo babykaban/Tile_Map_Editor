@@ -1137,7 +1137,7 @@ WinMain(HINSTANCE Instance,
         LPSTR CommandLine,
         int ShowCode)
 {
-//    DEBUGGlobalShowCursor = true;
+    DEBUGGlobalShowCursor = true;
 
     win32_state Win32State = {};
     

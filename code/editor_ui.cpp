@@ -236,14 +236,14 @@ GetTextSize(ui_context *UIContext, char *String)
 }
 
 inline r32
-GetLineAdvance(ui_state *UIContext)
+GetLineAdvance(ui_context *UIContext)
 {
     r32 Result = GetLineAdvanceFor(UIContext->UIFontInfo)*UIContext->FontScale;
     return(Result);
 }
 
 inline r32
-GetBaseline(ui_state *UIContext)
+GetBaseline(ui_context *UIContext)
 {
     r32 Result = UIContext->FontScale*GetStartingBaselineY(UIContext->UIFontInfo);
     return(Result);

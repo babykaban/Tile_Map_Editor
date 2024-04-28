@@ -331,6 +331,7 @@ enum edit_mode
     EditMode_Terrain,
     EditMode_Decoration,
     EditMode_Collision,
+    EditMode_Assets,
     EditMode_Count,
 };
 
@@ -339,6 +340,7 @@ static const char *EditModeText[] =
     "Terrain",
     "Decoration",
     "Collision",
+    "Assets",
 };
 
 struct world_tile
@@ -379,43 +381,6 @@ struct collision
     rectangle2 Rect;
 };
 
-struct ui_state
-{
-    b32 Initialized;
-
-    memory_arena UIArena;
-
-    u32 DefaultClipRect;
-    render_group RenderGroup;
-    loaded_font *UIFont;
-    ssa_font *UIFontInfo;
-
-    object_transform TextTransform;
-    object_transform ShadowTransform;
-    object_transform UITransform;
-    object_transform BackingTransform;
-
-    v2 MenuP;
-    b32 MenuActive;
-
-
-    v2 LastMouseP;
-    b32 AltUI;
-//    ui_interaction Interaction;
-//    ui_interaction HotInteraction;
-//    ui_interaction NextHotInteraction;
-    b32 Paused;
-
-    r32 LeftEdge;
-    r32 RightEdge;
-    r32 FontScale;
-    font_id FontID;
-    r32 GlobalWidth;
-    r32 GlobalHeight;
-
-//    layout MouseTextLayout;
-};
-
 struct game_state
 {
     memory_arena WorldArena;
@@ -433,6 +398,7 @@ struct game_state
     assetset_stats AssetSetStats;
     array_cursor AssetMenuBarCursor;
 
+    b32 AllowEdit;
     u32 EditMode;
     
     b32 WorldTilesInitialized;

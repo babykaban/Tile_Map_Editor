@@ -374,6 +374,25 @@ GetTileFromChunkPosition(game_state *GameState, world_position *MouseP)
     return(Result);
 }
 
+inline void
+ShowTileCursor(game_state *GameState, render_group *RenderGroup, object_transform Transform,
+               world_position MouseChunkP, r32 TileSideInMeters, v2 D)
+{
+    
+    Transform.OffsetP = V3(0, 0, 0);
+
+    v2 Delta = Subtract(GameState->World, &GameState->CameraP, &MouseChunkP);
+    PushRect(RenderGroup, Transform, V3(-Delta, 0),
+             0.2f*V2(TileSideInMeters, TileSideInMeters), V4(0, 0, 1, 1));
+
+    Transform.SortBias = 10.0f;
+    PushRectOutline(RenderGroup, Transform, V3(-D, 0), V2(TileSideInMeters, TileSideInMeters),
+                    V4(1.0f, 0.0f, 0.0f, 1), 0.02f);
+    Transform.SortBias = 0.0f;
+    
+    PushRect(RenderGroup, Transform, V3(0, 0, 0), 0.2f*V2(TileSideInMeters, TileSideInMeters), V4(1, 0, 0, 1));
+}
+
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {    
     Platform = Memory->PlatformAPI;
@@ -478,6 +497,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         GameState->TileSetStats = {};
         GameState->AssetSetStats = {};
         GameState->AssetSetStats.Type = Asset_Bole;
+
+        GameState->EditMode = EditMode_Assets;
         
         Memory->IsInitialized = true;
     }
@@ -592,6 +613,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             }
         }
 
+        if(WasPressed(Controller->RightShoulder))
+        {
+            GameState->AllowEdit = !GameState->AllowEdit;
+        }
+        
         if(GameState->EditMode == EditMode_Terrain)
         {
             if(Controller->Biome.EndedDown)
@@ -885,56 +911,61 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     ui_context *UIContext = TranState->UIContext;
     BeginUI(UIContext, RenderCommands, TranState->Assets, TranState->MainGenerationID, DrawBuffer.Width, DrawBuffer.Height);
-   
     
-    if(GameState->EditMode == EditMode_Terrain)
+    switch(GameState->EditMode)
     {
-        TerrainEditMode(RenderGroup, &TextRenderGroup, GameState, TranState, Input, &MouseChunkP, TileSideInMeters);
-    }
-    else if(GameState->EditMode == EditMode_Decoration)
-    {
-        DecorationEditMode(RenderGroup, &TextRenderGroup, GameState, TranState, Input, &MouseChunkP,
-                           TileSideInMeters, PixelsToMeters, D);
-    }
-    else if(GameState->EditMode == EditMode_Collision)
-    {
-        // NOTE(paul): Render collisions
-        for(u32 CollisionIndex = 0;
-            CollisionIndex < GameState->WorldTileCount;
-            ++CollisionIndex)
+        case EditMode_Assets:
         {
-            collision *Collision = GameState->Collisions + CollisionIndex;
-            if(IsValid(Collision->P))
+        } break;
+
+        case EditMode_Terrain:
+        {
+            TerrainEditMode(RenderGroup, &TextRenderGroup, GameState, TranState, Input, &MouseChunkP, TileSideInMeters);
+            ShowTileCursor(GameState, RenderGroup, Transform, MouseChunkP, TileSideInMeters, D);
+        } break;
+
+        case EditMode_Decoration:
+        {
+            DecorationEditMode(RenderGroup, &TextRenderGroup, GameState, TranState, Input, &MouseChunkP,
+                               TileSideInMeters, PixelsToMeters, D);
+            ShowTileCursor(GameState, RenderGroup, Transform, MouseChunkP, TileSideInMeters, D);
+        } break;
+
+        case EditMode_Collision:
+        {
+            // NOTE(paul): Render collisions
+            for(u32 CollisionIndex = 0;
+                CollisionIndex < GameState->WorldTileCount;
+                ++CollisionIndex)
             {
-                v2 Delta = Subtract(GameState->World, &Collision->P, &GameState->CameraP) - V2(2.0f, 2.0f);
-                if(IsInRectangle(SimBounds, Delta))
+                collision *Collision = GameState->Collisions + CollisionIndex;
+                if(IsValid(Collision->P))
                 {
-                    Transform.OffsetP = V3(Delta, 0);
-                    PushRectOutline(RenderGroup, Transform, Collision->Rect, 0.0f, V4(0, 0, 1, 1), 0.025f);
+                    v2 Delta = Subtract(GameState->World, &Collision->P, &GameState->CameraP) - V2(2.0f, 2.0f);
+                    if(IsInRectangle(SimBounds, Delta))
+                    {
+                        Transform.OffsetP = V3(Delta, 0);
+                        PushRectOutline(RenderGroup, Transform, Collision->Rect, 0.0f, V4(0, 0, 1, 1), 0.025f);
+                    }
                 }
             }
-        }
 
-        CollisionEditMode(RenderGroup, &TextRenderGroup, GameState, TranState, Input, &MouseChunkP,
-                          TileSideInMeters);
+            CollisionEditMode(RenderGroup, &TextRenderGroup, GameState, TranState, Input, &MouseChunkP,
+                              TileSideInMeters);
+            ShowTileCursor(GameState, RenderGroup, Transform, MouseChunkP, TileSideInMeters, D);
+        } break;
     }
 
-    GameState->Time += Input->dtForFrame;
-    
     Transform.OffsetP = V3(0, 0, 0);
-
-    v2 Delta = Subtract(GameState->World, &GameState->CameraP, &MouseChunkP);
-    PushRect(RenderGroup, Transform, V3(-Delta, 0),
-             0.2f*V2(TileSideInMeters, TileSideInMeters), V4(0, 0, 1, 1));
-
-    Transform.SortBias = 10.0f;
-    PushRectOutline(RenderGroup, Transform, V3(-D, 0), V2(TileSideInMeters, TileSideInMeters),
-                    V4(1.0f, 0.0f, 0.0f, 1), 0.02f);
-    Transform.SortBias = 0.0f;
-    
     PushRectOutline(RenderGroup, Transform, V3(0, 0, 0), GetDim(ScreenBounds), V4(1.0f, 1.0f, 0.0f, 1));
     PushRectOutline(RenderGroup, Transform, V3(0, 0, 0), GetDim(SimBounds), V4(1.0f, 0.0f, 1.0f, 1));
-    PushRect(RenderGroup, Transform, V3(0, 0, 0), 0.2f*V2(TileSideInMeters, TileSideInMeters), V4(1, 0, 0, 1));
+
+    // NOTE(paul): Advance Time
+    GameState->Time += Input->dtForFrame;
+    
+
+#if 0
+#endif
 #if 0
     interaction_id ID = {};
     ID.Value = 1;
