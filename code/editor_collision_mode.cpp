@@ -43,15 +43,20 @@ CollisionEditMode(render_group *RenderGroup, game_state *GameState,
                   transient_state *TranState, game_input *Input, world_position *MouseChunkP,
                   r32 TileSideInMeters)
 {
-    if(Input->MouseButtons[0].EndedDown)
+    if(GameState->AllowEdit)
     {
-        AddCollision(RenderGroup, GameState, MouseChunkP, TileSideInMeters);
-        WriteCollisions("collisions.bin", GameState->WorldTileCount, GameState->Collisions);
-    }
+        if(Input->MouseButtons[0].EndedDown)
+        {
+            AddCollision(RenderGroup, GameState, MouseChunkP, TileSideInMeters);
+            WriteCollisions("collisions.bin", GameState->WorldTileCount, GameState->Collisions);
+        }
 
-    if(Input->MouseButtons[2].EndedDown)
-    {
-        RemoveCollision(RenderGroup, GameState, MouseChunkP);
-        WriteCollisions("collisions.bin", GameState->WorldTileCount, GameState->Collisions);
+        if(Input->MouseButtons[2].EndedDown)
+        {
+            RemoveCollision(RenderGroup, GameState, MouseChunkP);
+            WriteCollisions("collisions.bin", GameState->WorldTileCount, GameState->Collisions);
+        }
     }
 }
+
+

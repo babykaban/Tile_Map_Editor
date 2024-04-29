@@ -400,6 +400,7 @@ struct game_state
 
     b32 RenderGround;
     b32 RenderDecorations;
+    b32 ShowBorders;
 
     b32 AllowEdit;
     u32 EditMode;

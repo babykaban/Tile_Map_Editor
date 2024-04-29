@@ -693,10 +693,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     world *World = GameState->World;
 
-    //
-    // NOTE(casey): 
-    //
-
     game_controller_input *Controller = GetController(Input, 0);
     if(Controller->IsAnalog)
     {
@@ -855,7 +851,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                                            "worldtiles.bin", "decorations.bin", "collisions.bin");
     }
 
-    Clear(RenderGroup, V4(0.25f, 0.25f, 0.25f, 0.0f));
+    Clear(RenderGroup, V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+//    Clear(RenderGroup, V4(0.25f, 0.25f, 0.25f, 0.0f));
 
     v2 ScreenCenter = {0.5f*(real32)DrawBuffer.Width,
                        0.5f*(real32)DrawBuffer.Height};
@@ -930,93 +927,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     ui_context *UIContext = TranState->UIContext;
     BeginUI(UIContext, RenderCommands, TranState->Assets, TranState->MainGenerationID, DrawBuffer.Width, DrawBuffer.Height);
     
-    switch(GameState->EditMode)
-    {
-        case EditMode_Assets:
-        {
-        } break;
-
-        case EditMode_Terrain:
-        {
-            TerrainEditMode(RenderGroup, GameState, TranState, Input, &MouseChunkP, TileSideInMeters);
-            ShowTileCursor(GameState, RenderGroup, Transform, MouseChunkP, TileSideInMeters, D);
-        } break;
-
-        case EditMode_Decoration:
-        {
-            DecorationEditMode(RenderGroup, GameState, TranState, Input, &MouseChunkP,
-                               TileSideInMeters, PixelsToMeters, D);
-            ShowTileCursor(GameState, RenderGroup, Transform, MouseChunkP, TileSideInMeters, D);
-        } break;
-
-        case EditMode_Collision:
-        {
-            // NOTE(paul): Render collisions
-            for(u32 CollisionIndex = 0;
-                CollisionIndex < GameState->WorldTileCount;
-                ++CollisionIndex)
-            {
-                collision *Collision = GameState->Collisions + CollisionIndex;
-                if(IsValid(Collision->P))
-                {
-                    v2 Delta = Subtract(GameState->World, &Collision->P, &GameState->CameraP) - V2(2.0f, 2.0f);
-                    if(IsInRectangle(SimBounds, Delta))
-                    {
-                        Transform.OffsetP = V3(Delta, 0);
-                        PushRectOutline(RenderGroup, Transform, Collision->Rect, 0.0f, V4(0, 0, 1, 1), 0.025f);
-                    }
-                }
-            }
-
-            CollisionEditMode(RenderGroup, GameState, TranState, Input, &MouseChunkP,
-                              TileSideInMeters);
-            ShowTileCursor(GameState, RenderGroup, Transform, MouseChunkP, TileSideInMeters, D);
-        } break;
-    }
-
-    Transform.OffsetP = V3(0, 0, 0);
-    PushRectOutline(RenderGroup, Transform, V3(0, 0, 0), GetDim(ScreenBounds), V4(1.0f, 1.0f, 0.0f, 1));
-    PushRectOutline(RenderGroup, Transform, V3(0, 0, 0), GetDim(SimBounds), V4(1.0f, 0.0f, 1.0f, 1));
-
-    // NOTE(paul): Advance Time
-    GameState->Time += Input->dtForFrame;
-    
-
-#if 0
-    interaction_id ID = {};
-    ID.Value = 1;
-
-    ui_interaction Interaction = {};
-    Interaction.ID = ID;
-    Interaction.Type = Interaction_Resize;
-    
-    layout Layout = BeginLayout(UIState, UIState->LastMouseP, V2(0, 0));
-
-    BeginRow(&Layout);
-    Label(&Layout, "HEELLPPP");
-    Label(&Layout, "HEELLPPP");
-    Label(&Layout, "HEELLPPP");
-    BooleanButton(&Layout, "Button", true, Interaction);
-    EndRow(&Layout);
-
-    view *View = GetOrCreateViewFor(UIState, Interaction.ID);
-    
-   view_inline_block *Block = &View->InlineBlock;
-    layout_element Element = BeginElementRectangle(&Layout, &Block->Dim);
-    if((Block->Dim.x == 0) && (Block->Dim.y == 0))
-    {
-        Block->Dim.x = 100;
-        Block->Dim.y = 100;
-    }
-
-    DefaultInteraction(&Element, Interaction);
-    MakeElementSizable(&Element);
-    EndElement(&Element);
-
-    EndLayout(&Layout);
-
-#endif
-
     layout Layout = BeginLayout(UIContext, UIContext->LastMouseP,
                                 V2(UIContext->LeftEdge + 10.0f, 0.5f*UIContext->Height - 10.0f));
     Label(&Layout, "HEELLPPP");
@@ -1055,13 +965,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     ui_interaction WindowInteraction = {};
 
-    DrawWindow(UIContext, &Layout, &WView->InlineBlock.Dim, WindowInteraction);
-
-    BeginRow(&Layout);
-    ActionButton(&Layout, "Collision", SetUInt32Interaction(CID, (u32 *)&GameState->EditMode, EditMode_Collision));
-    ActionButton(&Layout, "Terrain", SetUInt32Interaction(TID, (u32 *)&GameState->EditMode, EditMode_Terrain));
-    ActionButton(&Layout, "Decoration", SetUInt32Interaction(DID, (u32 *)&GameState->EditMode, EditMode_Decoration));
-    EndRow(&Layout);
+//    DrawWindow(UIContext, &Layout, &WView->InlineBlock.Dim, WindowInteraction);
 
     BeginRow(&Layout);
     BooleanButton(&Layout, "RenderGround", GameState->RenderGround,
@@ -1070,9 +974,88 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                   SetUInt32Interaction(CID, (u32 *)&GameState->RenderDecorations, !GameState->RenderDecorations));
     BooleanButton(&Layout, "AllowEdit", GameState->AllowEdit,
                   SetUInt32Interaction(DID, (u32 *)&GameState->AllowEdit, !GameState->AllowEdit));
+    BooleanButton(&Layout, "ShowBorders", GameState->ShowBorders,
+                  SetUInt32Interaction(DID, (u32 *)&GameState->ShowBorders, !GameState->ShowBorders));
     EndRow(&Layout);
     
+    switch(GameState->EditMode)
+    {
+        case EditMode_Assets:
+        {
+            BeginRow(&Layout);
+            ActionButton(&Layout, "Collision", SetUInt32Interaction(CID, (u32 *)&GameState->EditMode, EditMode_Collision));
+            ActionButton(&Layout, "Terrain", SetUInt32Interaction(TID, (u32 *)&GameState->EditMode, EditMode_Terrain));
+            ActionButton(&Layout, "Decoration", SetUInt32Interaction(DID, (u32 *)&GameState->EditMode, EditMode_Decoration));
+            EndRow(&Layout);
+        } break;
+
+        case EditMode_Terrain:
+        {
+            BeginRow(&Layout);
+            ActionButton(&Layout, "Collision", SetUInt32Interaction(CID, (u32 *)&GameState->EditMode, EditMode_Collision));
+            ActionButton(&Layout, "Decoration", SetUInt32Interaction(DID, (u32 *)&GameState->EditMode, EditMode_Decoration));
+            ActionButton(&Layout, "Assets", SetUInt32Interaction(DID, (u32 *)&GameState->EditMode, EditMode_Assets));
+            EndRow(&Layout);
+
+            TerrainEditMode(RenderGroup, GameState, TranState, Input, &MouseChunkP, TileSideInMeters);
+            ShowTileCursor(GameState, RenderGroup, Transform, MouseChunkP, TileSideInMeters, D);
+        } break;
+
+        case EditMode_Decoration:
+        {
+            BeginRow(&Layout);
+            ActionButton(&Layout, "Collision", SetUInt32Interaction(CID, (u32 *)&GameState->EditMode, EditMode_Collision));
+            ActionButton(&Layout, "Terrain", SetUInt32Interaction(TID, (u32 *)&GameState->EditMode, EditMode_Terrain));
+            ActionButton(&Layout, "Assets", SetUInt32Interaction(DID, (u32 *)&GameState->EditMode, EditMode_Assets));
+            EndRow(&Layout);
+
+            DecorationEditMode(RenderGroup, GameState, TranState, Input, &MouseChunkP,
+                               TileSideInMeters, PixelsToMeters, D);
+            ShowTileCursor(GameState, RenderGroup, Transform, MouseChunkP, TileSideInMeters, D);
+        } break;
+
+        case EditMode_Collision:
+        {
+            BeginRow(&Layout);
+            ActionButton(&Layout, "Terrain", SetUInt32Interaction(TID, (u32 *)&GameState->EditMode, EditMode_Terrain));
+            ActionButton(&Layout, "Decoration", SetUInt32Interaction(DID, (u32 *)&GameState->EditMode, EditMode_Decoration));
+            ActionButton(&Layout, "Assets", SetUInt32Interaction(DID, (u32 *)&GameState->EditMode, EditMode_Assets));
+            EndRow(&Layout);
+
+            // NOTE(paul): Render collisions
+            for(u32 CollisionIndex = 0;
+                CollisionIndex < GameState->WorldTileCount;
+                ++CollisionIndex)
+            {
+                collision *Collision = GameState->Collisions + CollisionIndex;
+                if(IsValid(Collision->P))
+                {
+                    v2 Delta = Subtract(GameState->World, &Collision->P, &GameState->CameraP) - V2(2.0f, 2.0f);
+                    if(IsInRectangle(SimBounds, Delta))
+                    {
+                        Transform.OffsetP = V3(Delta, 0);
+                        PushRectOutline(RenderGroup, Transform, Collision->Rect, 0.0f, V4(0, 0, 1, 1), 0.025f);
+                    }
+                }
+            }
+
+            CollisionEditMode(RenderGroup, GameState, TranState, Input, &MouseChunkP,
+                              TileSideInMeters);
+            ShowTileCursor(GameState, RenderGroup, Transform, MouseChunkP, TileSideInMeters, D);
+        } break;
+    }
+    
     EndLayout(&Layout);
+
+    Transform.OffsetP = V3(0, 0, 0);
+    if(GameState->ShowBorders)
+    {
+        PushRectOutline(RenderGroup, Transform, V3(0, 0, 0), GetDim(ScreenBounds), V4(1.0f, 1.0f, 0.0f, 1));
+        PushRectOutline(RenderGroup, Transform, V3(0, 0, 0), GetDim(SimBounds), V4(1.0f, 0.0f, 1.0f, 1));
+    }
+
+    // NOTE(paul): Advance Time
+    GameState->Time += Input->dtForFrame;
     
     EndUI(UIContext, Input);
 
