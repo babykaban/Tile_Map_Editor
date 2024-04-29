@@ -198,7 +198,7 @@ RemoveDecoration(render_group *RenderGroup, game_state *GameState, world_positio
 }
 
 internal void
-DecorationEditMode(render_group *RenderGroup, render_group *TextRenderGroup, game_state *GameState,
+DecorationEditMode(render_group *RenderGroup, game_state *GameState,
                    transient_state *TranState, game_input *Input, world_position *MouseChunkP,
                    r32 TileSideInMeters, r32 PixelsToMeters, v2 MouseCameraRelP)
 {
@@ -219,9 +219,9 @@ DecorationEditMode(render_group *RenderGroup, render_group *TextRenderGroup, gam
 
     ssa_assetset *Info = GetAssetsetInfo(TranState->Assets, AssetsetID);
     ChangeCursorPositionFor(&GameState->AssetMenuBarCursor, Info->AssetCount, Input->MouseZ);
-    ShowTest(TextRenderGroup, &GameState->AssetMenuBarCursor);
+//    ShowTest(TextRenderGroup, &GameState->AssetMenuBarCursor);
     ShowAssetMenuBar(RenderGroup, &GameState->AssetMenuBarCursor, TileSideInMeters);
-    ShowAssetsetStats(TextRenderGroup, GameState);
+//    ShowAssetsetStats(TextRenderGroup, GameState);
 
 
     ReloadAssetset(TranState->Assets, GameState);

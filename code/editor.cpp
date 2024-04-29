@@ -393,6 +393,127 @@ ShowTileCursor(game_state *GameState, render_group *RenderGroup, object_transfor
     PushRect(RenderGroup, Transform, V3(0, 0, 0), 0.2f*V2(TileSideInMeters, TileSideInMeters), V4(1, 0, 0, 1));
 }
 
+internal void
+UpdateGroundChunks(game_state *GameState, transient_state *TranState, world *World,
+                   rectangle2 CameraBoundsInMeters, r32 TileSideInMeters)
+{
+    world_position MinChunkP = MapIntoChunkSpace(World, GameState->CameraP, GetMinCorner(CameraBoundsInMeters));
+    world_position MaxChunkP = MapIntoChunkSpace(World, GameState->CameraP, GetMaxCorner(CameraBoundsInMeters));
+    for(int32 ChunkY = MinChunkP.ChunkY;
+        ChunkY <= MaxChunkP.ChunkY;
+        ++ChunkY)
+    {
+        for(int32 ChunkX = MinChunkP.ChunkX;
+            ChunkX <= MaxChunkP.ChunkX;
+            ++ChunkX)
+        {
+            world_position ChunkCenterP = CenteredChunkPoint(ChunkX, ChunkY);
+            v2 RelP = Subtract(World, &ChunkCenterP, &GameState->CameraP);
+
+            // TODO(casey): This is super inefficient fix it!
+            real32 FurthestBufferLengthSq = 0.0f;
+            ground_buffer *FurthestBuffer = 0;
+            for(uint32 GroundBufferIndex = 0;
+                GroundBufferIndex < TranState->GroundBufferCount;
+                ++GroundBufferIndex)
+            {
+                ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
+                if(AreInSameChunk(World, &GroundBuffer->P, &ChunkCenterP))
+                {
+                    FurthestBuffer = 0;
+                    break;
+                }
+                else if(IsValid(GroundBuffer->P))
+                {
+                    RelP = Subtract(World, &GroundBuffer->P, &GameState->CameraP);
+                    real32 BufferLengthSq = LengthSq(RelP);
+                    if(FurthestBufferLengthSq < BufferLengthSq)
+                    {
+                        FurthestBufferLengthSq = BufferLengthSq;
+                        FurthestBuffer = GroundBuffer;
+                    }
+                }
+                else
+                {
+                    FurthestBufferLengthSq = Real32Maximum;
+                    FurthestBuffer = GroundBuffer;
+                }
+            }
+
+            if(FurthestBuffer)
+            {
+                FillGroundChunk(TranState, GameState, FurthestBuffer, &ChunkCenterP, TileSideInMeters);
+            }
+        }
+    }
+}
+
+internal void
+RenderGroundChunks(game_state *GameState, transient_state *TranState, world *World,
+                   render_group *RenderGroup, object_transform Transform)
+{
+    for(uint32 GroundBufferIndex = 0;
+        GroundBufferIndex < TranState->GroundBufferCount;
+        ++GroundBufferIndex)
+    {
+        ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
+        if(IsValid(GroundBuffer->P))
+        {
+            loaded_bitmap *Bitmap = &GroundBuffer->Bitmap;
+            v2 Delta = Subtract(GameState->World, &GroundBuffer->P, &GameState->CameraP);        
+
+            real32 GroundSideInMeters = World->ChunkDimInMeters.x;
+            Transform.SortBias = -1000.0f;
+            PushBitmap(RenderGroup, Transform, Bitmap, GroundSideInMeters, V3(Delta, 0));
+
+            PushRectOutline(RenderGroup, Transform, V3(Delta, 0), V2(GroundSideInMeters, GroundSideInMeters),
+                            V4(1.0f, 1.0f, 0.0f, 1.0f), 0.03f);
+        }
+    }
+}
+
+internal void
+RenderDecorations(game_state *GameState, rectangle2 SimBounds, render_group *RenderGroup,
+                  object_transform Transform)
+{
+    for(u32 DecorationIndex = 0;
+        DecorationIndex < GameState->WorldTileCount;
+        ++DecorationIndex)
+    {
+        decoration *Decoration = GameState->Decorations + DecorationIndex;
+        
+        if(Decoration->IsSpriteSheet)
+        {
+            animated_decoration *AnimatedDecoration = GameState->AnimatedDecorations + Decoration->DecorationIndex;
+            AnimatedDecoration->SpriteIndex = GetSpriteIndex(GameState->Time,
+                                                             AnimatedDecoration->Info->SpriteCount);
+
+            bitmap_id BitmapID = AnimatedDecoration->SpriteSheet->SpriteIDs[AnimatedDecoration->SpriteIndex];
+            BitmapID.Value += AnimatedDecoration->SpriteSheet->BitmapIDOffset;
+
+            if(IsValid(Decoration->BitmapID))
+            {
+                v2 Delta = Subtract(GameState->World, &Decoration->P, &GameState->CameraP) - V2(2.0f, 2.0f);
+                if(IsInRectangle(SimBounds, Delta))
+                {
+                    PushBitmap(RenderGroup, Transform, BitmapID, Decoration->Height, V3(Delta, 0));
+                }
+            }
+        }
+        else
+        {
+            if(IsValid(Decoration->BitmapID))
+            {
+                v2 Delta = Subtract(GameState->World, &Decoration->P, &GameState->CameraP) - V2(2.0f, 2.0f);
+                if(IsInRectangle(SimBounds, Delta))
+                {
+                    PushBitmap(RenderGroup, Transform, Decoration->BitmapID, Decoration->Height, V3(Delta, 0));
+                }
+            }
+        }
+    }
+}
+
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {    
     Platform = Memory->PlatformAPI;
@@ -714,11 +835,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     DrawBuffer.Width = RenderCommands->Width;
     DrawBuffer.Height = RenderCommands->Height;
 
-    render_group TextRenderGroup = BeginRenderGroup(TranState->Assets, RenderCommands,
-                                                     TranState->MainGenerationID, false);
-    Orthographic(&TextRenderGroup, DrawBuffer.Width, DrawBuffer.Height, 1.0f);
-
-
     // TODO(casey): Decide what our pushbuffer size is!
     render_group RenderGroup_ = BeginRenderGroup(TranState->Assets, RenderCommands,
                                                  TranState->MainGenerationID, false);
@@ -738,9 +854,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         InitializeWorldTilesAndDecorations(RenderGroup, TranState->Assets, GameState,
                                            "worldtiles.bin", "decorations.bin", "collisions.bin");
     }
-    
-    // NOTE(paul): Reset font spacing
-    DEBUGReset(&TextRenderGroup, DrawBuffer.Width, DrawBuffer.Height);
 
     Clear(RenderGroup, V4(0.25f, 0.25f, 0.25f, 0.0f));
 
@@ -752,7 +865,27 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     v2 SimBoundsExpansion = {15.0f, 14.0f};
     rectangle2 SimBounds = AddRadiusTo(CameraBoundsInMeters, SimBoundsExpansion);
-    
+
+    object_transform Transform = DefaultUprightTransform();    
+
+    r32 MouseX = (r32)Input->MouseX;
+    r32 MouseY = (r32)Input->MouseY;
+    v2 P = Unproject(RenderGroup, Transform, V2(MouseX, MouseY)).xy;
+    world_position MouseChunkP = MapIntoChunkSpace(World, GameState->CameraP, P);
+    tile_position MouseTileP = TilePositionFromChunkPosition(&MouseChunkP);
+
+    tile_position Tp = TilePositionFromChunkPosition(&MouseChunkP);
+    tile_position TCp = TilePositionFromChunkPosition(&GameState->CameraP);
+
+    v2 dTile =
+        {
+            (real32)TCp.TileX - (real32)Tp.TileX,
+            (real32)TCp.TileY - (real32)Tp.TileY
+        };
+
+    v2 D = dTile*TileSideInMeters - V2(0.5f, 0.5f);
+
+#if 0    
     char TextBuffer[256];
     _snprintf_s(TextBuffer, sizeof(TextBuffer),
                 "Edit Mode: %s",
@@ -765,149 +898,34 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 GameState->CameraP.Offset_.x, GameState->CameraP.Offset_.y);
     DEBUGTextLine(&TextRenderGroup, TextBuffer);
 
-    object_transform Transform = DefaultUprightTransform();    
-
-    r32 MouseX = (r32)Input->MouseX;
-    r32 MouseY = (r32)Input->MouseY;
-    v2 P = Unproject(RenderGroup, Transform, V2(MouseX, MouseY)).xy;
-    world_position MouseChunkP = MapIntoChunkSpace(World, GameState->CameraP, P);
-
     _snprintf_s(TextBuffer, sizeof(TextBuffer),
                 "MouseP in Chunks: X: %d Y: %d, OX: %f, OY: %f",
                 MouseChunkP.ChunkX, MouseChunkP.ChunkY,
                 MouseChunkP.Offset_.x, MouseChunkP.Offset_.y);
     DEBUGTextLine(&TextRenderGroup, TextBuffer);
 
-    tile_position MouseTileP = TilePositionFromChunkPosition(&MouseChunkP);
     _snprintf_s(TextBuffer, sizeof(TextBuffer),
                 "MouseP in Tiles: X: %d Y: %d",
                 MouseTileP.TileX, MouseTileP.TileY);
     DEBUGTextLine(&TextRenderGroup, TextBuffer);
+#endif
 
-    // NOTE(casey): Ground chunk updating
+    if(GameState->RenderGround)
     {
-        world_position MinChunkP = MapIntoChunkSpace(World, GameState->CameraP, GetMinCorner(CameraBoundsInMeters));
-        world_position MaxChunkP = MapIntoChunkSpace(World, GameState->CameraP, GetMaxCorner(CameraBoundsInMeters));
-        for(int32 ChunkY = MinChunkP.ChunkY;
-            ChunkY <= MaxChunkP.ChunkY;
-            ++ChunkY)
-        {
-            for(int32 ChunkX = MinChunkP.ChunkX;
-                ChunkX <= MaxChunkP.ChunkX;
-                ++ChunkX)
-            {
-                world_position ChunkCenterP = CenteredChunkPoint(ChunkX, ChunkY);
-                v2 RelP = Subtract(World, &ChunkCenterP, &GameState->CameraP);
+        // NOTE(casey): Ground chunk updating
+        UpdateGroundChunks(GameState, TranState, World, CameraBoundsInMeters, TileSideInMeters);
 
-                // TODO(casey): This is super inefficient fix it!
-                real32 FurthestBufferLengthSq = 0.0f;
-                ground_buffer *FurthestBuffer = 0;
-                for(uint32 GroundBufferIndex = 0;
-                    GroundBufferIndex < TranState->GroundBufferCount;
-                    ++GroundBufferIndex)
-                {
-                    ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
-                    if(AreInSameChunk(World, &GroundBuffer->P, &ChunkCenterP))
-                    {
-                        FurthestBuffer = 0;
-                        break;
-                    }
-                    else if(IsValid(GroundBuffer->P))
-                    {
-                        RelP = Subtract(World, &GroundBuffer->P, &GameState->CameraP);
-                        real32 BufferLengthSq = LengthSq(RelP);
-                        if(FurthestBufferLengthSq < BufferLengthSq)
-                        {
-                            FurthestBufferLengthSq = BufferLengthSq;
-                            FurthestBuffer = GroundBuffer;
-                        }
-                    }
-                    else
-                    {
-                        FurthestBufferLengthSq = Real32Maximum;
-                        FurthestBuffer = GroundBuffer;
-                    }
-                }
-
-                if(FurthestBuffer)
-                {
-                    FillGroundChunk(TranState, GameState, FurthestBuffer, &ChunkCenterP, TileSideInMeters);
-                }
-            }
-        }
-    }
-
-    // NOTE(casey): Ground chunk rendering
-    for(uint32 GroundBufferIndex = 0;
-        GroundBufferIndex < TranState->GroundBufferCount;
-        ++GroundBufferIndex)
-    {
-        ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
-        if(IsValid(GroundBuffer->P))
-        {
-            loaded_bitmap *Bitmap = &GroundBuffer->Bitmap;
-            v2 Delta = Subtract(GameState->World, &GroundBuffer->P, &GameState->CameraP);        
-
-            real32 GroundSideInMeters = World->ChunkDimInMeters.x;
-            Transform.SortBias = -1000.0f;
-            PushBitmap(RenderGroup, Transform, Bitmap, GroundSideInMeters, V3(Delta, 0));
-
-            PushRectOutline(RenderGroup, Transform, V3(Delta, 0), V2(GroundSideInMeters, GroundSideInMeters),
-                            V4(1.0f, 1.0f, 0.0f, 1.0f), 0.03f);
-        }
+        // NOTE(casey): Ground chunk rendering
+        RenderGroundChunks(GameState, TranState, World, RenderGroup, Transform);
     }
 
     Transform.SortBias = 0.0f;
 
-    // NOTE(paul): Render decorations
-    for(u32 DecorationIndex = 0;
-        DecorationIndex < GameState->WorldTileCount;
-        ++DecorationIndex)
+    if(GameState->RenderDecorations)
     {
-        decoration *Decoration = GameState->Decorations + DecorationIndex;
-        
-        if(Decoration->IsSpriteSheet)
-        {
-            animated_decoration *AnimatedDecoration = GameState->AnimatedDecorations + Decoration->DecorationIndex;
-            AnimatedDecoration->SpriteIndex = GetSpriteIndex(GameState->Time,
-                                                             AnimatedDecoration->Info->SpriteCount);
-
-            bitmap_id BitmapID = AnimatedDecoration->SpriteSheet->SpriteIDs[AnimatedDecoration->SpriteIndex];
-            BitmapID.Value += AnimatedDecoration->SpriteSheet->BitmapIDOffset;
-
-            if(IsValid(Decoration->BitmapID))
-            {
-                v2 Delta = Subtract(GameState->World, &Decoration->P, &GameState->CameraP) - V2(2.0f, 2.0f);
-                if(IsInRectangle(SimBounds, Delta))
-                {
-                    PushBitmap(RenderGroup, Transform, BitmapID, Decoration->Height, V3(Delta, 0));
-                }
-            }
-        }
-        else
-        {
-            if(IsValid(Decoration->BitmapID))
-            {
-                v2 Delta = Subtract(GameState->World, &Decoration->P, &GameState->CameraP) - V2(2.0f, 2.0f);
-                if(IsInRectangle(SimBounds, Delta))
-                {
-                    PushBitmap(RenderGroup, Transform, Decoration->BitmapID, Decoration->Height, V3(Delta, 0));
-                }
-            }
-        }
+        // NOTE(paul): Render decorations
+        RenderDecorations(GameState, SimBounds, RenderGroup, Transform);
     }
-
-    tile_position Tp = TilePositionFromChunkPosition(&MouseChunkP);
-    tile_position TCp = TilePositionFromChunkPosition(&GameState->CameraP);
-    
-
-    v2 dTile =
-        {
-            (real32)TCp.TileX - (real32)Tp.TileX,
-            (real32)TCp.TileY - (real32)Tp.TileY
-        };
-
-    v2 D = dTile*TileSideInMeters - V2(0.5f, 0.5f);
 
     ui_context *UIContext = TranState->UIContext;
     BeginUI(UIContext, RenderCommands, TranState->Assets, TranState->MainGenerationID, DrawBuffer.Width, DrawBuffer.Height);
@@ -920,13 +938,13 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
         case EditMode_Terrain:
         {
-            TerrainEditMode(RenderGroup, &TextRenderGroup, GameState, TranState, Input, &MouseChunkP, TileSideInMeters);
+            TerrainEditMode(RenderGroup, GameState, TranState, Input, &MouseChunkP, TileSideInMeters);
             ShowTileCursor(GameState, RenderGroup, Transform, MouseChunkP, TileSideInMeters, D);
         } break;
 
         case EditMode_Decoration:
         {
-            DecorationEditMode(RenderGroup, &TextRenderGroup, GameState, TranState, Input, &MouseChunkP,
+            DecorationEditMode(RenderGroup, GameState, TranState, Input, &MouseChunkP,
                                TileSideInMeters, PixelsToMeters, D);
             ShowTileCursor(GameState, RenderGroup, Transform, MouseChunkP, TileSideInMeters, D);
         } break;
@@ -950,7 +968,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 }
             }
 
-            CollisionEditMode(RenderGroup, &TextRenderGroup, GameState, TranState, Input, &MouseChunkP,
+            CollisionEditMode(RenderGroup, GameState, TranState, Input, &MouseChunkP,
                               TileSideInMeters);
             ShowTileCursor(GameState, RenderGroup, Transform, MouseChunkP, TileSideInMeters, D);
         } break;
@@ -964,8 +982,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     GameState->Time += Input->dtForFrame;
     
 
-#if 0
-#endif
 #if 0
     interaction_id ID = {};
     ID.Value = 1;
@@ -1033,8 +1049,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     ui_view *WView = GetOrCreateDebugViewFor(UIContext, WID);
     if((WView->InlineBlock.Dim.x == 0) && (WView->InlineBlock.Dim.y == 0))
     {
-        WView->InlineBlock.Dim.x = 1000;
-        WView->InlineBlock.Dim.y = 500;
+        WView->InlineBlock.Dim.x = 200;
+        WView->InlineBlock.Dim.y = 200;
     }
 
     ui_interaction WindowInteraction = {};
@@ -1047,30 +1063,20 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     ActionButton(&Layout, "Decoration", SetUInt32Interaction(DID, (u32 *)&GameState->EditMode, EditMode_Decoration));
     EndRow(&Layout);
 
-    ui_item_id ViewID = {};
-    ViewID.Value = 3;
-    ViewID.ItemOwner = 2;
-    ViewID.ItemIndex = 1;
-
-    ui_view *View = GetOrCreateDebugViewFor(UIContext, ViewID);
-    if((View->InlineBlock.Dim.x == 0) && (View->InlineBlock.Dim.y == 0))
-    {
-        View->InlineBlock.Dim.x = 200;
-        View->InlineBlock.Dim.y = 100;
-    }
-
-    ui_interaction NullInteraction = {};
-    layout_element Element = BeginElementRectangle(&Layout, &View->InlineBlock.Dim);
-    DefaultInteraction(&Element, NullInteraction);
-    MakeElementSizable(&Element);
-    EndElement(&Element);
+    BeginRow(&Layout);
+    BooleanButton(&Layout, "RenderGround", GameState->RenderGround,
+                  SetUInt32Interaction(CID, (u32 *)&GameState->RenderGround, !GameState->RenderGround));
+    BooleanButton(&Layout, "RenderDecorations", GameState->RenderDecorations,
+                  SetUInt32Interaction(CID, (u32 *)&GameState->RenderDecorations, !GameState->RenderDecorations));
+    BooleanButton(&Layout, "AllowEdit", GameState->AllowEdit,
+                  SetUInt32Interaction(DID, (u32 *)&GameState->AllowEdit, !GameState->AllowEdit));
+    EndRow(&Layout);
     
     EndLayout(&Layout);
     
     EndUI(UIContext, Input);
 
     EndRenderGroup(RenderGroup);
-    EndRenderGroup(&TextRenderGroup);
     EndTemporaryMemory(RenderMemory);
     
     CheckArena(&GameState->WorldArena);

@@ -39,7 +39,7 @@ RemoveCollision(render_group *RenderGroup, game_state *GameState, world_position
 }
 
 internal void
-CollisionEditMode(render_group *RenderGroup, render_group *TextRenderGroup, game_state *GameState,
+CollisionEditMode(render_group *RenderGroup, game_state *GameState,
                   transient_state *TranState, game_input *Input, world_position *MouseChunkP,
                   r32 TileSideInMeters)
 {

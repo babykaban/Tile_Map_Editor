@@ -614,6 +614,7 @@ DrawWindow(ui_context *UIContext, layout *Layout, v2 *D, ui_interaction WindowIn
     MakeElementSizable(&WindowElement);
     EndElement(&WindowElement);
 
+    v3 InitOffsetP = UIContext->BackingTransform.OffsetP;
     v2 Center = GetCenter(WindowElement.Bounds);
     v2 Dim = GetDim(WindowElement.Bounds);
     
@@ -723,6 +724,8 @@ DrawWindow(ui_context *UIContext, layout *Layout, v2 *D, ui_interaction WindowIn
         PushRect(RenderGroup, UIContext->BackingTransform, V3(Dx[IndexX], Dy[IndexY], 14.0f), V2(4.0f, 4.0f),
                  V4(1, 1, 1, 1));
     }
+
+    UIContext->BackingTransform.OffsetP = InitOffsetP;
 }
 
 internal void
