@@ -319,23 +319,6 @@ struct assetset_stats
     u8 Type;
 };
 
-enum edit_mode
-{
-    EditMode_Terrain,
-    EditMode_Decoration,
-    EditMode_Collision,
-    EditMode_Assets,
-    EditMode_Count,
-};
-
-static const char *EditModeText[] =
-{
-    "Terrain",
-    "Decoration",
-    "Collision",
-    "Assets",
-};
-
 struct world_tile
 {
     u32 TileID;
@@ -379,8 +362,54 @@ enum asset_add_mode
     AssetMode_AddBitmap,
 };
 
-struct game_state
+enum edit_mode
 {
+    EditMode_Terrain,
+    EditMode_Decoration,
+    EditMode_Collision,
+    EditMode_Assets,
+    EditMode_Count,
+};
+
+static const char *EditModeText[] =
+{
+    "Terrain",
+    "Decoration",
+    "Collision",
+    "Assets",
+};
+
+struct edit_mode_asset
+{
+};
+
+struct edit_mode_terrain
+{
+};
+
+struct edit_mode_decoration
+{
+};
+
+struct edit_mode_collision
+{
+};
+
+struct editor_state
+{
+    bool32 IsInitialized;
+    memory_arena ModeArena;
+    
+    edit_mode EditMode;
+    union
+    {
+        edit_mode_asset *AssetMode;
+        edit_mode_terrain *TerrainMode;
+        edit_mode_decoration *DecorationMode;
+        edit_mode_collision *CollisionMode;
+    };
+
+#if 0
     memory_arena WorldArena;
     world *World;
 
@@ -419,11 +448,13 @@ struct game_state
     tileset_id GlobalTilesetID;
 
     r32 Time;
+#endif
 };
 
 struct task_with_memory
 {
     bool32 BeingUsed;
+    b32 DependsOnEditMode;
     memory_arena Arena;
 
     temporary_memory MemoryFlush;

@@ -5,7 +5,7 @@
    $Creator: Handy Paul $
    $Notice: (C) Copyright 2023 by Handy Paul, Inc. All Rights Reserved. $
    ======================================================================== */
-
+#if 0
 internal void
 WriteCollisions(char *FileName, u32 Count, collision *Collisions)
 {
@@ -43,7 +43,6 @@ CollisionEditMode(render_group *RenderGroup, game_state *GameState,
                   transient_state *TranState, game_input *Input, world_position *MouseChunkP,
                   r32 TileSideInMeters)
 {
-#if 0
     if(GameState->AllowEdit)
     {
         if(Input->MouseButtons[0].EndedDown)
@@ -58,7 +57,7 @@ CollisionEditMode(render_group *RenderGroup, game_state *GameState,
             WriteCollisions("collisions.bin", GameState->WorldTileCount, GameState->Collisions);
         }
     }
-#endif
 }
+#endif
 
 

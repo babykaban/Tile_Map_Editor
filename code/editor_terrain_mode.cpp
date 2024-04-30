@@ -5,6 +5,7 @@
    $Creator: Handy Paul $
    $Notice: (C) Copyright 2023 by Handy Paul, Inc. All Rights Reserved. $
    ======================================================================== */
+#if 0
 global_variable tileset_id TilesetID; 
 global_variable loaded_tileset *GlobalTileset; 
 global_variable ssa_tileset *GlobalTilesetInfo;
@@ -225,7 +226,6 @@ TerrainEditMode(render_group *RenderGroup, game_state *GameState,
                 r32 TileSideInMeters, layout *Layout)
 {
     object_transform Transform = DefaultUprightTransform();
-#if 0
     if(GameState->AllowEdit)
     {
         if(Input->MouseButtons[0].EndedDown)
@@ -243,5 +243,5 @@ TerrainEditMode(render_group *RenderGroup, game_state *GameState,
         WriteWorldTiles("worldtiles.bin", GameState->WorldTileCount, GameState->WorldTiles);
         ReloadTileset(RenderGroup->Assets, GameState);
     }
-#endif
 }
+#endif

@@ -96,6 +96,7 @@ EndTaskWithMemory(task_with_memory *Task)
     Task->BeingUsed = false;
 }
 
+#if 0
 internal void
 FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer *GroundBuffer,
                 world_position *ChunkP, real32 TileSideInMeters)
@@ -513,6 +514,26 @@ RenderDecorations(game_state *GameState, rectangle2 SimBounds, render_group *Ren
         }
     }
 }
+#endif
+
+internal void
+SetEditMode(editor_state *EditorState, transient_state *TranState, edit_mode EditMode)
+{
+    b32 NeedToWait = false;
+    for(u32 TaskIndex = 0;
+        TaskIndex < ArrayCount(TranState->Tasks);
+        ++TaskIndex)
+    {
+        NeedToWait = NeedToWait || TranState->Tasks[TaskIndex].DependsOnEditMode;
+    }
+    if(NeedToWait)
+    {
+        Platform.CompleteAllWork(TranState->LowPriorityQueue);
+    }
+
+    Clear(&EditorState->ModeArena);
+    EditorState->EditMode = EditMode;
+}
 
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {    
@@ -528,42 +549,46 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     real32 PixelsToMeters = 1.0f / TileSideInPixels;
     real32 TileSideInMeters = TileSideInPixels * PixelsToMeters;
 
-    Assert(sizeof(game_state) <= Memory->PermanentStorageSize);    
-    game_state *GameState = (game_state *)Memory->PermanentStorage;
+    v2 WorldChunkDimInMeters =
+        {
+            TILES_PER_CHUNK * TileSideInMeters,
+            TILES_PER_CHUNK * TileSideInMeters
+        };
+
+    Assert(sizeof(editor_state) <= Memory->PermanentStorageSize);    
+    editor_state *EditorState = (editor_state *)Memory->PermanentStorage;
     if(!Memory->IsInitialized)
     {
+        memory_arena TotalArena;
+        InitializeArena(&TotalArena, Memory->PermanentStorageSize - sizeof(editor_state),
+                        (uint8 *)Memory->PermanentStorage + sizeof(editor_state));
+        SubArena(&EditorState->ModeArena, &TotalArena, GetArenaSizeRemaining(&TotalArena));
+#if 0
         uint32 TilesPerWidth = 30;
         uint32 TilesPerHeight = 17;
-
-        v2 WorldChunkDimInMeters =
-            {
-                TILES_PER_CHUNK * TileSideInMeters,
-                TILES_PER_CHUNK * TileSideInMeters
-            };
-
-        InitializeArena(&GameState->WorldArena, Memory->PermanentStorageSize - sizeof(game_state),
-                        (uint8 *)Memory->PermanentStorage + sizeof(game_state));
+        InitializeArena(&EditorState->WorldArena, Memory->PermanentStorageSize - sizeof(editor_state),
+                        (uint8 *)Memory->PermanentStorage + sizeof(editor_state));
 
 
-        GameState->WorldTileCount = WORLD_HEIGHT_TILE_COUNT*WORLD_WIDTH_TILE_COUNT;
-        GameState->WorldTiles = PushArray(&GameState->WorldArena, GameState->WorldTileCount, world_tile);
-        GameState->Decorations = PushArray(&GameState->WorldArena, GameState->WorldTileCount, decoration);
-//        GameState->Decorations_ = PushArray(&GameState->WorldArena, GameState->WorldTileCount, decoration_);
-        GameState->Collisions = PushArray(&GameState->WorldArena, GameState->WorldTileCount, collision);
-        GameState->TileIDs = PushArray(&GameState->WorldArena, GameState->WorldTileCount, u32);
-        GameState->AnimatedDecorations = PushArray(&GameState->WorldArena, GameState->WorldTileCount,
+        EditorState->WorldTileCount = WORLD_HEIGHT_TILE_COUNT*WORLD_WIDTH_TILE_COUNT;
+        EditorState->WorldTiles = PushArray(&EditorState->WorldArena, EditorState->WorldTileCount, world_tile);
+        EditorState->Decorations = PushArray(&EditorState->WorldArena, EditorState->WorldTileCount, decoration);
+//        EditorState->Decorations_ = PushArray(&EditorState->WorldArena, EditorState->WorldTileCount, decoration_);
+        EditorState->Collisions = PushArray(&EditorState->WorldArena, EditorState->WorldTileCount, collision);
+        EditorState->TileIDs = PushArray(&EditorState->WorldArena, EditorState->WorldTileCount, u32);
+        EditorState->AnimatedDecorations = PushArray(&EditorState->WorldArena, EditorState->WorldTileCount,
                                                    animated_decoration);
 
         for(u32 CollisionIndex = 0;
-            CollisionIndex < GameState->WorldTileCount;
+            CollisionIndex < EditorState->WorldTileCount;
             ++CollisionIndex)
         {
-            collision *Collision = GameState->Collisions + CollisionIndex;
+            collision *Collision = EditorState->Collisions + CollisionIndex;
             Collision->P = NullPosition();
         }
         
-        GameState->World = PushStruct(&GameState->WorldArena, world);
-        world *World = GameState->World;
+        EditorState->World = PushStruct(&EditorState->WorldArena, world);
+        world *World = EditorState->World;
         InitializeWorld(World, WorldChunkDimInMeters);
         
         uint32 ScreenBaseX = 0;
@@ -603,26 +628,26 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         }
         
         world_position NewCameraP = {};
-        GameState->CameraP = NewCameraP;
+        EditorState->CameraP = NewCameraP;
 
-        GameState->CameraBoundsMin.ChunkX = 0;
-        GameState->CameraBoundsMin.ChunkY = 0;
+        EditorState->CameraBoundsMin.ChunkX = 0;
+        EditorState->CameraBoundsMin.ChunkY = 0;
     
-        GameState->CameraBoundsMax.ChunkX = WORLD_WIDTH_TILE_COUNT / TILES_PER_CHUNK;
-        GameState->CameraBoundsMax.ChunkY = WORLD_HEIGHT_TILE_COUNT / TILES_PER_CHUNK;
+        EditorState->CameraBoundsMax.ChunkX = WORLD_WIDTH_TILE_COUNT / TILES_PER_CHUNK;
+        EditorState->CameraBoundsMax.ChunkY = WORLD_HEIGHT_TILE_COUNT / TILES_PER_CHUNK;
 
         // NOTE(paul): Initialize cursors and sets stats
-//        InitializeCursor(&GameState->TileMenuBarCursor, 10);
-//        InitializeCursor(&GameState->AssetMenuBarCursor, 2);
+//        InitializeCursor(&EditorState->TileMenuBarCursor, 10);
+//        InitializeCursor(&EditorState->AssetMenuBarCursor, 2);
 
-        InitializeStringArrayCursor(&GameState->TestCursor, 1, AssetTypes);
+        InitializeStringArrayCursor(&EditorState->TestCursor, 1, AssetTypes);
 
-        GameState->TileSetStats = {};
-        GameState->AssetSetStats = {};
-        GameState->AssetSetStats.Type = Asset_Bole;
+        EditorState->TileSetStats = {};
+        EditorState->AssetSetStats = {};
+        EditorState->AssetSetStats.Type = Asset_Bole;
 
-        GameState->EditMode = EditMode_Assets;
-        
+        EditorState->EditMode = EditMode_Assets;
+#endif        
         Memory->IsInitialized = true;
     }
 
@@ -673,7 +698,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         tileset_id ID = GetBestMatchTilesetFrom(TranState->Assets, Asset_Tileset,
                                                 &MatchVector, &WeightVector);
 
-        GameState->GlobalTilesetID = ID;
+//        EditorState->GlobalTilesetID = ID;
 
         TranState->UIContext = PushStruct(&TranState->TranArena, ui_context);
         SubArena(&TranState->UIContext->ContextArena, &TranState->TranArena, Megabytes(2));
@@ -687,13 +712,13 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     }
     TranState->MainGenerationID = BeginGeneration(TranState->Assets);
     
-    
+#if 0    
     if(Input->ExecutableReloaded)
     {
         ResetGroundBuffers(TranState, 0);
     }
 
-    world *World = GameState->World;
+    world *World = EditorState->World;
 
     game_controller_input *Controller = GetController(Input, 0);
     if(Controller->IsAnalog)
@@ -721,108 +746,109 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             NewP.x += 4.0f;
         }
         
-        GameState->CameraP = MapIntoChunkSpace(World, GameState->CameraP, NewP);
+        EditorState->CameraP = MapIntoChunkSpace(World, EditorState->CameraP, NewP);
 
         if(Controller->ChangeEditMode.EndedDown)
         {
-            GameState->EditMode += 1;
-            if(GameState->EditMode >= EditMode_Count)
+            EditorState->EditMode += 1;
+            if(EditorState->EditMode >= EditMode_Count)
             {
-                GameState->EditMode = 0;
+                EditorState->EditMode = 0;
             }
         }
 
         if(WasPressed(Controller->RightShoulder))
         {
-            GameState->AllowEdit = !GameState->AllowEdit;
+            EditorState->AllowEdit = !EditorState->AllowEdit;
         }
         
-        if(GameState->EditMode == EditMode_Terrain)
+        if(EditorState->EditMode == EditMode_Terrain)
         {
             if(Controller->Biome.EndedDown)
             {
-                GameState->TileSetStats.Biome += 1;
-                if(GameState->TileSetStats.Biome >= BiomeType_Count)
+                EditorState->TileSetStats.Biome += 1;
+                if(EditorState->TileSetStats.Biome >= BiomeType_Count)
                 {
-                    GameState->TileSetStats.Biome = 0;
+                    EditorState->TileSetStats.Biome = 0;
                 }
             }
 
             if(Controller->Type.EndedDown)
             {
-                GameState->TileSetStats.Type += 1;
-                if(GameState->TileSetStats.Type >= TileType_Count)
+                EditorState->TileSetStats.Type += 1;
+                if(EditorState->TileSetStats.Type >= TileType_Count)
                 {
-                    GameState->TileSetStats.Type = 0;
+                    EditorState->TileSetStats.Type = 0;
                 }
             }
 
             if(Controller->Height.EndedDown)
             {
-                GameState->TileSetStats.Height += 1;
-                if(GameState->TileSetStats.Height >= Height_Count)
+                EditorState->TileSetStats.Height += 1;
+                if(EditorState->TileSetStats.Height >= Height_Count)
                 {
-                    GameState->TileSetStats.Height = 0;
+                    EditorState->TileSetStats.Height = 0;
                 }
             }
 
             if(Controller->CliffHillType.EndedDown)
             {
-                GameState->TileSetStats.CliffHillType += 1;
-                if(GameState->TileSetStats.CliffHillType >= CliffHillType_Count)
+                EditorState->TileSetStats.CliffHillType += 1;
+                if(EditorState->TileSetStats.CliffHillType >= CliffHillType_Count)
                 {
-                    GameState->TileSetStats.CliffHillType = 0;
+                    EditorState->TileSetStats.CliffHillType = 0;
                 }
             }
 
             if(Controller->MainSurface.EndedDown)
             {
-                GameState->TileSetStats.MainSurface += 1;
-                if(GameState->TileSetStats.MainSurface >= TileSurface_Count)
+                EditorState->TileSetStats.MainSurface += 1;
+                if(EditorState->TileSetStats.MainSurface >= TileSurface_Count)
                 {
-                    GameState->TileSetStats.MainSurface = 0;
+                    EditorState->TileSetStats.MainSurface = 0;
                 }
             }
             if(Controller->MergeSurface.EndedDown)
             {
-                GameState->TileSetStats.MergeSurface += 1;
-                if(GameState->TileSetStats.MergeSurface >= TileSurface_Count)
+                EditorState->TileSetStats.MergeSurface += 1;
+                if(EditorState->TileSetStats.MergeSurface >= TileSurface_Count)
                 {
-                    GameState->TileSetStats.MergeSurface = 0;
+                    EditorState->TileSetStats.MergeSurface = 0;
                 }
             }
         }
-        else if(GameState->EditMode == EditMode_Decoration)
+        else if(EditorState->EditMode == EditMode_Decoration)
         {
             if(Controller->Biome.EndedDown)
             {
-                GameState->AssetSetStats.Biome += 1;
-                if(GameState->AssetSetStats.Biome >= BiomeType_Count)
+                EditorState->AssetSetStats.Biome += 1;
+                if(EditorState->AssetSetStats.Biome >= BiomeType_Count)
                 {
-                    GameState->AssetSetStats.Biome = 0;
+                    EditorState->AssetSetStats.Biome = 0;
                 }
             }
 
             if(Controller->Type.EndedDown)
             {
-                GameState->AssetSetStats.Type += 1;
-                if(GameState->AssetSetStats.Type >= Asset_Count)
+                EditorState->AssetSetStats.Type += 1;
+                if(EditorState->AssetSetStats.Type >= Asset_Count)
                 {
-                    GameState->AssetSetStats.Type = 0;
+                    EditorState->AssetSetStats.Type = 0;
                 }
             }
         }
 
         if(Controller->ActionUp.EndedDown)
         {
-//            ChangeChoosenAttributeValueFor(GameState, true);
+//            ChangeChoosenAttributeValueFor(EditorState, true);
         }
         if(Controller->ActionDown.EndedDown)
         {
-//            ChangeChoosenAttributeValueFor(GameState, false);
+//            ChangeChoosenAttributeValueFor(EditorState, false);
         }
     }
-    
+#endif    
+
     //
     // NOTE(casey): Render
     //
@@ -843,16 +869,17 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     real32 DistanceAboveTarget = 10.0f;
     Perspective(RenderGroup, DrawBuffer.Width, DrawBuffer.Height, MetersToPixels, FocalLength, DistanceAboveTarget);
 
-
+#if 0
     // NOTE(paul): Load GlobalTileset
-    GlobalTileset = PushTileset(RenderGroup, GameState->GlobalTilesetID, true);
-    GlobalTilesetInfo = GetTilesetInfo(TranState->Assets, GameState->GlobalTilesetID);
-    if(!GameState->WorldTilesInitialized)
+    GlobalTileset = PushTileset(RenderGroup, EditorState->GlobalTilesetID, true);
+    GlobalTilesetInfo = GetTilesetInfo(TranState->Assets, EditorState->GlobalTilesetID);
+    if(!EditorState->WorldTilesInitialized)
     {
-        InitializeWorldTilesAndDecorations(RenderGroup, TranState->Assets, GameState,
+        InitializeWorldTilesAndDecorations(RenderGroup, TranState->Assets, EditorState,
                                            "worldtiles.bin", "decorations.bin", "collisions.bin");
     }
-
+#endif
+    
     Clear(RenderGroup, V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
 //    Clear(RenderGroup, V4(0.25f, 0.25f, 0.25f, 0.0f));
 
@@ -870,11 +897,12 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     r32 MouseX = (r32)Input->MouseX;
     r32 MouseY = (r32)Input->MouseY;
     v2 P = Unproject(RenderGroup, Transform, V2(MouseX, MouseY)).xy;
-    world_position MouseChunkP = MapIntoChunkSpace(World, GameState->CameraP, P);
+#if 0
+    world_position MouseChunkP = MapIntoChunkSpace(World, EditorState->CameraP, P);
     tile_position MouseTileP = TilePositionFromChunkPosition(&MouseChunkP);
 
     tile_position Tp = TilePositionFromChunkPosition(&MouseChunkP);
-    tile_position TCp = TilePositionFromChunkPosition(&GameState->CameraP);
+    tile_position TCp = TilePositionFromChunkPosition(&EditorState->CameraP);
 
     v2 dTile =
         {
@@ -884,17 +912,16 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     v2 D = dTile*TileSideInMeters - V2(0.5f, 0.5f);
 
-#if 0    
     char TextBuffer[256];
     _snprintf_s(TextBuffer, sizeof(TextBuffer),
                 "Edit Mode: %s",
-                EditModeText[GameState->EditMode]);
+                EditModeText[EditorState->EditMode]);
     DEBUGTextLine(&TextRenderGroup, TextBuffer);
     
     _snprintf_s(TextBuffer, sizeof(TextBuffer),
                 "CameraP in Chunks: X: %d Y: %d, OX: %f, OY: %f",
-                GameState->CameraP.ChunkX, GameState->CameraP.ChunkY,
-                GameState->CameraP.Offset_.x, GameState->CameraP.Offset_.y);
+                EditorState->CameraP.ChunkX, EditorState->CameraP.ChunkY,
+                EditorState->CameraP.Offset_.x, EditorState->CameraP.Offset_.y);
     DEBUGTextLine(&TextRenderGroup, TextBuffer);
 
     _snprintf_s(TextBuffer, sizeof(TextBuffer),
@@ -907,24 +934,24 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 "MouseP in Tiles: X: %d Y: %d",
                 MouseTileP.TileX, MouseTileP.TileY);
     DEBUGTextLine(&TextRenderGroup, TextBuffer);
-#endif
 
-    if(GameState->RenderGround)
+    if(EditorState->RenderGround)
     {
         // NOTE(casey): Ground chunk updating
-        UpdateGroundChunks(GameState, TranState, World, CameraBoundsInMeters, TileSideInMeters);
+        UpdateGroundChunks(EditorState, TranState, World, CameraBoundsInMeters, TileSideInMeters);
 
         // NOTE(casey): Ground chunk rendering
-        RenderGroundChunks(GameState, TranState, World, RenderGroup, Transform);
+        RenderGroundChunks(EditorState, TranState, World, RenderGroup, Transform);
     }
 
     Transform.SortBias = 0.0f;
 
-    if(GameState->RenderDecorations)
+    if(EditorState->RenderDecorations)
     {
         // NOTE(paul): Render decorations
-        RenderDecorations(GameState, SimBounds, RenderGroup, Transform);
+        RenderDecorations(EditorState, SimBounds, RenderGroup, Transform);
     }
+#endif
 
     ui_context *UIContext = TranState->UIContext;
     BeginUI(UIContext, RenderCommands, TranState->Assets, TranState->MainGenerationID, DrawBuffer.Width, DrawBuffer.Height);
@@ -964,7 +991,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 //    DrawWindow(UIContext, &Layout, &WView->InlineBlock.Dim, WindowInteraction);
 
     
-    switch(GameState->EditMode)
+    switch(EditorState->EditMode)
     {
         case EditMode_Assets:
         {
@@ -974,109 +1001,109 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             AID.ItemIndex = 66;
 
             BeginRow(&Layout);
-            ActionButton(&Layout, "Collision", SetUInt32Interaction(CID, (u32 *)&GameState->EditMode, EditMode_Collision));
-            ActionButton(&Layout, "Terrain", SetUInt32Interaction(TID, (u32 *)&GameState->EditMode, EditMode_Terrain));
-            ActionButton(&Layout, "Decoration", SetUInt32Interaction(DID, (u32 *)&GameState->EditMode, EditMode_Decoration));
+            ActionButton(&Layout, "Collision", SetUInt32Interaction(CID, (u32 *)&EditorState->EditMode, EditMode_Collision));
+            ActionButton(&Layout, "Terrain", SetUInt32Interaction(TID, (u32 *)&EditorState->EditMode, EditMode_Terrain));
+            ActionButton(&Layout, "Decoration", SetUInt32Interaction(DID, (u32 *)&EditorState->EditMode, EditMode_Decoration));
             EndRow(&Layout);
 
             BeginRow(&Layout);
-            ActionButton(&Layout, "Bitmap", SetUInt32Interaction(CID, (u32 *)&GameState->AssetAddMode, AssetMode_AddBitmap));
-//            ActionButton(&Layout, "Terrain", SetUInt32Interaction(TID, (u32 *)&GameState->EditMode, EditMode_Terrain));
-//            ActionButton(&Layout, "Decoration", SetUInt32Interaction(DID, (u32 *)&GameState->EditMode, EditMode_Decoration));
+//            ActionButton(&Layout, "Bitmap", SetUInt32Interaction(CID, (u32 *)&EditorState->AssetAddMode, AssetMode_AddBitmap));
+//            ActionButton(&Layout, "Terrain", SetUInt32Interaction(TID, (u32 *)&EditorState->EditMode, EditMode_Terrain));
+//            ActionButton(&Layout, "Decoration", SetUInt32Interaction(DID, (u32 *)&EditorState->EditMode, EditMode_Decoration));
             EndRow(&Layout);
     
-//            u32 Result = SimpleScrollElement(&Layout, &GameState->TestCursor, V2(200.0f, 50.0f),
-//                                             AdvanceArrayCursorInteraction(AID, &GameState->TestCursor, Asset_Count));
-
-            switch(GameState->AssetAddMode)
+//            u32 Result = SimpleScrollElement(&Layout, &EditorState->TestCursor, V2(200.0f, 50.0f),
+//                                             AdvanceArrayCursorInteraction(AID, &EditorState->TestCursor, Asset_Count));
+#if 0
+            switch(EditorState->AssetAddMode)
             {
                 case AssetMode_AddBitmap:
                 {
                 } break;
             }
-
+#endif
         } break;
 
         case EditMode_Terrain:
         {
             BeginRow(&Layout);
-            ActionButton(&Layout, "Collision", SetUInt32Interaction(CID, (u32 *)&GameState->EditMode, EditMode_Collision));
-            ActionButton(&Layout, "Decoration", SetUInt32Interaction(DID, (u32 *)&GameState->EditMode, EditMode_Decoration));
-            ActionButton(&Layout, "Assets", SetUInt32Interaction(DID, (u32 *)&GameState->EditMode, EditMode_Assets));
+            ActionButton(&Layout, "Collision", SetUInt32Interaction(CID, (u32 *)&EditorState->EditMode, EditMode_Collision));
+            ActionButton(&Layout, "Decoration", SetUInt32Interaction(DID, (u32 *)&EditorState->EditMode, EditMode_Decoration));
+            ActionButton(&Layout, "Assets", SetUInt32Interaction(DID, (u32 *)&EditorState->EditMode, EditMode_Assets));
             EndRow(&Layout);
 #if 0
 
             BeginRow(&Layout);
-            BooleanButton(&Layout, "RenderGround", GameState->RenderGround,
-                          SetUInt32Interaction(CID, (u32 *)&GameState->RenderGround, !GameState->RenderGround));
-            BooleanButton(&Layout, "RenderDecorations", GameState->RenderDecorations,
-                          SetUInt32Interaction(CID, (u32 *)&GameState->RenderDecorations, !GameState->RenderDecorations));
-            BooleanButton(&Layout, "AllowEdit", GameState->AllowEdit,
-                          SetUInt32Interaction(DID, (u32 *)&GameState->AllowEdit, !GameState->AllowEdit));
-            BooleanButton(&Layout, "ShowBorders", GameState->ShowBorders,
-                          SetUInt32Interaction(DID, (u32 *)&GameState->ShowBorders, !GameState->ShowBorders));
+            BooleanButton(&Layout, "RenderGround", EditorState->RenderGround,
+                          SetUInt32Interaction(CID, (u32 *)&EditorState->RenderGround, !EditorState->RenderGround));
+            BooleanButton(&Layout, "RenderDecorations", EditorState->RenderDecorations,
+                          SetUInt32Interaction(CID, (u32 *)&EditorState->RenderDecorations, !EditorState->RenderDecorations));
+            BooleanButton(&Layout, "AllowEdit", EditorState->AllowEdit,
+                          SetUInt32Interaction(DID, (u32 *)&EditorState->AllowEdit, !EditorState->AllowEdit));
+            BooleanButton(&Layout, "ShowBorders", EditorState->ShowBorders,
+                          SetUInt32Interaction(DID, (u32 *)&EditorState->ShowBorders, !EditorState->ShowBorders));
             EndRow(&Layout);
 
-            TerrainEditMode(RenderGroup, GameState, TranState, Input, &MouseChunkP, TileSideInMeters, &Layout);
-            ShowTileCursor(GameState, RenderGroup, Transform, MouseChunkP, TileSideInMeters, D);
+            TerrainEditMode(RenderGroup, EditorState, TranState, Input, &MouseChunkP, TileSideInMeters, &Layout);
+            ShowTileCursor(EditorState, RenderGroup, Transform, MouseChunkP, TileSideInMeters, D);
 #endif
         } break;
 
         case EditMode_Decoration:
         {
             BeginRow(&Layout);
-            ActionButton(&Layout, "Collision", SetUInt32Interaction(CID, (u32 *)&GameState->EditMode, EditMode_Collision));
-            ActionButton(&Layout, "Terrain", SetUInt32Interaction(TID, (u32 *)&GameState->EditMode, EditMode_Terrain));
-            ActionButton(&Layout, "Assets", SetUInt32Interaction(DID, (u32 *)&GameState->EditMode, EditMode_Assets));
+            ActionButton(&Layout, "Collision", SetUInt32Interaction(CID, (u32 *)&EditorState->EditMode, EditMode_Collision));
+            ActionButton(&Layout, "Terrain", SetUInt32Interaction(TID, (u32 *)&EditorState->EditMode, EditMode_Terrain));
+            ActionButton(&Layout, "Assets", SetUInt32Interaction(DID, (u32 *)&EditorState->EditMode, EditMode_Assets));
             EndRow(&Layout);
 #if 0
 
             BeginRow(&Layout);
-            BooleanButton(&Layout, "RenderGround", GameState->RenderGround,
-                          SetUInt32Interaction(CID, (u32 *)&GameState->RenderGround, !GameState->RenderGround));
-            BooleanButton(&Layout, "RenderDecorations", GameState->RenderDecorations,
-                          SetUInt32Interaction(CID, (u32 *)&GameState->RenderDecorations, !GameState->RenderDecorations));
-            BooleanButton(&Layout, "AllowEdit", GameState->AllowEdit,
-                          SetUInt32Interaction(DID, (u32 *)&GameState->AllowEdit, !GameState->AllowEdit));
-            BooleanButton(&Layout, "ShowBorders", GameState->ShowBorders,
-                          SetUInt32Interaction(DID, (u32 *)&GameState->ShowBorders, !GameState->ShowBorders));
+            BooleanButton(&Layout, "RenderGround", EditorState->RenderGround,
+                          SetUInt32Interaction(CID, (u32 *)&EditorState->RenderGround, !EditorState->RenderGround));
+            BooleanButton(&Layout, "RenderDecorations", EditorState->RenderDecorations,
+                          SetUInt32Interaction(CID, (u32 *)&EditorState->RenderDecorations, !EditorState->RenderDecorations));
+            BooleanButton(&Layout, "AllowEdit", EditorState->AllowEdit,
+                          SetUInt32Interaction(DID, (u32 *)&EditorState->AllowEdit, !EditorState->AllowEdit));
+            BooleanButton(&Layout, "ShowBorders", EditorState->ShowBorders,
+                          SetUInt32Interaction(DID, (u32 *)&EditorState->ShowBorders, !EditorState->ShowBorders));
             EndRow(&Layout);
 
-            DecorationEditMode(RenderGroup, GameState, TranState, Input, &MouseChunkP,
+            DecorationEditMode(RenderGroup, EditorState, TranState, Input, &MouseChunkP,
                                TileSideInMeters, PixelsToMeters, D);
-            ShowTileCursor(GameState, RenderGroup, Transform, MouseChunkP, TileSideInMeters, D);
+            ShowTileCursor(EditorState, RenderGroup, Transform, MouseChunkP, TileSideInMeters, D);
 #endif
         } break;
 
         case EditMode_Collision:
         {
             BeginRow(&Layout);
-            ActionButton(&Layout, "Terrain", SetUInt32Interaction(TID, (u32 *)&GameState->EditMode, EditMode_Terrain));
-            ActionButton(&Layout, "Decoration", SetUInt32Interaction(DID, (u32 *)&GameState->EditMode, EditMode_Decoration));
-            ActionButton(&Layout, "Assets", SetUInt32Interaction(DID, (u32 *)&GameState->EditMode, EditMode_Assets));
+            ActionButton(&Layout, "Terrain", SetUInt32Interaction(TID, (u32 *)&EditorState->EditMode, EditMode_Terrain));
+            ActionButton(&Layout, "Decoration", SetUInt32Interaction(DID, (u32 *)&EditorState->EditMode, EditMode_Decoration));
+            ActionButton(&Layout, "Assets", SetUInt32Interaction(DID, (u32 *)&EditorState->EditMode, EditMode_Assets));
             EndRow(&Layout);
 #if 0
 
             BeginRow(&Layout);
-            BooleanButton(&Layout, "RenderGround", GameState->RenderGround,
-                          SetUInt32Interaction(CID, (u32 *)&GameState->RenderGround, !GameState->RenderGround));
-            BooleanButton(&Layout, "RenderDecorations", GameState->RenderDecorations,
-                          SetUInt32Interaction(CID, (u32 *)&GameState->RenderDecorations, !GameState->RenderDecorations));
-            BooleanButton(&Layout, "AllowEdit", GameState->AllowEdit,
-                          SetUInt32Interaction(DID, (u32 *)&GameState->AllowEdit, !GameState->AllowEdit));
-            BooleanButton(&Layout, "ShowBorders", GameState->ShowBorders,
-                          SetUInt32Interaction(DID, (u32 *)&GameState->ShowBorders, !GameState->ShowBorders));
+            BooleanButton(&Layout, "RenderGround", EditorState->RenderGround,
+                          SetUInt32Interaction(CID, (u32 *)&EditorState->RenderGround, !EditorState->RenderGround));
+            BooleanButton(&Layout, "RenderDecorations", EditorState->RenderDecorations,
+                          SetUInt32Interaction(CID, (u32 *)&EditorState->RenderDecorations, !EditorState->RenderDecorations));
+            BooleanButton(&Layout, "AllowEdit", EditorState->AllowEdit,
+                          SetUInt32Interaction(DID, (u32 *)&EditorState->AllowEdit, !EditorState->AllowEdit));
+            BooleanButton(&Layout, "ShowBorders", EditorState->ShowBorders,
+                          SetUInt32Interaction(DID, (u32 *)&EditorState->ShowBorders, !EditorState->ShowBorders));
             EndRow(&Layout);
 
             // NOTE(paul): Render collisions
             for(u32 CollisionIndex = 0;
-                CollisionIndex < GameState->WorldTileCount;
+                CollisionIndex < EditorState->WorldTileCount;
                 ++CollisionIndex)
             {
-                collision *Collision = GameState->Collisions + CollisionIndex;
+                collision *Collision = EditorState->Collisions + CollisionIndex;
                 if(IsValid(Collision->P))
                 {
-                    v2 Delta = Subtract(GameState->World, &Collision->P, &GameState->CameraP) - V2(2.0f, 2.0f);
+                    v2 Delta = Subtract(EditorState->World, &Collision->P, &EditorState->CameraP) - V2(2.0f, 2.0f);
                     if(IsInRectangle(SimBounds, Delta))
                     {
                         Transform.OffsetP = V3(Delta, 0);
@@ -1085,9 +1112,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 }
             }
 
-            CollisionEditMode(RenderGroup, GameState, TranState, Input, &MouseChunkP,
+            CollisionEditMode(RenderGroup, EditorState, TranState, Input, &MouseChunkP,
                               TileSideInMeters);
-            ShowTileCursor(GameState, RenderGroup, Transform, MouseChunkP, TileSideInMeters, D);
+            ShowTileCursor(EditorState, RenderGroup, Transform, MouseChunkP, TileSideInMeters, D);
 #endif
         } break;
     }
@@ -1095,21 +1122,23 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     EndLayout(&Layout);
 
     Transform.OffsetP = V3(0, 0, 0);
-    if(GameState->ShowBorders)
+#if 0
+    if(EditorState->ShowBorders)
     {
         PushRectOutline(RenderGroup, Transform, V3(0, 0, 0), GetDim(ScreenBounds), V4(1.0f, 1.0f, 0.0f, 1));
         PushRectOutline(RenderGroup, Transform, V3(0, 0, 0), GetDim(SimBounds), V4(1.0f, 0.0f, 1.0f, 1));
     }
 
     // NOTE(paul): Advance Time
-    GameState->Time += Input->dtForFrame;
+    EditorState->Time += Input->dtForFrame;
+#endif
     
     EndUI(UIContext, Input);
 
     EndRenderGroup(RenderGroup);
     EndTemporaryMemory(RenderMemory);
     
-    CheckArena(&GameState->WorldArena);
+//    CheckArena(&EditorState->WorldArena);
     CheckArena(&TranState->TranArena);
 }
 
