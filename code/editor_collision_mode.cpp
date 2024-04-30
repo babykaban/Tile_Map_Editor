@@ -43,6 +43,7 @@ CollisionEditMode(render_group *RenderGroup, game_state *GameState,
                   transient_state *TranState, game_input *Input, world_position *MouseChunkP,
                   r32 TileSideInMeters)
 {
+#if 0
     if(GameState->AllowEdit)
     {
         if(Input->MouseButtons[0].EndedDown)
@@ -57,6 +58,7 @@ CollisionEditMode(render_group *RenderGroup, game_state *GameState,
             WriteCollisions("collisions.bin", GameState->WorldTileCount, GameState->Collisions);
         }
     }
+#endif
 }
 
 

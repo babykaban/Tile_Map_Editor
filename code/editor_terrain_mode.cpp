@@ -225,6 +225,7 @@ TerrainEditMode(render_group *RenderGroup, game_state *GameState,
                 r32 TileSideInMeters, layout *Layout)
 {
     object_transform Transform = DefaultUprightTransform();
+#if 0
     if(GameState->AllowEdit)
     {
         if(Input->MouseButtons[0].EndedDown)
@@ -242,4 +243,5 @@ TerrainEditMode(render_group *RenderGroup, game_state *GameState,
         WriteWorldTiles("worldtiles.bin", GameState->WorldTileCount, GameState->WorldTiles);
         ReloadTileset(RenderGroup->Assets, GameState);
     }
+#endif
 }

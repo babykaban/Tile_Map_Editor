@@ -17,6 +17,28 @@ struct interaction_id
 
 struct ui_context;
 
+enum cursor_data_type
+{
+    CursorDataType_UInt32,
+    CursorDataType_String,
+    CursorDataType_StringArray,
+};
+
+struct array_cursor
+{
+    cursor_data_type DataType;
+    u32 ArrayPosition;
+    u32 ArrayCount;
+    u32 Array[256];
+
+    union
+    {
+        char **StringArray;
+        char *String;
+        u32 *U32Array;
+    };
+};
+
 enum text_op
 {
     TextOp_DrawText,

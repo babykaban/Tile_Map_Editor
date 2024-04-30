@@ -96,6 +96,14 @@ InitializeCursor(array_cursor *Cursor, u32 CursorArrayCount)
     ResetCursorArray(Cursor);
 }
 
+inline  void
+InitializeStringArrayCursor(array_cursor *Cursor, u32 CursorArrayCount, char **Data)
+{
+    Cursor->DataType = CursorDataType_StringArray;
+    Cursor->StringArray = Data;
+    InitializeCursor(Cursor, CursorArrayCount);
+}
+
 internal void
 ReInitializeCursor(array_cursor *Cursor, u32 CursorArrayCount)
 {
@@ -843,50 +851,29 @@ DrawWindow(ui_context *UIContext, layout *Layout, v2 *D, ui_interaction WindowIn
     UIContext->BackingTransform.OffsetP = InitOffsetP;
 }
 
-internal void
-SimpleScrollBar(layout *Layout, array_cursor *Cursor, v2 ElementDim, ui_interaction ItemInteraction,
-                r32 Border = 0.0f, u32 ElementsToShow = 1)
+internal u32
+SimpleScrollElement(layout *Layout, array_cursor *Cursor, v2 ElementDim, ui_interaction ItemInteraction,
+                r32 Border = 0.0f)
 {
-    ui_context *UIContext = Layout->UIContext;
-
-    v2 Dim = {ElementDim.x + 2.0f*Border, ElementDim.y*ElementsToShow + 2.0f*Border};
-    
-    layout_element Element = BeginElementRectangle(Layout, &Dim);
-    DefaultInteraction(&Element, ItemInteraction);
-    EndElement(&Element);
-
-    v2 Center = GetCenter(Element.Bounds);
-    v2 ObjectDim = GetDim(Element.Bounds);
-
-    PushRect(&UIContext->RenderGroup, UIContext->BackingTransform, Element.Bounds, 0.0f,
-             V4(0.0f, 0.635294117647f, 0.909803921569f, 1));
-
-    r32 MenuBarWidth = ObjectDim.x;
-    r32 HalfWidth = 0.5f*ObjectDim.x;
-
-    r32 CursorWidth = MenuBarWidth;
-    r32 CursorHeight = ElementDim.y;
-    r32 CursorHalfHeight = 0.5f*ObjectDim.y;
-
-    r32 MenuBarHeight = ObjectDim.y;
-    r32 HalfHeight = 0.5f*MenuBarHeight;
-    
-    PushRectOutline(&UIContext->RenderGroup, UIContext->BackingTransform, V3(Center, 1.0f),
-                    V2(MenuBarWidth, MenuBarHeight), V4(0, 1, 0, 1), 2.0f);
-
+    u32 SourceArrayIndex = Cursor->Array[Cursor->ArrayPosition];
+    u32 ElementsToShow = Cursor->ArrayCount;
     for(u32 Index = 0;
         Index < ElementsToShow;
         ++Index)
     {
         u32 AssetIndex = Cursor->Array[Index];
-        char *Text = AssetTypes[AssetIndex];
-        Label(Layout, Text);
+        switch(Cursor->DataType)
+        {
+            case CursorDataType_StringArray:
+            {
+                char *Text = Cursor->StringArray[AssetIndex];
+                BasicTextElement(Layout, Text, ItemInteraction, V4(0.8f, 0.8f, 0.8f, 1), V4(1, 1, 1, 1),
+                                 3.0f, V4(0, 0, 1, 1.0f));
+            } break;
+        }
     }
-    
-    
-    r32 CursorOffsetY = ObjectDim.y + 4.0f + Cursor->ArrayPosition*CursorHeight;
-    PushRectOutline(&UIContext->RenderGroup, UIContext->BackingTransform, V3(Center.x, CursorOffsetY, 1.0f),
-                    V2(CursorWidth, CursorHeight), V4(1, 1, 1, 1), 2.0f);
+
+    return(SourceArrayIndex);
 }
 
 internal void

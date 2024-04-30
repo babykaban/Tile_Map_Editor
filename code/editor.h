@@ -303,13 +303,6 @@ struct ground_buffer
     loaded_bitmap Bitmap;
 };
 
-struct array_cursor
-{
-    u32 ArrayPosition;
-    u32 ArrayCount;
-    u32 Array[256];
-};
-
 struct tileset_stats
 {
     u8 Biome;
@@ -381,6 +374,11 @@ struct collision
     rectangle2 Rect;
 };
 
+enum asset_add_mode
+{
+    AssetMode_AddBitmap,
+};
+
 struct game_state
 {
     memory_arena WorldArena;
@@ -398,6 +396,7 @@ struct game_state
     assetset_stats AssetSetStats;
     array_cursor AssetMenuBarCursor;
 
+    asset_add_mode AssetAddMode;
     array_cursor TestCursor;
 
     b32 RenderGround;
@@ -412,7 +411,6 @@ struct game_state
     u32 *TileIDs;
     world_tile *WorldTiles;
     decoration *Decorations;
-//    decoration_ *Decorations_;
     collision *Collisions;
 
     // NOTE(paul): Only for drawing

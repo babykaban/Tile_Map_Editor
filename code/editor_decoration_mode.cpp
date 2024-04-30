@@ -202,6 +202,7 @@ DecorationEditMode(render_group *RenderGroup, game_state *GameState,
                    transient_state *TranState, game_input *Input, world_position *MouseChunkP,
                    r32 TileSideInMeters, r32 PixelsToMeters, v2 MouseCameraRelP)
 {
+#if 0
     // TODO(paul): Make this work with spritesheets
 
     object_transform Transform = DefaultUprightTransform();
@@ -264,6 +265,7 @@ DecorationEditMode(render_group *RenderGroup, game_state *GameState,
             }
         }
     }
+#endif
 }
 
 

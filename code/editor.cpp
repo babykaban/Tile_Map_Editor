@@ -612,10 +612,10 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         GameState->CameraBoundsMax.ChunkY = WORLD_HEIGHT_TILE_COUNT / TILES_PER_CHUNK;
 
         // NOTE(paul): Initialize cursors and sets stats
-        InitializeCursor(&GameState->TileMenuBarCursor, 10);
-        InitializeCursor(&GameState->AssetMenuBarCursor, 2);
+//        InitializeCursor(&GameState->TileMenuBarCursor, 10);
+//        InitializeCursor(&GameState->AssetMenuBarCursor, 2);
 
-        InitializeCursor(&GameState->TestCursor, 1);
+        InitializeStringArrayCursor(&GameState->TestCursor, 1, AssetTypes);
 
         GameState->TileSetStats = {};
         GameState->AssetSetStats = {};
@@ -963,24 +963,38 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
 //    DrawWindow(UIContext, &Layout, &WView->InlineBlock.Dim, WindowInteraction);
 
-
-    ui_item_id AID = {};
-    AID.Value = 6;
-    AID.ItemOwner = 21;
-    AID.ItemIndex = 66;
-    
-    SimpleScrollBar(&Layout, &GameState->TestCursor, V2(200.0f, 50.0f),
-                    AdvanceArrayCursorInteraction(AID, &GameState->TestCursor, Asset_Count));
     
     switch(GameState->EditMode)
     {
         case EditMode_Assets:
         {
+            ui_item_id AID = {};
+            AID.Value = 6;
+            AID.ItemOwner = 21;
+            AID.ItemIndex = 66;
+
             BeginRow(&Layout);
             ActionButton(&Layout, "Collision", SetUInt32Interaction(CID, (u32 *)&GameState->EditMode, EditMode_Collision));
             ActionButton(&Layout, "Terrain", SetUInt32Interaction(TID, (u32 *)&GameState->EditMode, EditMode_Terrain));
             ActionButton(&Layout, "Decoration", SetUInt32Interaction(DID, (u32 *)&GameState->EditMode, EditMode_Decoration));
             EndRow(&Layout);
+
+            BeginRow(&Layout);
+            ActionButton(&Layout, "Bitmap", SetUInt32Interaction(CID, (u32 *)&GameState->AssetAddMode, AssetMode_AddBitmap));
+//            ActionButton(&Layout, "Terrain", SetUInt32Interaction(TID, (u32 *)&GameState->EditMode, EditMode_Terrain));
+//            ActionButton(&Layout, "Decoration", SetUInt32Interaction(DID, (u32 *)&GameState->EditMode, EditMode_Decoration));
+            EndRow(&Layout);
+    
+//            u32 Result = SimpleScrollElement(&Layout, &GameState->TestCursor, V2(200.0f, 50.0f),
+//                                             AdvanceArrayCursorInteraction(AID, &GameState->TestCursor, Asset_Count));
+
+            switch(GameState->AssetAddMode)
+            {
+                case AssetMode_AddBitmap:
+                {
+                } break;
+            }
+
         } break;
 
         case EditMode_Terrain:
@@ -990,6 +1004,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             ActionButton(&Layout, "Decoration", SetUInt32Interaction(DID, (u32 *)&GameState->EditMode, EditMode_Decoration));
             ActionButton(&Layout, "Assets", SetUInt32Interaction(DID, (u32 *)&GameState->EditMode, EditMode_Assets));
             EndRow(&Layout);
+#if 0
 
             BeginRow(&Layout);
             BooleanButton(&Layout, "RenderGround", GameState->RenderGround,
@@ -1004,6 +1019,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
             TerrainEditMode(RenderGroup, GameState, TranState, Input, &MouseChunkP, TileSideInMeters, &Layout);
             ShowTileCursor(GameState, RenderGroup, Transform, MouseChunkP, TileSideInMeters, D);
+#endif
         } break;
 
         case EditMode_Decoration:
@@ -1013,6 +1029,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             ActionButton(&Layout, "Terrain", SetUInt32Interaction(TID, (u32 *)&GameState->EditMode, EditMode_Terrain));
             ActionButton(&Layout, "Assets", SetUInt32Interaction(DID, (u32 *)&GameState->EditMode, EditMode_Assets));
             EndRow(&Layout);
+#if 0
 
             BeginRow(&Layout);
             BooleanButton(&Layout, "RenderGround", GameState->RenderGround,
@@ -1028,6 +1045,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             DecorationEditMode(RenderGroup, GameState, TranState, Input, &MouseChunkP,
                                TileSideInMeters, PixelsToMeters, D);
             ShowTileCursor(GameState, RenderGroup, Transform, MouseChunkP, TileSideInMeters, D);
+#endif
         } break;
 
         case EditMode_Collision:
@@ -1037,6 +1055,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             ActionButton(&Layout, "Decoration", SetUInt32Interaction(DID, (u32 *)&GameState->EditMode, EditMode_Decoration));
             ActionButton(&Layout, "Assets", SetUInt32Interaction(DID, (u32 *)&GameState->EditMode, EditMode_Assets));
             EndRow(&Layout);
+#if 0
 
             BeginRow(&Layout);
             BooleanButton(&Layout, "RenderGround", GameState->RenderGround,
@@ -1069,6 +1088,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             CollisionEditMode(RenderGroup, GameState, TranState, Input, &MouseChunkP,
                               TileSideInMeters);
             ShowTileCursor(GameState, RenderGroup, Transform, MouseChunkP, TileSideInMeters, D);
+#endif
         } break;
     }
     
