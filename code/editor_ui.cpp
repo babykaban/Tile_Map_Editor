@@ -30,6 +30,18 @@ SetUInt32Interaction(ui_item_id ID, u32 *Target, u32 Value)
     return(Result);
 }
 
+inline ui_interaction
+AdvanceArrayCursorInteraction(ui_item_id ID, array_cursor *Target, u32 SourceArrayCount)
+{
+    ui_interaction Result = {};
+    Result.ID = ID;
+    Result.Type = Interaction_AdvanceCursor;
+    Result.Target = Target;
+    Result.UInt32 = SourceArrayCount;
+
+    return(Result);
+}
+
 inline b32
 InteractionIDsAreEqual(ui_item_id A, ui_item_id B)
 {
@@ -63,6 +75,94 @@ InteractionIsHot(ui_context *UIContext, ui_interaction B)
     }
 
     return(Result);
+}
+
+internal void
+ResetCursorArray(array_cursor *Cursor)
+{
+    for(u32 I = 0;
+        I < Cursor->ArrayCount;
+        ++I)
+    {
+        Cursor->Array[I] = I;
+    }
+}
+
+internal void
+InitializeCursor(array_cursor *Cursor, u32 CursorArrayCount)
+{
+    Cursor->ArrayPosition = 0;
+    Cursor->ArrayCount = CursorArrayCount;
+    ResetCursorArray(Cursor);
+}
+
+internal void
+ReInitializeCursor(array_cursor *Cursor, u32 CursorArrayCount)
+{
+    Cursor->ArrayPosition = 0;
+    Cursor->ArrayCount = CursorArrayCount;
+    ResetCursorArray(Cursor);
+}
+
+internal void
+ChangeCursorPositionFor(array_cursor *Cursor, u32 SourceArrayCount, s16 MouseZ)
+{
+    if(MouseZ != 0)
+    {
+        u32 CursorLastIndex = Cursor->ArrayCount - 1;
+        s32 Count = MouseZ > 0 ? MouseZ : MouseZ * -1;
+        for(s32 MouseRotIndex = 0;
+            MouseRotIndex < Count;
+            ++MouseRotIndex)
+        {
+            if(MouseZ > 0)
+            {
+                if(Cursor->ArrayPosition == 0)
+                {
+                    s32 NewFirst = Cursor->Array[0] - 1;
+                    for(u32 I = CursorLastIndex;
+                        I > 0;
+                        --I)
+                    {
+                        Cursor->Array[I] = Cursor->Array[I - 1];
+                    }
+
+                    if(NewFirst == -1)
+                    {
+                        NewFirst = SourceArrayCount - 1;
+                    }
+                    Cursor->Array[0] = NewFirst;
+                }
+                else
+                {
+                    --Cursor->ArrayPosition;
+                }
+            }
+            else
+            {
+                if(Cursor->ArrayPosition == CursorLastIndex)
+                {
+                    u32 NewLast = Cursor->Array[CursorLastIndex] + 1;
+                    for(u32 I = 0;
+                        I < Cursor->ArrayCount;
+                        ++I)
+                    {
+                        Cursor->Array[I] = Cursor->Array[I + 1];
+                    }
+
+                    if(NewLast == SourceArrayCount)
+                    {
+                        NewLast = 0;
+                    }
+                    Cursor->Array[CursorLastIndex] = NewLast;
+                }
+                else
+                {
+                    ++Cursor->ArrayPosition;
+                }
+            }
+        }
+    }
 }
 
 internal ui_view *
@@ -461,6 +561,15 @@ BeginInteract(ui_context *UIContext, game_input *Input, v2 MouseP)
             case Interaction_Select:
             {
             } break;                
+
+            case Interaction_AdvanceCursor:
+            {
+                array_cursor *Cursor = (array_cursor *)UIContext->Interaction.Target;
+                if(Cursor)
+                {
+                    ChangeCursorPositionFor(Cursor, UIContext->HotInteraction.UInt32, Input->MouseZ);
+                }
+            } break;
         }
 
         UIContext->Interaction = UIContext->HotInteraction;
@@ -558,6 +667,12 @@ Interact(ui_context *UIContext, game_input *Input, v2 MouseP)
         {
             BeginInteract(UIContext, Input, MouseP);
         }
+
+        if((Input->MouseZ != 0) && (UIContext->HotInteraction.Type == Interaction_AdvanceCursor))
+        {
+            BeginInteract(UIContext, Input, MouseP);
+        }
+        
     }
 
     UIContext->LastMouseP = MouseP;
@@ -726,6 +841,52 @@ DrawWindow(ui_context *UIContext, layout *Layout, v2 *D, ui_interaction WindowIn
     }
 
     UIContext->BackingTransform.OffsetP = InitOffsetP;
+}
+
+internal void
+SimpleScrollBar(layout *Layout, array_cursor *Cursor, v2 ElementDim, ui_interaction ItemInteraction,
+                r32 Border = 0.0f, u32 ElementsToShow = 1)
+{
+    ui_context *UIContext = Layout->UIContext;
+
+    v2 Dim = {ElementDim.x + 2.0f*Border, ElementDim.y*ElementsToShow + 2.0f*Border};
+    
+    layout_element Element = BeginElementRectangle(Layout, &Dim);
+    DefaultInteraction(&Element, ItemInteraction);
+    EndElement(&Element);
+
+    v2 Center = GetCenter(Element.Bounds);
+    v2 ObjectDim = GetDim(Element.Bounds);
+
+    PushRect(&UIContext->RenderGroup, UIContext->BackingTransform, Element.Bounds, 0.0f,
+             V4(0.0f, 0.635294117647f, 0.909803921569f, 1));
+
+    r32 MenuBarWidth = ObjectDim.x;
+    r32 HalfWidth = 0.5f*ObjectDim.x;
+
+    r32 CursorWidth = MenuBarWidth;
+    r32 CursorHeight = ElementDim.y;
+    r32 CursorHalfHeight = 0.5f*ObjectDim.y;
+
+    r32 MenuBarHeight = ObjectDim.y;
+    r32 HalfHeight = 0.5f*MenuBarHeight;
+    
+    PushRectOutline(&UIContext->RenderGroup, UIContext->BackingTransform, V3(Center, 1.0f),
+                    V2(MenuBarWidth, MenuBarHeight), V4(0, 1, 0, 1), 2.0f);
+
+    for(u32 Index = 0;
+        Index < ElementsToShow;
+        ++Index)
+    {
+        u32 AssetIndex = Cursor->Array[Index];
+        char *Text = AssetTypes[AssetIndex];
+        Label(Layout, Text);
+    }
+    
+    
+    r32 CursorOffsetY = ObjectDim.y + 4.0f + Cursor->ArrayPosition*CursorHeight;
+    PushRectOutline(&UIContext->RenderGroup, UIContext->BackingTransform, V3(Center.x, CursorOffsetY, 1.0f),
+                    V2(CursorWidth, CursorHeight), V4(1, 1, 1, 1), 2.0f);
 }
 
 internal void

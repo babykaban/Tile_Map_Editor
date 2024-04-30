@@ -222,7 +222,7 @@ ReloadTileset(game_assets *Assets, game_state *GameState)
 internal void
 TerrainEditMode(render_group *RenderGroup, game_state *GameState,
                 transient_state *TranState, game_input *Input, world_position *MouseChunkP,
-                r32 TileSideInMeters)
+                r32 TileSideInMeters, layout *Layout)
 {
     object_transform Transform = DefaultUprightTransform();
     if(GameState->AllowEdit)
@@ -233,7 +233,7 @@ TerrainEditMode(render_group *RenderGroup, game_state *GameState,
         }
 
         ssa_tileset *Info = GetTilesetInfo(RenderGroup->Assets, TilesetID);
-        ChangeCursorPositionFor(&GameState->TileMenuBarCursor, Info->TileCount, Input->MouseZ);
+//        ChangeCursorPositionFor(&GameState->TileMenuBarCursor, Info->TileCount, Input->MouseZ);
 //        ShowTest(TextRenderGroup, &GameState->TileMenuBarCursor);
         ShowTileMenuBar(RenderGroup, &GameState->TileMenuBarCursor, TileSideInMeters);
 //        ShowTilesetStats(TextRenderGroup, GameState);

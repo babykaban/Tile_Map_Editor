@@ -286,8 +286,8 @@ Copy(memory_index Size, void *SourceInit, void *DestInit)
     return(DestInit);
 }
 
-#include "c:/paul/Spellweaver_Saga_game/AssetFileBuilder/code/file_formats.h"
-//#include "editor_file_formats.h"
+//#include "d:/paul/Spellweaver_Saga_game/AssetFileBuilder/code/file_formats.h"
+#include "editor_file_formats.h"
 #include "editor_intrinsics.h"
 #include "editor_math.h"
 #include "editor_render_group.h"
@@ -397,6 +397,8 @@ struct game_state
 
     assetset_stats AssetSetStats;
     array_cursor AssetMenuBarCursor;
+
+    array_cursor TestCursor;
 
     b32 RenderGround;
     b32 RenderDecorations;

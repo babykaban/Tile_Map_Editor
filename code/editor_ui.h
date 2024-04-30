@@ -77,6 +77,8 @@ enum interaction_type
 
     Interaction_SetUInt32,
     Interaction_SetPointer,
+
+    Interaction_AdvanceCursor,
 };
 
 struct ui_interaction

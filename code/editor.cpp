@@ -615,6 +615,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         InitializeCursor(&GameState->TileMenuBarCursor, 10);
         InitializeCursor(&GameState->AssetMenuBarCursor, 2);
 
+        InitializeCursor(&GameState->TestCursor, 1);
+
         GameState->TileSetStats = {};
         GameState->AssetSetStats = {};
         GameState->AssetSetStats.Type = Asset_Bole;
@@ -929,12 +931,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     
     layout Layout = BeginLayout(UIContext, UIContext->LastMouseP,
                                 V2(UIContext->LeftEdge + 10.0f, 0.5f*UIContext->Height - 10.0f));
-    Label(&Layout, "HEELLPPP");
-    Label(&Layout, "HEELLPPP");
-    Label(&Layout, "HEELLPPP");
-    
-//    ActionButton(&Layout, "EditMode",
-//                  SetUInt32Interaction(ID, (u32 *)&GameState->EditMode, EditMode_Collision));
 
     ui_item_id CID = {};
     CID.Value = 10;
@@ -967,16 +963,14 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
 //    DrawWindow(UIContext, &Layout, &WView->InlineBlock.Dim, WindowInteraction);
 
-    BeginRow(&Layout);
-    BooleanButton(&Layout, "RenderGround", GameState->RenderGround,
-                  SetUInt32Interaction(CID, (u32 *)&GameState->RenderGround, !GameState->RenderGround));
-    BooleanButton(&Layout, "RenderDecorations", GameState->RenderDecorations,
-                  SetUInt32Interaction(CID, (u32 *)&GameState->RenderDecorations, !GameState->RenderDecorations));
-    BooleanButton(&Layout, "AllowEdit", GameState->AllowEdit,
-                  SetUInt32Interaction(DID, (u32 *)&GameState->AllowEdit, !GameState->AllowEdit));
-    BooleanButton(&Layout, "ShowBorders", GameState->ShowBorders,
-                  SetUInt32Interaction(DID, (u32 *)&GameState->ShowBorders, !GameState->ShowBorders));
-    EndRow(&Layout);
+
+    ui_item_id AID = {};
+    AID.Value = 6;
+    AID.ItemOwner = 21;
+    AID.ItemIndex = 66;
+    
+    SimpleScrollBar(&Layout, &GameState->TestCursor, V2(200.0f, 50.0f),
+                    AdvanceArrayCursorInteraction(AID, &GameState->TestCursor, Asset_Count));
     
     switch(GameState->EditMode)
     {
@@ -997,7 +991,18 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             ActionButton(&Layout, "Assets", SetUInt32Interaction(DID, (u32 *)&GameState->EditMode, EditMode_Assets));
             EndRow(&Layout);
 
-            TerrainEditMode(RenderGroup, GameState, TranState, Input, &MouseChunkP, TileSideInMeters);
+            BeginRow(&Layout);
+            BooleanButton(&Layout, "RenderGround", GameState->RenderGround,
+                          SetUInt32Interaction(CID, (u32 *)&GameState->RenderGround, !GameState->RenderGround));
+            BooleanButton(&Layout, "RenderDecorations", GameState->RenderDecorations,
+                          SetUInt32Interaction(CID, (u32 *)&GameState->RenderDecorations, !GameState->RenderDecorations));
+            BooleanButton(&Layout, "AllowEdit", GameState->AllowEdit,
+                          SetUInt32Interaction(DID, (u32 *)&GameState->AllowEdit, !GameState->AllowEdit));
+            BooleanButton(&Layout, "ShowBorders", GameState->ShowBorders,
+                          SetUInt32Interaction(DID, (u32 *)&GameState->ShowBorders, !GameState->ShowBorders));
+            EndRow(&Layout);
+
+            TerrainEditMode(RenderGroup, GameState, TranState, Input, &MouseChunkP, TileSideInMeters, &Layout);
             ShowTileCursor(GameState, RenderGroup, Transform, MouseChunkP, TileSideInMeters, D);
         } break;
 
@@ -1007,6 +1012,17 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             ActionButton(&Layout, "Collision", SetUInt32Interaction(CID, (u32 *)&GameState->EditMode, EditMode_Collision));
             ActionButton(&Layout, "Terrain", SetUInt32Interaction(TID, (u32 *)&GameState->EditMode, EditMode_Terrain));
             ActionButton(&Layout, "Assets", SetUInt32Interaction(DID, (u32 *)&GameState->EditMode, EditMode_Assets));
+            EndRow(&Layout);
+
+            BeginRow(&Layout);
+            BooleanButton(&Layout, "RenderGround", GameState->RenderGround,
+                          SetUInt32Interaction(CID, (u32 *)&GameState->RenderGround, !GameState->RenderGround));
+            BooleanButton(&Layout, "RenderDecorations", GameState->RenderDecorations,
+                          SetUInt32Interaction(CID, (u32 *)&GameState->RenderDecorations, !GameState->RenderDecorations));
+            BooleanButton(&Layout, "AllowEdit", GameState->AllowEdit,
+                          SetUInt32Interaction(DID, (u32 *)&GameState->AllowEdit, !GameState->AllowEdit));
+            BooleanButton(&Layout, "ShowBorders", GameState->ShowBorders,
+                          SetUInt32Interaction(DID, (u32 *)&GameState->ShowBorders, !GameState->ShowBorders));
             EndRow(&Layout);
 
             DecorationEditMode(RenderGroup, GameState, TranState, Input, &MouseChunkP,
@@ -1020,6 +1036,17 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             ActionButton(&Layout, "Terrain", SetUInt32Interaction(TID, (u32 *)&GameState->EditMode, EditMode_Terrain));
             ActionButton(&Layout, "Decoration", SetUInt32Interaction(DID, (u32 *)&GameState->EditMode, EditMode_Decoration));
             ActionButton(&Layout, "Assets", SetUInt32Interaction(DID, (u32 *)&GameState->EditMode, EditMode_Assets));
+            EndRow(&Layout);
+
+            BeginRow(&Layout);
+            BooleanButton(&Layout, "RenderGround", GameState->RenderGround,
+                          SetUInt32Interaction(CID, (u32 *)&GameState->RenderGround, !GameState->RenderGround));
+            BooleanButton(&Layout, "RenderDecorations", GameState->RenderDecorations,
+                          SetUInt32Interaction(CID, (u32 *)&GameState->RenderDecorations, !GameState->RenderDecorations));
+            BooleanButton(&Layout, "AllowEdit", GameState->AllowEdit,
+                          SetUInt32Interaction(DID, (u32 *)&GameState->AllowEdit, !GameState->AllowEdit));
+            BooleanButton(&Layout, "ShowBorders", GameState->ShowBorders,
+                          SetUInt32Interaction(DID, (u32 *)&GameState->ShowBorders, !GameState->ShowBorders));
             EndRow(&Layout);
 
             // NOTE(paul): Render collisions
