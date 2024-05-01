@@ -7,6 +7,7 @@
    ======================================================================== */
 
 #include "editor_platform.h"
+#include "editor_shared.h"
 
 #define DLIST_INSERT(Sentinel, Element)         \
     (Element)->Next = (Sentinel)->Next;         \
@@ -216,6 +217,27 @@ PushString(memory_arena *Arena, char *Source)
 
     return(Dest);
 }
+inline wchar_t *
+PushStringW(memory_arena *Arena, wchar_t *Source)
+{
+    u32 Size = StringSizeW(Source);
+    if(Size == 0)
+    {
+        Size = 1;
+    }
+    
+    wchar_t *Dest = (wchar_t *)PushSize_(Arena, Size + 1, NoClear());
+    for(u32 CharIndex = 0;
+        CharIndex < Size;
+        ++CharIndex)
+    {
+        Dest[CharIndex] = Source[CharIndex];
+    }
+
+    Dest[Size] = 0;
+    
+    return(Dest);
+}
 
 inline char *
 PushAndNullTerminate(memory_arena *Arena, u32 Length, char *Source)
@@ -288,82 +310,19 @@ Copy(memory_index Size, void *SourceInit, void *DestInit)
 
 //#include "d:/paul/Spellweaver_Saga_game/AssetFileBuilder/code/file_formats.h"
 #include "editor_file_formats.h"
-#include "editor_intrinsics.h"
-#include "editor_math.h"
 #include "editor_render_group.h"
 #include "editor_random.h"
 #include "editor_asset.h"
 #include "editor_ui.h"
 #include "editor_world.h"
-
-struct ground_buffer
-{
-    // NOTE(casey): An invalid P tells us that this ground_buffer has not been filled 
-    world_position P; // NOTE(casey): This is the center of the bitmap
-    loaded_bitmap Bitmap;
-};
-
-struct tileset_stats
-{
-    u8 Biome;
-    u8 Type;
-    u8 Height;
-    u8 CliffHillType;
-    u8 MainSurface;
-    u8 MergeSurface;
-};
-
-struct assetset_stats
-{
-    u8 Biome;
-    u8 Type;
-};
-
-struct world_tile
-{
-    u32 TileID;
-    bitmap_id TileBitmapID;
-};
-
-struct decoration
-{
-    world_position P;
-
-    u32 AssetTypeID;
-    b32 IsSpriteSheet;
-    u32 DecorationIndex;
-
-    r32 Height;
-    u32 TagCount;
-    ssa_tag Tags[64];
-
-    union
-    {
-        bitmap_id BitmapID;
-        spritesheet_id SpriteSheetID;
-    };
-};
-
-struct animated_decoration
-{
-    u32 SpriteIndex;
-    ssa_spritesheet *Info;
-    loaded_spritesheet *SpriteSheet;
-};
-
-struct collision
-{
-    world_position P;
-    rectangle2 Rect;
-};
-
-enum asset_add_mode
-{
-    AssetMode_AddBitmap,
-};
+#include "editor_terrain_mode.h"
+#include "editor_decoration_mode.h"
+#include "editor_collision_mode.h"
+#include "editor_assets_mode.h"
 
 enum edit_mode
 {
+    EditMode_None,
     EditMode_Terrain,
     EditMode_Decoration,
     EditMode_Collision,
@@ -373,32 +332,19 @@ enum edit_mode
 
 static const char *EditModeText[] =
 {
+    "None",
     "Terrain",
     "Decoration",
     "Collision",
     "Assets",
 };
 
-struct edit_mode_asset
-{
-};
-
-struct edit_mode_terrain
-{
-};
-
-struct edit_mode_decoration
-{
-};
-
-struct edit_mode_collision
-{
-};
-
 struct editor_state
 {
     bool32 IsInitialized;
     memory_arena ModeArena;
+
+    world *World;
     
     edit_mode EditMode;
     union
@@ -408,47 +354,6 @@ struct editor_state
         edit_mode_decoration *DecorationMode;
         edit_mode_collision *CollisionMode;
     };
-
-#if 0
-    memory_arena WorldArena;
-    world *World;
-
-    real32 TypicalFloorHeight;
-
-    world_position CameraP;
-    world_position CameraBoundsMin;
-    world_position CameraBoundsMax;
-    
-    tileset_stats TileSetStats;
-    array_cursor TileMenuBarCursor;
-
-    assetset_stats AssetSetStats;
-    array_cursor AssetMenuBarCursor;
-
-    asset_add_mode AssetAddMode;
-    array_cursor TestCursor;
-
-    b32 RenderGround;
-    b32 RenderDecorations;
-    b32 ShowBorders;
-
-    b32 AllowEdit;
-    u32 EditMode;
-    
-    b32 WorldTilesInitialized;
-    u32 WorldTileCount;
-    u32 *TileIDs;
-    world_tile *WorldTiles;
-    decoration *Decorations;
-    collision *Collisions;
-
-    // NOTE(paul): Only for drawing
-    animated_decoration *AnimatedDecorations;
-    
-    tileset_id GlobalTilesetID;
-
-    r32 Time;
-#endif
 };
 
 struct task_with_memory
@@ -458,6 +363,13 @@ struct task_with_memory
     memory_arena Arena;
 
     temporary_memory MemoryFlush;
+};
+
+struct ground_buffer
+{
+    // NOTE(casey): An invalid P tells us that this ground_buffer has not been filled 
+    world_position P; // NOTE(casey): This is the center of the bitmap
+    loaded_bitmap Bitmap;
 };
 
 struct transient_state

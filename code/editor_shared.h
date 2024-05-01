@@ -9,6 +9,32 @@
 #include "editor_intrinsics.h"
 #include "editor_math.h"
 
+inline u32
+StringSizeW(wchar_t *String)
+{
+    u32 Result = 0;
+    
+    wchar_t *At = String;
+    while(*At)
+    {
+        ++At;
+    }
+
+    Result = (u32)(At - String)*sizeof(wchar_t);
+    return(Result);
+}
+
+inline int
+StringLength(char *String)
+{
+    int Count = 0;
+    while(*String++)
+    {
+        ++Count;
+    }
+    return(Count);
+}
+
 inline b32
 IsEndOfLine(char C)
 {

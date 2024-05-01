@@ -47,6 +47,7 @@ extern "C" {
 
 #if COMPILER_MSVC
 #include <intrin.h>
+#include <stdio.h>
 #endif
     
 //
@@ -459,18 +460,34 @@ typedef enum platform_file_type
 {
     PlatformFileType_AssetFile,
     PlatformFileType_SavedGameFile,
+    PlatformFileType_BMP,
 
     PlatformFileType_Count,
 } platform_file_type;
 
-#define PLATFORM_GET_ALL_FILES_OF_TYPE_BEGIN(name) platform_file_group name(platform_file_type Type)
-typedef PLATFORM_GET_ALL_FILES_OF_TYPE_BEGIN(platform_get_all_files_of_type_begin);
+#define PLATFORM_GET_ALL_FILES_OF_TYPE_BEGIN_W(name) platform_file_group name(platform_file_type Type, wchar_t *Path)
+typedef PLATFORM_GET_ALL_FILES_OF_TYPE_BEGIN_W(platform_get_all_files_of_type_begin_w);
 
-#define PLATFORM_GET_ALL_FILES_OF_TYPE_END(name) void name(platform_file_group *FileGroup)
-typedef PLATFORM_GET_ALL_FILES_OF_TYPE_END(platform_get_all_files_of_type_end);
+#define PLATFORM_GET_ALL_FILES_OF_TYPE_BEGIN_A(name) platform_file_group name(platform_file_type Type, char *Path)
+typedef PLATFORM_GET_ALL_FILES_OF_TYPE_BEGIN_A(platform_get_all_files_of_type_begin_a);
 
-#define PLATFORM_OPEN_NEXT_FILE(name) platform_file_handle name(platform_file_group *FileGroup)
-typedef PLATFORM_OPEN_NEXT_FILE(platform_open_next_file);
+#define PLATFORM_GET_ALL_FILES_OF_TYPE_END_W(name) void name(platform_file_group *FileGroup)
+typedef PLATFORM_GET_ALL_FILES_OF_TYPE_END_W(platform_get_all_files_of_type_end_w);
+
+#define PLATFORM_GET_ALL_FILES_OF_TYPE_END_A(name) void name(platform_file_group *FileGroup)
+typedef PLATFORM_GET_ALL_FILES_OF_TYPE_END_A(platform_get_all_files_of_type_end_a);
+
+#define PLATFORM_OPEN_NEXT_FILE_W(name) platform_file_handle name(platform_file_group *FileGroup)
+typedef PLATFORM_OPEN_NEXT_FILE_W(platform_open_next_file_w);
+
+#define PLATFORM_OPEN_NEXT_FILE_A(name) platform_file_handle name(platform_file_group *FileGroup)
+typedef PLATFORM_OPEN_NEXT_FILE_A(platform_open_next_file_a);
+
+#define PLATFORM_GET_NEXT_FILE_NAME_W(name) wchar_t *name(platform_file_group *FileGroup)
+typedef PLATFORM_GET_NEXT_FILE_NAME_W(platform_get_next_file_name_w);
+
+#define PLATFORM_GET_NEXT_FILE_NAME_A(name) char *name(platform_file_group *FileGroup)
+typedef PLATFORM_GET_NEXT_FILE_NAME_A(platform_get_next_file_name_a);
 
 #define PLATFORM_READ_DATA_FROM_FILE(name) void name(platform_file_handle *Source, u64 Offset, u64 Size, void *Dest)
 typedef PLATFORM_READ_DATA_FROM_FILE(platform_read_data_from_file);
@@ -507,9 +524,14 @@ typedef struct platform_api
     platform_allocate_texture *AllocateTexture;
     platform_deallocate_texture *DeallocateTexture;
 
-    platform_get_all_files_of_type_begin *GetAllFilesOfTypeBegin;
-    platform_get_all_files_of_type_end *GetAllFilesOfTypeEnd;
-    platform_open_next_file *OpenNextFile;
+    platform_get_all_files_of_type_begin_w *GetAllFilesOfTypeBeginW;
+    platform_get_all_files_of_type_begin_a *GetAllFilesOfTypeBeginA;
+    platform_get_all_files_of_type_end_w *GetAllFilesOfTypeEndW;
+    platform_get_all_files_of_type_end_a *GetAllFilesOfTypeEndA;
+    platform_open_next_file_w *OpenNextFileW;
+    platform_open_next_file_a *OpenNextFileA;
+    platform_get_next_file_name_w *GetNextFileNameW;
+    platform_get_next_file_name_a *GetNextFileNameA;
     platform_read_data_from_file *ReadDataFromFile;
     platform_file_error *FileError;
 

@@ -47,7 +47,6 @@ enum text_op
 
 struct ui_item_id
 {
-    u32 Value;
     u32 ItemOwner;
     u32 ItemIndex;
 };
@@ -148,26 +147,8 @@ struct layout_element
     rectangle2 Bounds;
 };
 
-enum ui_item_type
-{
-    UIItemType_None,
-};
-
-struct ui_item
-{
-    ui_item_id ID;
-    ui_item_type ItemType;
-};
-
-struct ui_menu
-{
-    layout MenuLayout;
-    ui_item MenuItems[32];
-};
-
 struct ui_context
 {
-    b32 Initialized;
     memory_arena ContextArena;
     
     u32 DefaultClipRect;
@@ -193,12 +174,11 @@ struct ui_context
     ui_interaction Interaction;
     ui_interaction HotInteraction;
     ui_interaction NextHotInteraction;
-    ui_menu ContextMenues[32];
     
     layout MouseTextLayout;
-    ui_view *ViewHash[64];
+    ui_view *ViewHash[1024];
 
-    v2 WindowP;
+    u32 UIItemCount;
 };
 
 #define EDITOR_UI_H

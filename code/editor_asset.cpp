@@ -888,7 +888,7 @@ AllocateGameAssets(memory_arena *Arena, memory_index Size, transient_state *Tran
     Assets->AssetCount = 1;
 
     {    
-        platform_file_group FileGroup = Platform.GetAllFilesOfTypeBegin(PlatformFileType_AssetFile);
+        platform_file_group FileGroup = Platform.GetAllFilesOfTypeBeginW(PlatformFileType_AssetFile, 0);
         Assets->FileCount = FileGroup.FileCount;
         Assets->Files = PushArray(Arena, Assets->FileCount, asset_file);
         for(u32 FileIndex = 0;
@@ -900,7 +900,7 @@ AllocateGameAssets(memory_arena *Arena, memory_index Size, transient_state *Tran
             File->TagBase = Assets->TagCount;
             
             ZeroStruct(File->Header);
-            File->Handle = Platform.OpenNextFile(&FileGroup);
+            File->Handle = Platform.OpenNextFileW(&FileGroup);
             Platform.ReadDataFromFile(&File->Handle, 0, sizeof(File->Header), &File->Header);
 
             u32 AssetTypeArraySize = File->Header.AssetTypeCount*sizeof(ssa_asset_type);
@@ -933,7 +933,7 @@ AllocateGameAssets(memory_arena *Arena, memory_index Size, transient_state *Tran
             }
         }
 
-        Platform.GetAllFilesOfTypeEnd(&FileGroup);
+        Platform.GetAllFilesOfTypeEndW(&FileGroup);
     }        
 
     // NOTE(casey): Allocate all metadata space

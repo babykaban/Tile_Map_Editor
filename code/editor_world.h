@@ -37,12 +37,21 @@ struct world_chunk
 
 struct world
 {
+    memory_arena Arena;
+
     v2 ChunkDimInMeters;
 
-    // TODO(casey): WorldChunkHash should probably switch to pointers IF
-    // tile entity  blocks countinue to be stored en masse directly in the tile chunk!
-    // NOTE(casey): At the moment, this must be a power of two!
+    world_position CameraP;
+    world_position CameraBoundsMin;
+    world_position CameraBoundsMax;
 
+    b32 RenderGround;
+    b32 RenderDecorations;
+    b32 ShowBorders;
+
+    b32 AllowEdit;
+
+    // NOTE(casey): At the moment, this must be a power of two!
     world_chunk ChunkHash[4096];
 };
 

@@ -245,3 +245,265 @@ TerrainEditMode(render_group *RenderGroup, game_state *GameState,
     }
 }
 #endif
+
+internal void
+UpdateAndRenderTerrainMode()
+{
+    
+#if 0    
+    if(Input->ExecutableReloaded)
+    {
+        ResetGroundBuffers(TranState, 0);
+    }
+
+    world *World = EditorState->World;
+
+    game_controller_input *Controller = GetController(Input, 0);
+    if(Controller->IsAnalog)
+    {
+        // NOTE(casey): Use analog movement tuning
+    }
+    else
+    {
+        v2 NewP = {};
+        // NOTE(casey): Use digital movement tuning
+        if(Controller->MoveUp.EndedDown)
+        {
+            NewP.y += 4.0f;
+        }
+        if(Controller->MoveDown.EndedDown)
+        {
+            NewP.y -= 4.0f;
+        }
+        if(Controller->MoveLeft.EndedDown)
+        {
+            NewP.x -= 4.0f;
+        }
+        if(Controller->MoveRight.EndedDown)
+        {
+            NewP.x += 4.0f;
+        }
+        
+        EditorState->CameraP = MapIntoChunkSpace(World, EditorState->CameraP, NewP);
+
+        if(Controller->ChangeEditMode.EndedDown)
+        {
+            EditorState->EditMode += 1;
+            if(EditorState->EditMode >= EditMode_Count)
+            {
+                EditorState->EditMode = 0;
+            }
+        }
+
+        if(WasPressed(Controller->RightShoulder))
+        {
+            EditorState->AllowEdit = !EditorState->AllowEdit;
+        }
+        
+        if(EditorState->EditMode == EditMode_Terrain)
+        {
+            if(Controller->Biome.EndedDown)
+            {
+                EditorState->TileSetStats.Biome += 1;
+                if(EditorState->TileSetStats.Biome >= BiomeType_Count)
+                {
+                    EditorState->TileSetStats.Biome = 0;
+                }
+            }
+
+            if(Controller->Type.EndedDown)
+            {
+                EditorState->TileSetStats.Type += 1;
+                if(EditorState->TileSetStats.Type >= TileType_Count)
+                {
+                    EditorState->TileSetStats.Type = 0;
+                }
+            }
+
+            if(Controller->Height.EndedDown)
+            {
+                EditorState->TileSetStats.Height += 1;
+                if(EditorState->TileSetStats.Height >= Height_Count)
+                {
+                    EditorState->TileSetStats.Height = 0;
+                }
+            }
+
+            if(Controller->CliffHillType.EndedDown)
+            {
+                EditorState->TileSetStats.CliffHillType += 1;
+                if(EditorState->TileSetStats.CliffHillType >= CliffHillType_Count)
+                {
+                    EditorState->TileSetStats.CliffHillType = 0;
+                }
+            }
+
+            if(Controller->MainSurface.EndedDown)
+            {
+                EditorState->TileSetStats.MainSurface += 1;
+                if(EditorState->TileSetStats.MainSurface >= TileSurface_Count)
+                {
+                    EditorState->TileSetStats.MainSurface = 0;
+                }
+            }
+            if(Controller->MergeSurface.EndedDown)
+            {
+                EditorState->TileSetStats.MergeSurface += 1;
+                if(EditorState->TileSetStats.MergeSurface >= TileSurface_Count)
+                {
+                    EditorState->TileSetStats.MergeSurface = 0;
+                }
+            }
+        }
+        else if(EditorState->EditMode == EditMode_Decoration)
+        {
+            if(Controller->Biome.EndedDown)
+            {
+                EditorState->AssetSetStats.Biome += 1;
+                if(EditorState->AssetSetStats.Biome >= BiomeType_Count)
+                {
+                    EditorState->AssetSetStats.Biome = 0;
+                }
+            }
+
+            if(Controller->Type.EndedDown)
+            {
+                EditorState->AssetSetStats.Type += 1;
+                if(EditorState->AssetSetStats.Type >= Asset_Count)
+                {
+                    EditorState->AssetSetStats.Type = 0;
+                }
+            }
+        }
+
+        if(Controller->ActionUp.EndedDown)
+        {
+//            ChangeChoosenAttributeValueFor(EditorState, true);
+        }
+        if(Controller->ActionDown.EndedDown)
+        {
+//            ChangeChoosenAttributeValueFor(EditorState, false);
+        }
+    }
+
+    // TODO(paul): Initialize own render group for each of the edit modes
+    render_group *RenderGroup = &RenderGroup_;
+    real32 WidthOfMonitor = 0.635f; // NOTE(casey): Horizontal measurement of monitor in meters
+    real32 MetersToPixels = (real32)DrawBuffer.Width*WidthOfMonitor;// / 2.0f;
+    real32 FocalLength = 0.5f;
+    real32 DistanceAboveTarget = 10.0f;
+    Perspective(RenderGroup, DrawBuffer.Width, DrawBuffer.Height, MetersToPixels, FocalLength, DistanceAboveTarget);
+
+    // NOTE(paul): Load GlobalTileset
+    GlobalTileset = PushTileset(RenderGroup, EditorState->GlobalTilesetID, true);
+    GlobalTilesetInfo = GetTilesetInfo(TranState->Assets, EditorState->GlobalTilesetID);
+    if(!EditorState->WorldTilesInitialized)
+    {
+        // TODO(paul): Split this into three functions
+        InitializeWorldTilesAndDecorations(RenderGroup, TranState->Assets, EditorState,
+                                           "worldtiles.bin", "decorations.bin", "collisions.bin");
+    }
+
+    // TODO(paul): All of this below 
+//    Clear(RenderGroup, V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+//    Clear(RenderGroup, V4(0.25f, 0.25f, 0.25f, 0.0f));
+
+    v2 ScreenCenter = {0.5f*(real32)DrawBuffer.Width,
+                       0.5f*(real32)DrawBuffer.Height};
+
+    rectangle2 ScreenBounds = GetCameraRectangleAtTarget(RenderGroup);
+    rectangle2 CameraBoundsInMeters = RectMinMax(ScreenBounds.Min, ScreenBounds.Max);
+
+    v2 SimBoundsExpansion = {15.0f, 14.0f};
+    rectangle2 SimBounds = AddRadiusTo(CameraBoundsInMeters, SimBoundsExpansion);
+
+    object_transform Transform = DefaultUprightTransform();    
+
+    r32 MouseX = (r32)Input->MouseX;
+    r32 MouseY = (r32)Input->MouseY;
+    v2 P = Unproject(RenderGroup, Transform, V2(MouseX, MouseY)).xy;
+
+    world_position MouseChunkP = MapIntoChunkSpace(World, EditorState->CameraP, P);
+    tile_position MouseTileP = TilePositionFromChunkPosition(&MouseChunkP);
+
+    tile_position Tp = TilePositionFromChunkPosition(&MouseChunkP);
+    tile_position TCp = TilePositionFromChunkPosition(&EditorState->CameraP);
+
+    v2 dTile =
+        {
+            (real32)TCp.TileX - (real32)Tp.TileX,
+            (real32)TCp.TileY - (real32)Tp.TileY
+        };
+
+    v2 D = dTile*TileSideInMeters - V2(0.5f, 0.5f);
+
+    char TextBuffer[256];
+    _snprintf_s(TextBuffer, sizeof(TextBuffer),
+                "Edit Mode: %s",
+                EditModeText[EditorState->EditMode]);
+    DEBUGTextLine(&TextRenderGroup, TextBuffer);
+    
+    _snprintf_s(TextBuffer, sizeof(TextBuffer),
+                "CameraP in Chunks: X: %d Y: %d, OX: %f, OY: %f",
+                EditorState->CameraP.ChunkX, EditorState->CameraP.ChunkY,
+                EditorState->CameraP.Offset_.x, EditorState->CameraP.Offset_.y);
+    DEBUGTextLine(&TextRenderGroup, TextBuffer);
+
+    _snprintf_s(TextBuffer, sizeof(TextBuffer),
+                "MouseP in Chunks: X: %d Y: %d, OX: %f, OY: %f",
+                MouseChunkP.ChunkX, MouseChunkP.ChunkY,
+                MouseChunkP.Offset_.x, MouseChunkP.Offset_.y);
+    DEBUGTextLine(&TextRenderGroup, TextBuffer);
+
+    _snprintf_s(TextBuffer, sizeof(TextBuffer),
+                "MouseP in Tiles: X: %d Y: %d",
+                MouseTileP.TileX, MouseTileP.TileY);
+    DEBUGTextLine(&TextRenderGroup, TextBuffer);
+
+    if(EditorState->RenderGround)
+    {
+        // NOTE(casey): Ground chunk updating
+        UpdateGroundChunks(EditorState, TranState, World, CameraBoundsInMeters, TileSideInMeters);
+
+        // NOTE(casey): Ground chunk rendering
+        RenderGroundChunks(EditorState, TranState, World, RenderGroup, Transform);
+    }
+
+    Transform.SortBias = 0.0f;
+
+    if(EditorState->RenderDecorations)
+    {
+        // NOTE(paul): Render decorations
+        RenderDecorations(EditorState, SimBounds, RenderGroup, Transform);
+    }
+
+    BeginRow(&Layout);
+    ActionButton(&Layout, "Collision", SetUInt32Interaction(CID, (u32 *)&EditorState->EditMode, EditMode_Collision));
+    ActionButton(&Layout, "Decoration", SetUInt32Interaction(DID, (u32 *)&EditorState->EditMode, EditMode_Decoration));
+    ActionButton(&Layout, "Assets", SetUInt32Interaction(DID, (u32 *)&EditorState->EditMode, EditMode_Assets));
+    EndRow(&Layout);
+
+    BeginRow(&Layout);
+    BooleanButton(&Layout, "RenderGround", EditorState->RenderGround,
+                  SetUInt32Interaction(CID, (u32 *)&EditorState->RenderGround, !EditorState->RenderGround));
+    BooleanButton(&Layout, "RenderDecorations", EditorState->RenderDecorations,
+                  SetUInt32Interaction(CID, (u32 *)&EditorState->RenderDecorations, !EditorState->RenderDecorations));
+    BooleanButton(&Layout, "AllowEdit", EditorState->AllowEdit,
+                  SetUInt32Interaction(DID, (u32 *)&EditorState->AllowEdit, !EditorState->AllowEdit));
+    BooleanButton(&Layout, "ShowBorders", EditorState->ShowBorders,
+                  SetUInt32Interaction(DID, (u32 *)&EditorState->ShowBorders, !EditorState->ShowBorders));
+    EndRow(&Layout);
+
+    TerrainEditMode(RenderGroup, EditorState, TranState, Input, &MouseChunkP, TileSideInMeters, &Layout);
+    ShowTileCursor(EditorState, RenderGroup, Transform, MouseChunkP, TileSideInMeters, D);
+
+    if(EditorState->ShowBorders)
+    {
+        PushRectOutline(RenderGroup, Transform, V3(0, 0, 0), GetDim(ScreenBounds), V4(1.0f, 1.0f, 0.0f, 1));
+        PushRectOutline(RenderGroup, Transform, V3(0, 0, 0), GetDim(SimBounds), V4(1.0f, 0.0f, 1.0f, 1));
+    }
+
+    // NOTE(paul): Advance Time
+    EditorState->Time += Input->dtForFrame;
+#endif
+}

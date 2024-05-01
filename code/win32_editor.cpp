@@ -30,7 +30,6 @@
 #include "editor_shared.h"
 
 #include <windows.h>
-#include <stdio.h>
 #include <malloc.h>
 #include <gl/gl.h>
 
@@ -145,17 +144,6 @@ Win32GetEXEFileName(win32_state *State)
             State->OnePastLastEXEFileNameSlash = Scan + 1;
         }
     }
-}
-
-internal int
-StringLength(char *String)
-{
-    int Count = 0;
-    while(*String++)
-    {
-        ++Count;
-    }
-    return(Count);
 }
 
 internal void
@@ -991,36 +979,72 @@ struct win32_platform_file_handle
     HANDLE Win32Handle;
 };
 
-struct win32_platform_file_group
+struct win32_platform_file_group_w
 {
     HANDLE FindHandle;
     WIN32_FIND_DATAW FindData;    
 };
 
-internal PLATFORM_GET_ALL_FILES_OF_TYPE_BEGIN(Win32GetAllFilesOfTypeBegin)
+struct win32_platform_file_group_a
+{
+    HANDLE FindHandle;
+    WIN32_FIND_DATA FindData;    
+};
+
+internal PLATFORM_GET_ALL_FILES_OF_TYPE_BEGIN_W(Win32GetAllFilesOfTypeBeginW)
 {
     platform_file_group Result = {};
-    win32_platform_file_group *Win32FileGroup = (win32_platform_file_group *)VirtualAlloc(
-        0, sizeof(win32_platform_file_group),
+    win32_platform_file_group_w *Win32FileGroup = (win32_platform_file_group_w *)VirtualAlloc(
+        0, sizeof(win32_platform_file_group_w),
         MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
     Result.Platform = Win32FileGroup;
 
-    wchar_t *WildCard = L"*.*";
-    switch(Type)
+    wchar_t WildCard[256];
+    if(Path)
     {
-        case PlatformFileType_AssetFile:
+        switch(Type)
         {
-            WildCard = L"*.ssa";
-        } break;
+            case PlatformFileType_AssetFile:
+            {
+                swprintf_s(WildCard, L"%s/%s", Path, L"*.ssa");
+            } break;
 
-        case PlatformFileType_SavedGameFile:
-        {
-            WildCard = L"*.hhs";
-        } break;
+            case PlatformFileType_SavedGameFile:
+            {
+                swprintf_s(WildCard, L"%s/%s", Path, L"*.hhs");
+            } break;
 
-        InvalidDefaultCase;
+            case PlatformFileType_BMP:
+            {
+                swprintf_s(WildCard, L"%s/%s", Path, L"*.bmp");
+            } break;
+
+            InvalidDefaultCase;
+        }
     }
-    
+    else
+    {
+        switch(Type)
+        {
+            case PlatformFileType_AssetFile:
+            {
+                swprintf_s(WildCard, L"%s", L"*.ssa");
+            } break;
+
+            case PlatformFileType_SavedGameFile:
+            {
+                swprintf_s(WildCard, L"%s", L"*.hhs");
+            } break;
+
+            case PlatformFileType_BMP:
+            {
+                swprintf_s(WildCard, L"%s", L"*.bmp");
+            } break;
+
+            InvalidDefaultCase;
+        }
+    }    
+
     Result.FileCount = 0;
 
     WIN32_FIND_DATAW FindData;
@@ -1042,9 +1066,84 @@ internal PLATFORM_GET_ALL_FILES_OF_TYPE_BEGIN(Win32GetAllFilesOfTypeBegin)
     return(Result);
 }
 
-internal PLATFORM_GET_ALL_FILES_OF_TYPE_END(Win32GetAllFilesOfTypeEnd)
+internal PLATFORM_GET_ALL_FILES_OF_TYPE_BEGIN_A(Win32GetAllFilesOfTypeBeginA)
 {
-    win32_platform_file_group *Win32FileGroup = (win32_platform_file_group *)FileGroup->Platform;
+    platform_file_group Result = {};
+    win32_platform_file_group_a *Win32FileGroup = (win32_platform_file_group_a *)VirtualAlloc(
+        0, sizeof(win32_platform_file_group_a),
+        MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+    Result.Platform = Win32FileGroup;
+
+    char WildCard[256];
+    if(Path)
+    {
+        switch(Type)
+        {
+            case PlatformFileType_AssetFile:
+            {
+                sprintf_s(WildCard, "%s/%s", Path, "*.ssa");
+            } break;
+
+            case PlatformFileType_SavedGameFile:
+            {
+                sprintf_s(WildCard, "%s/%s", Path, "*.hhs");
+            } break;
+
+            case PlatformFileType_BMP:
+            {
+                sprintf_s(WildCard, "%s/%s", Path, "*.bmp");
+            } break;
+
+            InvalidDefaultCase;
+        }
+    }
+    else
+    {
+        switch(Type)
+        {
+            case PlatformFileType_AssetFile:
+            {
+                sprintf_s(WildCard, "%s", "*.ssa");
+            } break;
+
+            case PlatformFileType_SavedGameFile:
+            {
+                sprintf_s(WildCard, "%s", "*.hhs");
+            } break;
+
+            case PlatformFileType_BMP:
+            {
+                sprintf_s(WildCard, "%s", "*.bmp");
+            } break;
+
+            InvalidDefaultCase;
+        }
+    }    
+
+    Result.FileCount = 0;
+
+    WIN32_FIND_DATA FindData;
+    HANDLE FindHandle = FindFirstFileA(WildCard, &FindData);
+    while(FindHandle != INVALID_HANDLE_VALUE)
+    {
+        ++Result.FileCount;
+
+        if(!FindNextFileA(FindHandle, &FindData))
+        {
+            break;
+        }
+    }
+
+    FindClose(FindHandle);
+
+    Win32FileGroup->FindHandle = FindFirstFileA(WildCard, &Win32FileGroup->FindData);
+    
+    return(Result);
+}
+
+internal PLATFORM_GET_ALL_FILES_OF_TYPE_END_W(Win32GetAllFilesOfTypeEndW)
+{
+    win32_platform_file_group_w *Win32FileGroup = (win32_platform_file_group_w *)FileGroup->Platform;
     if(Win32FileGroup)
     {
         FindClose(Win32FileGroup->FindHandle);
@@ -1053,9 +1152,20 @@ internal PLATFORM_GET_ALL_FILES_OF_TYPE_END(Win32GetAllFilesOfTypeEnd)
     }
 }
 
-internal PLATFORM_OPEN_NEXT_FILE(Win32OpenNextFile)
+internal PLATFORM_GET_ALL_FILES_OF_TYPE_END_A(Win32GetAllFilesOfTypeEndA)
 {
-    win32_platform_file_group *Win32FileGroup = (win32_platform_file_group *)FileGroup->Platform;
+    win32_platform_file_group_a *Win32FileGroup = (win32_platform_file_group_a *)FileGroup->Platform;
+    if(Win32FileGroup)
+    {
+        FindClose(Win32FileGroup->FindHandle);
+
+        VirtualFree(Win32FileGroup, 0, MEM_RELEASE);
+    }
+}
+
+internal PLATFORM_OPEN_NEXT_FILE_W(Win32OpenNextFileW)
+{
+    win32_platform_file_group_w *Win32FileGroup = (win32_platform_file_group_w *)FileGroup->Platform;
     platform_file_handle Result = {};
 
     if(Win32FileGroup->FindHandle != INVALID_HANDLE_VALUE)
@@ -1074,6 +1184,91 @@ internal PLATFORM_OPEN_NEXT_FILE(Win32OpenNextFile)
         }
 
         if(!FindNextFileW(Win32FileGroup->FindHandle, &Win32FileGroup->FindData))
+        {
+            FindClose(Win32FileGroup->FindHandle);
+            Win32FileGroup->FindHandle = INVALID_HANDLE_VALUE;
+        }
+    }
+
+    return(Result);
+}
+
+internal PLATFORM_OPEN_NEXT_FILE_A(Win32OpenNextFileA)
+{
+    win32_platform_file_group_a *Win32FileGroup = (win32_platform_file_group_a *)FileGroup->Platform;
+    platform_file_handle Result = {};
+
+    if(Win32FileGroup->FindHandle != INVALID_HANDLE_VALUE)
+    {
+        // TODO(casey): If we want, someday, make an actual arena used by Win32
+        win32_platform_file_handle *Win32Handle = (win32_platform_file_handle *)VirtualAlloc(
+            0, sizeof(win32_platform_file_handle),
+            MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+        Result.Platform = Win32Handle;
+        
+        if(Win32Handle)
+        {
+            char *FileName = Win32FileGroup->FindData.cFileName;
+            Win32Handle->Win32Handle = CreateFileA(FileName, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+            Result.NoErrors = (Win32Handle->Win32Handle != INVALID_HANDLE_VALUE);
+        }
+
+        if(!FindNextFileA(Win32FileGroup->FindHandle, &Win32FileGroup->FindData))
+        {
+            FindClose(Win32FileGroup->FindHandle);
+            Win32FileGroup->FindHandle = INVALID_HANDLE_VALUE;
+        }
+    }
+
+    return(Result);
+}
+
+internal PLATFORM_GET_NEXT_FILE_NAME_W(Win32GetNextFileNameW)
+{
+    win32_platform_file_group_w *Win32FileGroup = (win32_platform_file_group_w *)FileGroup->Platform;
+
+    wchar_t *Result = 0;
+    if(Win32FileGroup->FindHandle != INVALID_HANDLE_VALUE)
+    {
+        // TODO(casey): If we want, someday, make an actual arena used by Win32
+        win32_platform_file_handle *Win32Handle = (win32_platform_file_handle *)VirtualAlloc(
+            0, sizeof(win32_platform_file_handle),
+            MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+        
+        if(Win32Handle)
+        {
+            Result = Win32FileGroup->FindData.cFileName;
+        }
+
+        if(!FindNextFileW(Win32FileGroup->FindHandle, &Win32FileGroup->FindData))
+        {
+            FindClose(Win32FileGroup->FindHandle);
+            Win32FileGroup->FindHandle = INVALID_HANDLE_VALUE;
+        }
+    }
+
+    return(Result);
+}
+
+internal PLATFORM_GET_NEXT_FILE_NAME_A(Win32GetNextFileNameA)
+{
+    win32_platform_file_group_a *Win32FileGroup = (win32_platform_file_group_a *)FileGroup->Platform;
+
+    char *Result = 0;
+    if(Win32FileGroup->FindHandle != INVALID_HANDLE_VALUE)
+    {
+        // TODO(casey): If we want, someday, make an actual arena used by Win32
+        win32_platform_file_handle *Win32Handle = (win32_platform_file_handle *)VirtualAlloc(
+            0, sizeof(win32_platform_file_handle),
+            MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+        
+        if(Win32Handle)
+        {
+            // TODO(paul): Have to make a copy of string here, otherwise will lose first string
+            Result = Win32FileGroup->FindData.cFileName;
+        }
+
+        if(!FindNextFileA(Win32FileGroup->FindHandle, &Win32FileGroup->FindData))
         {
             FindClose(Win32FileGroup->FindHandle);
             Win32FileGroup->FindHandle = INVALID_HANDLE_VALUE;
@@ -1245,9 +1440,14 @@ WinMain(HINSTANCE Instance,
             GameMemory.PlatformAPI.AddEntry = Win32AddEntry;
             GameMemory.PlatformAPI.CompleteAllWork = Win32CompleteAllWork;
 
-            GameMemory.PlatformAPI.GetAllFilesOfTypeBegin = Win32GetAllFilesOfTypeBegin;
-            GameMemory.PlatformAPI.GetAllFilesOfTypeEnd = Win32GetAllFilesOfTypeEnd;
-            GameMemory.PlatformAPI.OpenNextFile = Win32OpenNextFile;
+            GameMemory.PlatformAPI.GetAllFilesOfTypeBeginW = Win32GetAllFilesOfTypeBeginW;
+            GameMemory.PlatformAPI.GetAllFilesOfTypeBeginA = Win32GetAllFilesOfTypeBeginA;
+            GameMemory.PlatformAPI.GetAllFilesOfTypeEndW = Win32GetAllFilesOfTypeEndW;
+            GameMemory.PlatformAPI.GetAllFilesOfTypeEndA = Win32GetAllFilesOfTypeEndA;
+            GameMemory.PlatformAPI.OpenNextFileW = Win32OpenNextFileW;
+            GameMemory.PlatformAPI.OpenNextFileA = Win32OpenNextFileA;
+            GameMemory.PlatformAPI.GetNextFileNameW = Win32GetNextFileNameW;
+            GameMemory.PlatformAPI.GetNextFileNameA = Win32GetNextFileNameA;
             GameMemory.PlatformAPI.ReadDataFromFile = Win32ReadDataFromFile;
             GameMemory.PlatformAPI.FileError = Win32FileError;
 

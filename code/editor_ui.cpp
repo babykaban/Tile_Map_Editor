@@ -6,6 +6,16 @@
    $Notice: (C) Copyright 2023 by Handy Paul, Inc. All Rights Reserved. $
    ======================================================================== */
 
+inline ui_item_id
+UIItemIDFromEditMode(ui_context *UIContext, u32 EditMode)
+{
+    ui_item_id Result = {};
+    Result.ItemOwner = EditMode;
+    Result.ItemIndex = UIContext->UIItemCount++;
+
+    return(Result);
+}
+
 inline ui_interaction
 SetPointerInteraction(ui_item_id ID, void **Target, void *Value)
 {
@@ -45,8 +55,7 @@ AdvanceArrayCursorInteraction(ui_item_id ID, array_cursor *Target, u32 SourceArr
 inline b32
 InteractionIDsAreEqual(ui_item_id A, ui_item_id B)
 {
-    b32 Result = ((A.Value == B.Value) &&
-                  (A.ItemOwner == B.ItemOwner) &&
+    b32 Result = ((A.ItemOwner == B.ItemOwner) &&
                   (A.ItemIndex == B.ItemIndex));
 
     return(Result);
@@ -177,7 +186,7 @@ internal ui_view *
 GetOrCreateDebugViewFor(ui_context *UIContext, ui_item_id ID)
 {
     // TODO(casey): Better hash function
-    u32 HashIndex = ((ID.Value >> 2) + (ID.ItemOwner >> 2) + (ID.ItemIndex >> 2)) % ArrayCount(UIContext->ViewHash);
+    u32 HashIndex = ((ID.ItemOwner >> 2) + (ID.ItemIndex >> 2)) % ArrayCount(UIContext->ViewHash);
     ui_view **HashSlot = UIContext->ViewHash + HashIndex;
 
     ui_view *Result = 0;
@@ -690,11 +699,6 @@ internal void
 BeginUI(ui_context *UIContext, game_render_commands *Commands, game_assets *Assets, u32 MainGenerationID,
         u32 ContextWidth, u32 ContextHeight)
 {
-    if(!UIContext->Initialized)
-    {
-        UIContext->Initialized = true;
-    }
-
     UIContext->RenderGroup = BeginRenderGroup(Assets, Commands, MainGenerationID, false);
 
     UIContext->UIFont = PushFont(&UIContext->RenderGroup, UIContext->FontID);
@@ -725,6 +729,8 @@ BeginUI(ui_context *UIContext, game_render_commands *Commands, game_assets *Asse
     UIContext->TextTransform.SortBias = 400000.0f;
 
     UIContext->DefaultClipRect = UIContext->RenderGroup.CurrentClipRectIndex;
+
+    UIContext->UIItemCount = 0;
 }
 
 internal void 
@@ -852,8 +858,8 @@ DrawWindow(ui_context *UIContext, layout *Layout, v2 *D, ui_interaction WindowIn
 }
 
 internal u32
-SimpleScrollElement(layout *Layout, array_cursor *Cursor, v2 ElementDim, ui_interaction ItemInteraction,
-                r32 Border = 0.0f)
+SimpleScrollElement(layout *Layout, array_cursor *Cursor, ui_interaction ItemInteraction,
+                    r32 Border = 0.0f)
 {
     u32 SourceArrayIndex = Cursor->Array[Cursor->ArrayPosition];
     u32 ElementsToShow = Cursor->ArrayCount;
