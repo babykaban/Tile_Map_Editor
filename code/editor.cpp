@@ -611,12 +611,12 @@ PlayAssetEditMode(editor_state *EditorState, transient_state *TranState)
         FileIndex < FileGroup.FileCount;
         ++FileIndex)
     {
-        char *FileName = Platform.GetNextFileNameA(&FileGroup);
+        char *FileName = Platform.GetNextFileNameBeginA(&FileGroup);
         Result->BMPFileNames[FileIndex] = PushString(&EditorState->ModeArena, FileName);
         ++Result->BMPFileCount;
+        Platform.GetNextFileNameEndA(&FileGroup);
     }
     Platform.GetAllFilesOfTypeEndA(&FileGroup);
-
 #if 0
     FILE *File;
     char Buffer[512];
@@ -631,7 +631,7 @@ PlayAssetEditMode(editor_state *EditorState, transient_state *TranState)
     }
     fclose(File);
 #endif
-    InitializeStringArrayCursor(&Result->TestCursor, 30, Result->BMPFileNames);
+    InitializeStringArrayCursor(&Result->TestCursor, 1, Result->BMPFileNames);
     
     EditorState->AssetMode = Result;
 }
@@ -768,7 +768,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     {
         case EditMode_Assets:
         {
-            UpdateAndRenderAssetsMode(EditorState, TranState, UIContext, RenderGroup, Input, EditorState->AssetMode);
+            UpdateAndRenderAssetsMode(EditorState, TranState, UIContext, RenderGroup, Input, EditorState->AssetMode,
+                                      RenderCommands);
         } break;
 
         case EditMode_Terrain:

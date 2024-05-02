@@ -882,6 +882,57 @@ SimpleScrollElement(layout *Layout, array_cursor *Cursor, ui_interaction ItemInt
     return(SourceArrayIndex);
 }
 
+internal rectangle2
+Grid(layout *Layout, v2 Bounds, v2 GridSize, ui_interaction ItemInteraction, v4 BackdropColor = V4(0, 0, 0, 0))
+{
+    ui_context *UIContext = Layout->UIContext;
+
+    v2 Dim = Bounds;
+    layout_element Element = BeginElementRectangle(Layout, &Dim);
+    DefaultInteraction(&Element, ItemInteraction);
+    EndElement(&Element);
+
+    v2 Center = GetCenter(Element.Bounds);
+    v2 HalfDim = 0.5f*Dim;
+
+    v2 VecRectDim = V2(GridSize.x, Dim.y);
+    v2 VecRectHalfDim = 0.5f*VecRectDim;
+
+    v2 HorRectDim = V2(Dim.x, GridSize.y);
+    v2 HorRectHalfDim = 0.5f*HorRectDim;
+
+    u32 VecRectCount = RoundReal32ToUInt32(Dim.x / VecRectDim.x);
+    u32 HorRectCount = RoundReal32ToUInt32(Dim.y / HorRectDim.y);
+
+    v2 Offset = Center - V2(HalfDim.x - VecRectHalfDim.x, 0.0f);
+    for(u32 VecRectIndex = 0;
+        VecRectIndex < VecRectCount;
+        ++VecRectIndex)
+    {
+        PushRectOutline(&UIContext->RenderGroup, UIContext->ShadowTransform, V3(Offset, 0), VecRectDim,
+                        V4(0, 1, 0, 1), 1.0f);
+        Offset += V2(VecRectDim.x, 0.0f);
+    }
+
+    Offset = Center - V2(0.0f, HalfDim.y - HorRectHalfDim.y);
+    for(u32 HorRectIndex = 0;
+        HorRectIndex < HorRectCount;
+        ++HorRectIndex)
+    {
+        PushRectOutline(&UIContext->RenderGroup, UIContext->ShadowTransform, V3(Offset, 0), HorRectDim,
+                        V4(0, 1, 0, 1), 1.0f);
+        Offset += V2(0.0f, HorRectDim.y);
+    }
+
+    if(BackdropColor.w > 0.0f)
+    {
+        PushRect(&UIContext->RenderGroup, 
+                 UIContext->BackingTransform, Element.Bounds, 0.0f, BackdropColor);
+    }
+    
+    return(Element.Bounds);
+}
+
 internal void
 EndUI(ui_context *UIContext, game_input *Input)
 {

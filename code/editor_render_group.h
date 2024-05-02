@@ -172,6 +172,7 @@ enum render_group_entry_type
     RenderGroupEntryType_render_entry_bitmap,
     RenderGroupEntryType_render_entry_rectangle,
     RenderGroupEntryType_render_entry_cliprect,
+    RenderGroupEntryType_render_entry_line,
     RenderGroupEntryType_render_entry_coordinate_system,
 };
 struct render_group_entry_header // TODO(casey): Don't store type here, store in sort index?
@@ -210,6 +211,13 @@ struct render_entry_rectangle
     v4 Color;
     v2 P;
     v2 Dim;
+};
+
+struct render_entry_line
+{
+    v4 Color;
+    v2 P0;
+    v2 P1;
 };
 
 // NOTE(casey): This is only for test:

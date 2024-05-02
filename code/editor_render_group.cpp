@@ -246,6 +246,25 @@ PushRect(render_group *Group, object_transform ObjectTransform, v3 Offset, v2 Di
 }
 
 inline void
+PushLine(render_group *Group, object_transform ObjectTransform, v3 Point0, v3 Point1, v4 Color = V4(1, 1, 1, 1))
+{
+    v3 P0 = Point0;
+    v3 P1 = Point1;
+    entity_basis_p_result Basis0 = GetRenderEntityBasisP(Group->CameraTransform, ObjectTransform, P0);
+    entity_basis_p_result Basis1 = GetRenderEntityBasisP(Group->CameraTransform, ObjectTransform, P1);
+    if(Basis0.Valid && Basis1.Valid)
+    {
+        render_entry_line *Line = PushRenderElement(Group, render_entry_line, Basis0.SortKey);
+        if(Line)
+        {
+            Line->P0 = Basis0.P;
+            Line->P1 = Basis1.P;
+            Line->Color = Color;
+        }
+    }
+}
+
+inline void
 PushRect(render_group *Group, object_transform ObjectTransform, rectangle2 Rectangle, r32 Z, v4 Color = V4(1, 1, 1, 1))
 {
     PushRect(Group, ObjectTransform, V3(GetCenter(Rectangle), Z), GetDim(Rectangle), Color);

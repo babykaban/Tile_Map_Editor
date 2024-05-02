@@ -309,20 +309,20 @@ MemoryCopy(void *Dest, void *Source, uint32 Size)
    These are NOT for doing anything in the shipping game - they are
    blocking and the write doesn't protect against lost data!
 */
-typedef struct debug_read_file_result
+typedef struct read_file_result
 {
     uint32 ContentsSize;
     void *Contents;
-} debug_read_file_result;
+} read_file_result;
 
-#define DEBUG_PLATFORM_FREE_FILE_MEMORY(name) void name(void *Memory)
-typedef DEBUG_PLATFORM_FREE_FILE_MEMORY(debug_platform_free_file_memory);
+#define PLATFORM_FREE_FILE_MEMORY(name) void name(void *Memory)
+typedef PLATFORM_FREE_FILE_MEMORY(platform_free_file_memory);
 
-#define DEBUG_PLATFORM_READ_ENTIRE_FILE(name) debug_read_file_result name(char *Filename)
-typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(debug_platform_read_entire_file);
+#define PLATFORM_READ_ENTIRE_FILE_A(name) read_file_result name(char *Filename)
+typedef PLATFORM_READ_ENTIRE_FILE_A(platform_read_entire_file);
 
-#define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) bool32 name(char *Filename, uint32 MemorySize, void *Memory)
-typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(debug_platform_write_entire_file);
+#define PLATFORM_WRITE_ENTIRE_FILE_A(name) bool32 name(char *Filename, uint32 MemorySize, void *Memory)
+typedef PLATFORM_WRITE_ENTIRE_FILE_A(platform_write_entire_file);
     
 #endif
 
@@ -483,11 +483,17 @@ typedef PLATFORM_OPEN_NEXT_FILE_W(platform_open_next_file_w);
 #define PLATFORM_OPEN_NEXT_FILE_A(name) platform_file_handle name(platform_file_group *FileGroup)
 typedef PLATFORM_OPEN_NEXT_FILE_A(platform_open_next_file_a);
 
-#define PLATFORM_GET_NEXT_FILE_NAME_W(name) wchar_t *name(platform_file_group *FileGroup)
-typedef PLATFORM_GET_NEXT_FILE_NAME_W(platform_get_next_file_name_w);
+#define PLATFORM_GET_NEXT_FILE_NAME_BEGIN_W(name) wchar_t *name(platform_file_group *FileGroup)
+typedef PLATFORM_GET_NEXT_FILE_NAME_BEGIN_W(platform_get_next_file_name_begin_w);
 
-#define PLATFORM_GET_NEXT_FILE_NAME_A(name) char *name(platform_file_group *FileGroup)
-typedef PLATFORM_GET_NEXT_FILE_NAME_A(platform_get_next_file_name_a);
+#define PLATFORM_GET_NEXT_FILE_NAME_END_W(name) void name(platform_file_group *FileGroup)
+typedef PLATFORM_GET_NEXT_FILE_NAME_END_W(platform_get_next_file_name_end_w);
+
+#define PLATFORM_GET_NEXT_FILE_NAME_BEGIN_A(name) char *name(platform_file_group *FileGroup)
+typedef PLATFORM_GET_NEXT_FILE_NAME_BEGIN_A(platform_get_next_file_name_begin_a);
+
+#define PLATFORM_GET_NEXT_FILE_NAME_END_A(name) void name(platform_file_group *FileGroup)
+typedef PLATFORM_GET_NEXT_FILE_NAME_END_A(platform_get_next_file_name_end_a);
 
 #define PLATFORM_READ_DATA_FROM_FILE(name) void name(platform_file_handle *Source, u64 Offset, u64 Size, void *Dest)
 typedef PLATFORM_READ_DATA_FROM_FILE(platform_read_data_from_file);
@@ -530,17 +536,19 @@ typedef struct platform_api
     platform_get_all_files_of_type_end_a *GetAllFilesOfTypeEndA;
     platform_open_next_file_w *OpenNextFileW;
     platform_open_next_file_a *OpenNextFileA;
-    platform_get_next_file_name_w *GetNextFileNameW;
-    platform_get_next_file_name_a *GetNextFileNameA;
+    platform_get_next_file_name_begin_w *GetNextFileNameBeginW;
+    platform_get_next_file_name_end_w *GetNextFileNameEndW;
+    platform_get_next_file_name_begin_a *GetNextFileNameBeginA;
+    platform_get_next_file_name_end_a *GetNextFileNameEndA;
     platform_read_data_from_file *ReadDataFromFile;
     platform_file_error *FileError;
 
     platform_allocate_memory *AllocateMemory;
     platform_deallocate_memory *DeallocateMemory;
     
-    debug_platform_free_file_memory *DEBUGFreeFileMemory;
-    debug_platform_read_entire_file *DEBUGReadEntireFile;
-    debug_platform_write_entire_file *DEBUGWriteEntireFile;
+    platform_free_file_memory *FreeFileMemory;
+    platform_read_entire_file *ReadEntireFileA;
+    platform_write_entire_file *WriteEntireFileA;
 
 } platform_api;
 

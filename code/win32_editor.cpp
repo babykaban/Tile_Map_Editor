@@ -155,7 +155,7 @@ Win32BuildEXEPathFileName(win32_state *State, char *FileName,
                DestCount, Dest);
 }
 
-DEBUG_PLATFORM_FREE_FILE_MEMORY(DEBUGPlatformFreeFileMemory)
+PLATFORM_FREE_FILE_MEMORY(Win32PlatformFreeFileMemory)
 {
     if(Memory)
     {
@@ -163,9 +163,9 @@ DEBUG_PLATFORM_FREE_FILE_MEMORY(DEBUGPlatformFreeFileMemory)
     }
 }
 
-DEBUG_PLATFORM_READ_ENTIRE_FILE(DEBUGPlatformReadEntireFile)
+PLATFORM_READ_ENTIRE_FILE_A(Win32PlatformReadEntireFileA)
 {
-    debug_read_file_result Result = {};
+    read_file_result Result = {};
     
     HANDLE FileHandle = CreateFileA(Filename, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
     if(FileHandle != INVALID_HANDLE_VALUE)
@@ -187,7 +187,7 @@ DEBUG_PLATFORM_READ_ENTIRE_FILE(DEBUGPlatformReadEntireFile)
                 else
                 {                    
                     // TODO(casey): Logging
-                    DEBUGPlatformFreeFileMemory(Result.Contents);
+                    Win32PlatformFreeFileMemory(Result.Contents);
                     Result.Contents = 0;
                 }
             }
@@ -211,7 +211,7 @@ DEBUG_PLATFORM_READ_ENTIRE_FILE(DEBUGPlatformReadEntireFile)
     return(Result);
 }
 
-DEBUG_PLATFORM_WRITE_ENTIRE_FILE(DEBUGPlatformWriteEntireFile)
+PLATFORM_WRITE_ENTIRE_FILE_A(Win32PlatformWriteEntireFileA)
 {
     bool32 Result = false;
     
@@ -1223,7 +1223,7 @@ internal PLATFORM_OPEN_NEXT_FILE_A(Win32OpenNextFileA)
     return(Result);
 }
 
-internal PLATFORM_GET_NEXT_FILE_NAME_W(Win32GetNextFileNameW)
+internal PLATFORM_GET_NEXT_FILE_NAME_BEGIN_W(Win32GetNextFileNameBeginW)
 {
     win32_platform_file_group_w *Win32FileGroup = (win32_platform_file_group_w *)FileGroup->Platform;
 
@@ -1239,18 +1239,26 @@ internal PLATFORM_GET_NEXT_FILE_NAME_W(Win32GetNextFileNameW)
         {
             Result = Win32FileGroup->FindData.cFileName;
         }
+    }
 
+    return(Result);
+}
+
+internal PLATFORM_GET_NEXT_FILE_NAME_END_W(Win32GetNextFileNameEndW)
+{
+    win32_platform_file_group_w *Win32FileGroup = (win32_platform_file_group_w *)FileGroup->Platform;
+
+    if(Win32FileGroup->FindHandle != INVALID_HANDLE_VALUE)
+    {
         if(!FindNextFileW(Win32FileGroup->FindHandle, &Win32FileGroup->FindData))
         {
             FindClose(Win32FileGroup->FindHandle);
             Win32FileGroup->FindHandle = INVALID_HANDLE_VALUE;
         }
     }
-
-    return(Result);
 }
 
-internal PLATFORM_GET_NEXT_FILE_NAME_A(Win32GetNextFileNameA)
+internal PLATFORM_GET_NEXT_FILE_NAME_BEGIN_A(Win32GetNextFileNameBeginA)
 {
     win32_platform_file_group_a *Win32FileGroup = (win32_platform_file_group_a *)FileGroup->Platform;
 
@@ -1267,15 +1275,23 @@ internal PLATFORM_GET_NEXT_FILE_NAME_A(Win32GetNextFileNameA)
             // TODO(paul): Have to make a copy of string here, otherwise will lose first string
             Result = Win32FileGroup->FindData.cFileName;
         }
+    }
 
+    return(Result);
+}
+
+internal PLATFORM_GET_NEXT_FILE_NAME_END_A(Win32GetNextFileNameEndA)
+{
+    win32_platform_file_group_a *Win32FileGroup = (win32_platform_file_group_a *)FileGroup->Platform;
+
+    if(Win32FileGroup->FindHandle != INVALID_HANDLE_VALUE)
+    {
         if(!FindNextFileA(Win32FileGroup->FindHandle, &Win32FileGroup->FindData))
         {
             FindClose(Win32FileGroup->FindHandle);
             Win32FileGroup->FindHandle = INVALID_HANDLE_VALUE;
         }
     }
-
-    return(Result);
 }
 
 internal PLATFORM_FILE_ERROR(Win32FileError)
@@ -1446,8 +1462,10 @@ WinMain(HINSTANCE Instance,
             GameMemory.PlatformAPI.GetAllFilesOfTypeEndA = Win32GetAllFilesOfTypeEndA;
             GameMemory.PlatformAPI.OpenNextFileW = Win32OpenNextFileW;
             GameMemory.PlatformAPI.OpenNextFileA = Win32OpenNextFileA;
-            GameMemory.PlatformAPI.GetNextFileNameW = Win32GetNextFileNameW;
-            GameMemory.PlatformAPI.GetNextFileNameA = Win32GetNextFileNameA;
+            GameMemory.PlatformAPI.GetNextFileNameBeginW = Win32GetNextFileNameBeginW;
+            GameMemory.PlatformAPI.GetNextFileNameEndW = Win32GetNextFileNameEndW;
+            GameMemory.PlatformAPI.GetNextFileNameBeginA = Win32GetNextFileNameBeginA;
+            GameMemory.PlatformAPI.GetNextFileNameEndA = Win32GetNextFileNameEndA;
             GameMemory.PlatformAPI.ReadDataFromFile = Win32ReadDataFromFile;
             GameMemory.PlatformAPI.FileError = Win32FileError;
 
@@ -1456,9 +1474,9 @@ WinMain(HINSTANCE Instance,
             GameMemory.PlatformAPI.AllocateMemory = Win32AllocateMemory;
             GameMemory.PlatformAPI.DeallocateMemory = Win32DeallocateMemory;
 
-            GameMemory.PlatformAPI.DEBUGFreeFileMemory = DEBUGPlatformFreeFileMemory;
-            GameMemory.PlatformAPI.DEBUGReadEntireFile = DEBUGPlatformReadEntireFile;
-            GameMemory.PlatformAPI.DEBUGWriteEntireFile = DEBUGPlatformWriteEntireFile;
+            GameMemory.PlatformAPI.FreeFileMemory = Win32PlatformFreeFileMemory;
+            GameMemory.PlatformAPI.ReadEntireFileA = Win32PlatformReadEntireFileA;
+            GameMemory.PlatformAPI.WriteEntireFileA = Win32PlatformWriteEntireFileA;
 
             Platform = GameMemory.PlatformAPI;
 

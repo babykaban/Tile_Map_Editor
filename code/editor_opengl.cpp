@@ -149,6 +149,19 @@ OpenGLRectangle(v2 MinP, v2 MaxP, v4 Color, v2 MinUV = V2(0, 0), v2 MaxUV = V2(1
 }
 
 inline void
+OpenGLLine(v2 P0, v2 P1, v4 Color)
+{
+    glBegin(GL_LINES);
+
+    glColor4f(Color.r, Color.g, Color.b, Color.a);
+
+    glVertex2f(P0.x, P0.y);
+    glVertex2f(P1.x, P1.y);
+
+    glEnd();
+}
+
+inline void
 OpenGLDisplayBitmap(s32 Width, s32 Height, void *Memory, int Pitch,
     s32 WindowWidth, s32 WindowHeight, GLuint BlitTexture)
 {
@@ -262,6 +275,14 @@ OpenGLRenderCommands(game_render_commands *Commands, s32 WindowWidth, s32 Window
                 render_entry_rectangle *Entry = (render_entry_rectangle *)Data;
                 glDisable(GL_TEXTURE_2D);
                 OpenGLRectangle(Entry->P, Entry->P + Entry->Dim, Entry->Color);
+                glEnable(GL_TEXTURE_2D);
+            } break;
+
+            case RenderGroupEntryType_render_entry_line:
+            {
+                render_entry_line *Entry = (render_entry_line *)Data;
+                glDisable(GL_TEXTURE_2D);
+                OpenGLLine(Entry->P0, Entry->P1, Entry->Color);
                 glEnable(GL_TEXTURE_2D);
             } break;
 
