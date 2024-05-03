@@ -40,23 +40,20 @@ AssetAddModeBitmap(edit_mode_asset *AssetMode, ui_context *UIContext, layout *La
     char Buffer[512];
     sprintf_s(Buffer, "%s/%s", "editor/bmps", FileName);
 
-    // TODO(paul): Free Bitmap memory
-    loaded_bitmap Bitmap = LoadBMP(Buffer);
-    Bitmap.AlignPercentage = V2(0.5f, 0.5f);
-    
-    if(Bitmap.TextureHandle)
+    if(!(AssetMode->AddBitmap.Memory) || (AssetMode->BitmapIndex != Result))
     {
-        Platform.DeallocateTexture(Bitmap.TextureHandle);
-        Bitmap.TextureHandle = 
-            Platform.AllocateTexture(Bitmap.Width, Bitmap.Height, Bitmap.Memory);
-    }
-    else
-    {
-        Bitmap.TextureHandle = 
-            Platform.AllocateTexture(Bitmap.Width, Bitmap.Height, Bitmap.Memory);
+        if(AssetMode->AddBitmap.TextureHandle)
+        {
+            Platform.DeallocateTexture(AssetMode->AddBitmap.TextureHandle);
+            Platform.FreeFileMemory(AssetMode->AddBitmap.Memory);
+        }
+
+        AssetMode->BitmapIndex = Result;
+        AssetMode->AddBitmap = LoadBMP(Buffer);
     }
     
-    PushBitmap(&UIContext->RenderGroup, UIContext->UITransform, &Bitmap, (r32)(2.0f*Bitmap.Height), V3(GetCenter(Rect), 0));
+    PushBitmap(&UIContext->RenderGroup, UIContext->UITransform, &AssetMode->AddBitmap,
+               (r32)(2.0f*AssetMode->AddBitmap.Height), V3(GetCenter(Rect), 0));
 
     PushLine(&UIContext->RenderGroup, UIContext->UITransform, V3(0, 0, 0), V3(Layout->MouseP, 0), V4(1, 0, 0, 1));
 }

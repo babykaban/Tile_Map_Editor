@@ -20,6 +20,7 @@ LoadBMP(char *FileName)
         Result.Width = Header->Width;
         Result.Height = Header->Height;
         Result.WidthOverHeight = (r32)Header->Width/(r32)Header->Height;
+        Result.AlignPercentage = V2(0.5f, 0.5f);
         
         Assert(Result.Height >= 0);
         Assert(Header->Compression == 3);
@@ -73,9 +74,7 @@ LoadBMP(char *FileName)
 
                 Texel = SRGB255ToLinear1(Texel);
 
-#if 1
                 Texel.rgb *= Texel.a;
-#endif
                 Texel = Linear1ToSRGB255(Texel);
                 
                 *SourceDest++ = (((uint32)(Texel.a + 0.5f) << 24) |
@@ -84,13 +83,12 @@ LoadBMP(char *FileName)
                                  ((uint32)(Texel.b + 0.5f) << 0));
             }
         }
+
+        Result.TextureHandle = 
+            Platform.AllocateTexture(Result.Width, Result.Height, Result.Memory);
     }
 
     Result.Pitch = Result.Width*BITMAP_BYTES_PER_PIXEL;
-#if 0
-    Result.Memory = (uint8 *)Result.Memory + Result.Pitch*(Result.Height - 1);
-    Result.Pitch = -Result.Pitch;
-#endif
     
     return(Result);
 }

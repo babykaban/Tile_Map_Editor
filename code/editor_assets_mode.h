@@ -25,6 +25,9 @@ struct edit_mode_asset
     asset_add_mode AssetAddMode;
     array_cursor TestCursor;
 
+    u32 BitmapIndex;
+    loaded_bitmap AddBitmap;
+
     u32 BMPFileCount;
     char *BMPFileNames[1024];
 };
