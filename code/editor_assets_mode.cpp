@@ -27,14 +27,15 @@ AssetAddModeBitmap(edit_mode_asset *AssetMode, ui_context *UIContext, layout *La
                                                              (u32 *)&AssetMode->AssetAddMode, AssetMode_BinaryFile));
     EndRow(Layout);
 
-    layout GridLayout = BeginLayout(UIContext, Layout->MouseP, V2(-10.0f, 530.0f));
+    layout GridLayout = BeginLayout(UIContext, Layout->MouseP, V2(-950.0f, 430.0f));
     ui_interaction NullInteraction = {};
     rectangle2 Rect = Grid(&GridLayout, V2(960.0f, 960.0f), V2(64.0f, 64.0f), NullInteraction, V4(0, 0, 0, 1));
     EndLayout(&GridLayout);
     
     u32 Result = SimpleScrollElement(Layout, &AssetMode->TestCursor,
                                      AdvanceArrayCursorInteraction(UIItemIDFromEditMode(UIContext, EditMode_Assets),
-                                                                   &AssetMode->TestCursor, AssetMode->BMPFileCount));
+                                                                   &AssetMode->TestCursor, AssetMode->BMPFileCount),
+                                     V4(0.8f, 0.8f, 0.8f, 1), V4(1, 1, 1, 1), 4.0f, V4(0.0f, 0.635294117647f, 0.909803921569f, 1));
 
     char *FileName = AssetMode->BMPFileNames[Result];
     char Buffer[512];
@@ -54,8 +55,27 @@ AssetAddModeBitmap(edit_mode_asset *AssetMode, ui_context *UIContext, layout *La
     
     PushBitmap(&UIContext->RenderGroup, UIContext->UITransform, &AssetMode->AddBitmap,
                (r32)(2.0f*AssetMode->AddBitmap.Height), V3(GetCenter(Rect), 0));
+    PushRectOutline(&UIContext->RenderGroup, UIContext->UITransform, V3(GetCenter(Rect), 0),
+                    2.0f*V2i(AssetMode->AddBitmap.Width, AssetMode->AddBitmap.Height), V4(1, 0, 0, 1), 1.0f);
 
-    PushLine(&UIContext->RenderGroup, UIContext->UITransform, V3(0, 0, 0), V3(Layout->MouseP, 0), V4(1, 0, 0, 1));
+    layout BitmapStatsLayout = BeginLayout(UIContext, Layout->MouseP, V2(20.0f, 430.0f));
+    sprintf_s(Buffer, "Width: %d", AssetMode->AddBitmap.Width);
+    Label(&BitmapStatsLayout, Buffer);
+    sprintf_s(Buffer, "Height: %d", AssetMode->AddBitmap.Height);
+    Label(&BitmapStatsLayout, Buffer);
+    sprintf_s(Buffer, "AlignPercentage: V2(%f, %f)",
+              AssetMode->AddBitmap.AlignPercentage.x, AssetMode->AddBitmap.AlignPercentage.y);
+    Label(&BitmapStatsLayout, Buffer);
+
+    if(IsInRectangle(Rect, Layout->MouseP))
+    {
+        v2 LocalMouseP = Layout->MouseP - Rect.Min;
+        sprintf_s(Buffer, "LocalMouseP: %f, %f", LocalMouseP.x, LocalMouseP.y);
+        Label(&BitmapStatsLayout, Buffer);
+        EndLayout(&GridLayout);
+    }    
+    
+//    PushLine(&UIContext->RenderGroup, UIContext->UITransform, V3(0, 0, 0), V3(Layout->MouseP, 0), V4(1, 0, 0, 1));
 }
 
 internal void

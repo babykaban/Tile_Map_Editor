@@ -8,6 +8,22 @@
    ======================================================================== */
 #include "editor_file_builder.h"
 
+struct added_bitmap
+{
+    u32 ID;
+    u64 DataOffset;
+
+    ssa_tag Tags[64];
+    r32 RenderHeight;
+    rectangle2 CollisionRect;
+};
+
+struct builder_bitmap_file_header
+{
+    u32 BitmapCount;
+    added_bitmap *BitmapArray;
+};
+
 enum asset_add_mode
 {
     AssetMode_Bitmap,

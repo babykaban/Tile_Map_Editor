@@ -859,8 +859,11 @@ DrawWindow(ui_context *UIContext, layout *Layout, v2 *D, ui_interaction WindowIn
 
 internal u32
 SimpleScrollElement(layout *Layout, array_cursor *Cursor, ui_interaction ItemInteraction,
-                    r32 Border = 0.0f)
+                    v4 ItemColor = V4(0.8f, 0.8f, 0.8f, 1), v4 HotColor = V4(1, 1, 1, 1),
+                    r32 Border = 0.0f, v4 BackdropColor = V4(0, 0, 0, 0))
 {
+    ui_context *UIContext = Layout->UIContext;
+
     u32 SourceArrayIndex = Cursor->Array[Cursor->ArrayPosition];
     u32 ElementsToShow = Cursor->ArrayCount;
     for(u32 Index = 0;
@@ -873,8 +876,32 @@ SimpleScrollElement(layout *Layout, array_cursor *Cursor, ui_interaction ItemInt
             case CursorDataType_StringArray:
             {
                 char *Text = Cursor->StringArray[AssetIndex];
-                BasicTextElement(Layout, Text, ItemInteraction, V4(0.8f, 0.8f, 0.8f, 1), V4(1, 1, 1, 1),
-                                 3.0f, V4(0, 0, 1, 1.0f));
+
+                rectangle2 TextBounds = GetTextSize(UIContext, Text);
+                v2 TextDim = GetDim(TextBounds);
+
+                v2 Dim = {320.0f + 2.0f*Border, Layout->LineAdvance + 2.0f*Border};
+                if(TextDim.x > 320.0f)
+                {
+                    Dim = {TextDim.x + 2.0f*Border, Layout->LineAdvance + 2.0f*Border};
+                }
+                
+                layout_element Element = BeginElementRectangle(Layout, &Dim);
+                DefaultInteraction(&Element, ItemInteraction);
+                EndElement(&Element);
+
+                b32 IsHot = InteractionIsHot(Layout->UIContext, ItemInteraction);
+
+                TextOutAt(UIContext, V2(GetMinCorner(Element.Bounds).x + 0.5f*Dim.x - 0.5f*TextDim.x,
+                                        GetMaxCorner(Element.Bounds).y - Border - 
+                                        UIContext->FontScale*GetStartingBaselineY(UIContext->UIFontInfo)),
+                          Text, IsHot ? HotColor : ItemColor);
+
+                if(BackdropColor.w > 0.0f)
+                {
+                    PushRect(&UIContext->RenderGroup, 
+                             UIContext->BackingTransform, Element.Bounds, 0.0f, BackdropColor);
+                }
             } break;
         }
     }
