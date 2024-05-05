@@ -461,6 +461,7 @@ typedef enum platform_file_type
     PlatformFileType_AssetFile,
     PlatformFileType_SavedGameFile,
     PlatformFileType_BMP,
+    PlatformFileType_BAF,
 
     PlatformFileType_Count,
 } platform_file_type;

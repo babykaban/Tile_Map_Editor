@@ -8,22 +8,6 @@
    ======================================================================== */
 #include "editor_file_builder.h"
 
-struct added_bitmap
-{
-    u32 ID;
-    u64 DataOffset;
-
-    ssa_tag Tags[64];
-    r32 RenderHeight;
-    rectangle2 CollisionRect;
-};
-
-struct builder_bitmap_file_header
-{
-    u32 BitmapCount;
-    added_bitmap *BitmapArray;
-};
-
 enum asset_add_mode
 {
     AssetMode_Bitmap,
@@ -36,16 +20,46 @@ enum asset_add_mode
     AssetMode_BinaryFile,
 };
 
+struct add_asset_source_bitmap
+{
+    char *FileName;
+    v2 AlignPercentage;
+    r32 RenderHeight;
+};
+
+struct add_asset_source
+{
+    builder_asset_type AssetType;
+    union
+    {
+        add_asset_source_bitmap AddBitmap;
+    };
+};
+
+struct asset_to_add
+{
+    asset_type_id TypeID;
+    u32 TagCount;
+    ssa_tag Tags[256];
+    add_asset_source AddSource;
+};
+
 struct edit_mode_asset
 {
+    b32 AddAsset;
+
     asset_add_mode AssetAddMode;
     array_cursor TestCursor;
 
-    u32 BitmapIndex;
-    loaded_bitmap AddBitmap;
-
+    builder_assets BuilderAssets;
+    
     u32 BMPFileCount;
     char *BMPFileNames[1024];
+
+    b32 EditExistingBitmap;
+
+    u32 BitmapIndex;
+    loaded_bitmap AddBitmap;
 };
 
 #define EDITOR_ASSETS_MODE_H

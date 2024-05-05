@@ -268,6 +268,8 @@ struct asset_source
 #define VERY_LARGE_NUMBER 4096*32
 struct builder_assets
 {
+    b32 Initialized;
+    
     uint32 TagCount;
     ssa_tag *Tags;
 
@@ -278,7 +280,7 @@ struct builder_assets
     asset_source *AssetSources;
     ssa_asset *Assets;
 
-    ssa_asset_type *DEBUGAssetType;
+    ssa_asset_type *AddAssetType;
     u32 AssetIndex;
 };
 

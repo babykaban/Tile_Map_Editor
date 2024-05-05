@@ -1448,7 +1448,7 @@ WinMain(HINSTANCE Instance,
 #endif
             
             game_memory GameMemory = {};
-            GameMemory.PermanentStorageSize = Megabytes(256);
+            GameMemory.PermanentStorageSize = Gigabytes(2);
             GameMemory.TransientStorageSize = Gigabytes(1);
 
             GameMemory.HighPriorityQueue = &HighPriorityQueue;

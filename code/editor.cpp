@@ -606,6 +606,7 @@ PlayAssetEditMode(editor_state *EditorState, transient_state *TranState)
 
     Result->AssetAddMode = AssetMode_Bitmap;
 
+    // NOTE(paul): Initialize New Assets
     platform_file_group FileGroup = Platform.GetAllFilesOfTypeBeginA(PlatformFileType_BMP, "editor/bmps");
     for(u32 FileIndex = 0;
         FileIndex < FileGroup.FileCount;
@@ -632,6 +633,8 @@ PlayAssetEditMode(editor_state *EditorState, transient_state *TranState)
     fclose(File);
 #endif
     InitializeStringArrayCursor(&Result->TestCursor, 1, Result->BMPFileNames);
+
+    InitializeBuilderAssets(&Result->BuilderAssets, &EditorState->ModeArena);
     
     EditorState->AssetMode = Result;
 }

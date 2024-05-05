@@ -551,7 +551,7 @@ internal void
 BooleanButton(layout *Layout, char *Name, b32 Highlight, ui_interaction Interaction)
 {
     BasicTextElement(Layout, Name, Interaction, 
-        Highlight ? V4(1, 1, 1, 1) : V4(0.5f, 0.5f, 0.5f, 1.0f), V4(1, 1, 1, 1),
+        Highlight ? V4(1.0f, 1.0f, 0.0f, 1) : V4(0.5f, 0.5f, 0.5f, 1.0f), V4(1, 1, 1, 1),
         4.0f, V4(0.0f, 0.5f, 1.0f, 1.0f));
 }
 

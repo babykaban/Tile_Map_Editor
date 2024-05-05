@@ -6,6 +6,87 @@
    $Notice: (C) Copyright 2023 by Handy Paul, Inc. All Rights Reserved. $
    ======================================================================== */
 
+internal void
+BeginAssetType(builder_assets *Assets, asset_type_id TypeID)
+{
+    Assert(Assets->AddAssetType == 0);
+    Assets->AddAssetType = Assets->AssetTypes + TypeID;
+    Assets->AddAssetType->TypeID = TypeID;
+    Assets->AddAssetType->FirstAssetIndex = Assets->AssetCount;
+    Assets->AddAssetType->OnePastLastAssetIndex = Assets->AddAssetType->FirstAssetIndex;
+}
+
+struct added_asset
+{
+    u32 ID;
+    ssa_asset *SSA;
+    asset_source *Source;
+};
+
+internal added_asset
+AddAsset(builder_assets *Assets)
+{
+    Assert(Assets->AddAssetType);
+    Assert(Assets->AddAssetType->OnePastLastAssetIndex < VERY_LARGE_NUMBER);
+
+    u32 Index = Assets->AddAssetType->OnePastLastAssetIndex++;
+    asset_source *Source = Assets->AssetSources + Index;
+    ssa_asset *SSA = Assets->Assets + Index;
+    SSA->FirstTagIndex = Assets->TagCount;
+    SSA->OnePastLastTagIndex = SSA->FirstTagIndex;
+
+    Assets->AssetIndex = Index;
+
+    added_asset Result;
+    Result.ID = Index;
+    Result.SSA = SSA;
+    Result.Source = Source;
+    
+    return(Result);
+}
+
+internal void
+AddTag(builder_assets *Assets, asset_tag_id ID, real32 Value)
+{
+    Assert(Assets->AssetIndex);
+
+    ssa_asset *Asset = Assets->Assets + Assets->AssetIndex;
+    ++Asset->OnePastLastTagIndex;
+    Assert(Asset->OnePastLastTagIndex < VERY_LARGE_NUMBER);
+    ssa_tag *Tag = Assets->Tags + Assets->TagCount++;
+
+    Tag->ID = ID;
+    Tag->Value = Value;
+}
+
+internal void
+EndAssetType(builder_assets *Assets)
+{
+    Assert(Assets->AddAssetType);
+    Assets->AssetCount = Assets->AddAssetType->OnePastLastAssetIndex;
+    Assets->AddAssetType = 0;
+    Assets->AssetIndex = 0;
+}
+
+internal void
+InitializeBuilderAssets(builder_assets *Assets, memory_arena *Arena)
+{
+    Assets->TagCount = 1;
+    Assets->Tags = PushArray(Arena, VERY_LARGE_NUMBER, ssa_tag, NoClear());
+    Assets->AssetCount = 1;
+    Assets->AssetSources = PushArray(Arena, VERY_LARGE_NUMBER, asset_source, NoClear());
+    Assets->Assets = PushArray(Arena, VERY_LARGE_NUMBER, ssa_asset, NoClear());
+    Assets->AddAssetType = 0;
+    Assets->AssetIndex = 0;
+
+    u32 Count = ArrayCount(Assets->Assets);
+    
+    Assets->AssetTypeCount = Asset_Count;
+    ZeroArray(Assets->AssetTypeCount, Assets->AssetTypes);
+
+    Assets->Initialized = true;
+}
+
 internal loaded_bitmap
 LoadBMP(char *FileName)
 {
