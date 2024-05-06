@@ -64,11 +64,18 @@ AssetAddModeBitmap(edit_mode_asset *AssetMode, ui_context *UIContext, layout *La
         ui_view *View = GetOrCreateDebugViewFor(UIContext, BitmapItemID);
         r32 BitmapScale = View->InlineBlock.Dim.y;
     
-        
         BeginRow(Layout);
+
+        r32 PixelDim = 0.0f;
+        if(BitmapScale)
+        {
+            PixelDim = (BitmapScale / AssetMode->AddBitmap.Height);
+        }
+
         rectangle2 BitmapBounds = UIBitmap(Layout, &AssetMode->AddBitmap, View, BitmapScale,
                                            V2(32.0f, 32.0f), NullInteraction);
-
+        v2 BitmapScaledDim = GetDim(BitmapBounds);
+        
         // TODO(paul): Fix align offset
         layout BitmapLayout = BeginLayout(UIContext, Layout->MouseP, Layout->At);
         sprintf_s(Buffer, "Width: %d", AssetMode->AddBitmap.Width);
@@ -80,7 +87,7 @@ AssetAddModeBitmap(edit_mode_asset *AssetMode, ui_context *UIContext, layout *La
         if(IsInRectangle(BitmapBounds, Layout->MouseP))
         {
             // NOTE(paul): Align Percentage
-            v2 LocalMouseP = (Layout->MouseP - BitmapBounds.Min);
+            v2 LocalMouseP = (Layout->MouseP - BitmapBounds.Min)*(1.0f / PixelDim);
             sprintf_s(Buffer, "BitmapMouseP: %f, %f", LocalMouseP.x, LocalMouseP.y);
             Label(&BitmapLayout, Buffer);
         }    

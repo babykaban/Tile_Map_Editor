@@ -1008,9 +1008,6 @@ UIBitmap(layout *Layout, loaded_bitmap *Bitmap, ui_view *View, r32 BitmapScale, 
 
     PushRect(RenderGroup, UIContext->BackingTransform, LayEl.Bounds, 5.0f, V4(0, 0, 0, 0.5f));
 
-    rectangle2 Rect = RectCenterDim(GetCenter(LayEl.Bounds), V2(32.0f, 32.0f));
-    PushRect(RenderGroup, UIContext->BackingTransform, Rect, 10.0f, V4(1, 1, 1, 0.5f));
-
     if(Bitmap)
     {
         PushBitmap(RenderGroup, UIContext->BackingTransform, Bitmap, BitmapScale,
