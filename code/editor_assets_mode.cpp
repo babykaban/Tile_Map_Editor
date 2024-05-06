@@ -26,113 +26,132 @@ AssetAddModeBitmap(edit_mode_asset *AssetMode, ui_context *UIContext, layout *La
     ActionButton(Layout, "BitnaryFile", SetUInt32Interaction(UIItemIDFromEditMode(UIContext, EditMode_Assets),
                                                              (u32 *)&AssetMode->AssetAddMode, AssetMode_BinaryFile));
     EndRow(Layout);
+#if EDITOR_LAPTOP
+    layout GridLayout = BeginLayout(UIContext, Layout->MouseP, V2(0.0f, 0.0f));
+    ui_interaction NullInteraction = {};
+//    rectangle2 Rect = Grid(&GridLayout, V2(960.0f, 960.0f), V2(64.0f, 64.0f), NullInteraction, V4(0, 0, 0, 0.2f));
+    EndLayout(&GridLayout);
+    
+    if(AssetMode->BMPFileCount)
+    {
+        BeginRow(Layout);
+        u32 Result = SimpleScrollElement(Layout, &AssetMode->TestCursor,
+                                         AdvanceArrayCursorInteraction(UIItemIDFromEditMode(UIContext, EditMode_Assets),
+                                                                       &AssetMode->TestCursor, AssetMode->BMPFileCount),
+                                         V4(0.8f, 0.8f, 0.8f, 1), V4(1, 1, 1, 1), 4.0f, V4(0.0f, 0.635294117647f, 0.909803921569f, 1));
 
+        ActionButton(Layout, "AddAsset", SetUInt32Interaction(UIItemIDFromEditMode(UIContext, EditMode_Assets),
+                                                              (u32 *)&AssetMode->AddAsset, true));
+        EndRow(Layout);
+
+        char *FileName = AssetMode->BMPFileNames[Result];
+        char Buffer[512];
+        sprintf_s(Buffer, "%s/%s", "editor/bmps", FileName);
+
+        if(!(AssetMode->AddBitmap.Memory) || (AssetMode->BitmapIndex != Result))
+        {
+            if(AssetMode->AddBitmap.TextureHandle)
+            {
+                Platform.DeallocateTexture(AssetMode->AddBitmap.TextureHandle);
+                Platform.FreeFileMemory(AssetMode->AddBitmap.Memory);
+            }
+
+            AssetMode->BitmapIndex = Result;
+            AssetMode->AddBitmap = LoadBMP(Buffer);
+        }
+    
+        ui_item_id BitmapItemID = UIItemIDFromEditMode(UIContext, EditMode_Assets);
+        ui_view *View = GetOrCreateDebugViewFor(UIContext, BitmapItemID);
+        r32 BitmapScale = View->InlineBlock.Dim.y;
+    
+        
+        BeginRow(Layout);
+        rectangle2 BitmapBounds = UIBitmap(Layout, &AssetMode->AddBitmap, View, BitmapScale,
+                                           V2(32.0f, 32.0f), NullInteraction);
+
+        // TODO(paul): Fix align offset
+        layout BitmapLayout = BeginLayout(UIContext, Layout->MouseP, Layout->At);
+        sprintf_s(Buffer, "Width: %d", AssetMode->AddBitmap.Width);
+        Label(&BitmapLayout, Buffer);
+        sprintf_s(Buffer, "Height: %d", AssetMode->AddBitmap.Height);
+        Label(&BitmapLayout, Buffer);
+        sprintf_s(Buffer, "AlignPercentage: V2(%f, %f)",
+                  AssetMode->AddBitmap.AlignPercentage.x, AssetMode->AddBitmap.AlignPercentage.y);
+        if(IsInRectangle(BitmapBounds, Layout->MouseP))
+        {
+            // NOTE(paul): Align Percentage
+            v2 LocalMouseP = (Layout->MouseP - BitmapBounds.Min);
+            sprintf_s(Buffer, "BitmapMouseP: %f, %f", LocalMouseP.x, LocalMouseP.y);
+            Label(&BitmapLayout, Buffer);
+        }    
+        EndLayout(&BitmapLayout);
+        EndRow(Layout);
+    }
+
+#else
     layout GridLayout = BeginLayout(UIContext, Layout->MouseP, V2(-950.0f, 430.0f));
     ui_interaction NullInteraction = {};
 //    rectangle2 Rect = Grid(&GridLayout, V2(960.0f, 960.0f), V2(64.0f, 64.0f), NullInteraction, V4(0, 0, 0, 0.2f));
     EndLayout(&GridLayout);
     
-    u32 Result = SimpleScrollElement(Layout, &AssetMode->TestCursor,
-                                     AdvanceArrayCursorInteraction(UIItemIDFromEditMode(UIContext, EditMode_Assets),
-                                                                   &AssetMode->TestCursor, AssetMode->BMPFileCount),
-                                     V4(0.8f, 0.8f, 0.8f, 1), V4(1, 1, 1, 1), 4.0f, V4(0.0f, 0.635294117647f, 0.909803921569f, 1));
-
-    ActionButton(Layout, "AddAsset", SetUInt32Interaction(UIItemIDFromEditMode(UIContext, EditMode_Assets),
-                                                          (u32 *)&AssetMode->AddAsset, true));
-
-    char *FileName = AssetMode->BMPFileNames[Result];
-    char Buffer[512];
-    sprintf_s(Buffer, "%s/%s", "editor/bmps", FileName);
-
-    if(!(AssetMode->AddBitmap.Memory) || (AssetMode->BitmapIndex != Result))
+    if(AssetMode->BMPFileCount)
     {
-        if(AssetMode->AddBitmap.TextureHandle)
+        u32 Result = SimpleScrollElement(Layout, &AssetMode->TestCursor,
+                                         AdvanceArrayCursorInteraction(UIItemIDFromEditMode(UIContext, EditMode_Assets),
+                                                                       &AssetMode->TestCursor, AssetMode->BMPFileCount),
+                                         V4(0.8f, 0.8f, 0.8f, 1), V4(1, 1, 1, 1), 4.0f, V4(0.0f, 0.635294117647f, 0.909803921569f, 1));
+
+        ActionButton(Layout, "AddAsset", SetUInt32Interaction(UIItemIDFromEditMode(UIContext, EditMode_Assets),
+                                                              (u32 *)&AssetMode->AddAsset, true));
+
+        char *FileName = AssetMode->BMPFileNames[Result];
+        char Buffer[512];
+        sprintf_s(Buffer, "%s/%s", "editor/bmps", FileName);
+
+        if(!(AssetMode->AddBitmap.Memory) || (AssetMode->BitmapIndex != Result))
         {
-            Platform.DeallocateTexture(AssetMode->AddBitmap.TextureHandle);
-            Platform.FreeFileMemory(AssetMode->AddBitmap.Memory);
+            if(AssetMode->AddBitmap.TextureHandle)
+            {
+                Platform.DeallocateTexture(AssetMode->AddBitmap.TextureHandle);
+                Platform.FreeFileMemory(AssetMode->AddBitmap.Memory);
+            }
+
+            AssetMode->BitmapIndex = Result;
+            AssetMode->AddBitmap = LoadBMP(Buffer);
         }
-
-        AssetMode->BitmapIndex = Result;
-        AssetMode->AddBitmap = LoadBMP(Buffer);
-    }
     
-    layout BitmapStatsLayout = BeginLayout(UIContext, Layout->MouseP, V2(20.0f, 430.0f));
-    sprintf_s(Buffer, "Width: %d", AssetMode->AddBitmap.Width);
-    Label(&BitmapStatsLayout, Buffer);
-    sprintf_s(Buffer, "Height: %d", AssetMode->AddBitmap.Height);
-    Label(&BitmapStatsLayout, Buffer);
-    sprintf_s(Buffer, "AlignPercentage: V2(%f, %f)",
-              AssetMode->AddBitmap.AlignPercentage.x, AssetMode->AddBitmap.AlignPercentage.y);
-    Label(&BitmapStatsLayout, Buffer);
-    
-    ui_item_id BitmapItemID = UIItemIDFromEditMode(UIContext, EditMode_Assets);
-    ui_view *View = GetOrCreateDebugViewFor(UIContext, BitmapItemID);
-    r32 BitmapScale = View->InlineBlock.Dim.y;
-
-#if 0
-    if(BitmapScale != 0.0f)
-    {
-        if((BitmapScale / 64.0f) != 0.0f)
-        {
-            u32 Pixels = RoundReal32ToUInt32(BitmapScale);
-            u32 Sub = Pixels % 64;
-            BitmapScale = (r32)(Pixels - Sub);
-        }
-    }
-#endif
-    
-    layout BitmapLayout = BeginLayout(UIContext, Layout->MouseP, V2(-950.0f, 430.0f));
-    rectangle2 BitmapBounds = UIBitmap(&BitmapLayout, &AssetMode->AddBitmap, View, BitmapScale,
-                                       V2(32.0f, 32.0f), NullInteraction);
-    EndLayout(&BitmapLayout);
-
-    if(IsInRectangle(BitmapBounds, Layout->MouseP))
-    {
-        // NOTE(paul): Align Percentage
-        v2 LocalMouseP = (1.0f / BitmapScale)*(Layout->MouseP - BitmapBounds.Min);
-        sprintf_s(Buffer, "BitmapMouseP: %f, %f", LocalMouseP.x, LocalMouseP.y);
+        layout BitmapStatsLayout = BeginLayout(UIContext, Layout->MouseP, V2(20.0f, 430.0f));
+        sprintf_s(Buffer, "Width: %d", AssetMode->AddBitmap.Width);
         Label(&BitmapStatsLayout, Buffer);
-        EndLayout(&GridLayout);
-    }    
-
-#if 0
-    {
+        sprintf_s(Buffer, "Height: %d", AssetMode->AddBitmap.Height);
+        Label(&BitmapStatsLayout, Buffer);
+        sprintf_s(Buffer, "AlignPercentage: V2(%f, %f)",
+                  AssetMode->AddBitmap.AlignPercentage.x, AssetMode->AddBitmap.AlignPercentage.y);
+        Label(&BitmapStatsLayout, Buffer);
+    
         ui_item_id BitmapItemID = UIItemIDFromEditMode(UIContext, EditMode_Assets);
         ui_view *View = GetOrCreateDebugViewFor(UIContext, BitmapItemID);
-        loaded_bitmap *Bitmap = &AssetMode->AddBitmap;
         r32 BitmapScale = View->InlineBlock.Dim.y;
-
+    
         layout BitmapLayout = BeginLayout(UIContext, Layout->MouseP, V2(-950.0f, 430.0f));
-        layout_element LayEl = BeginElementRectangle(&BitmapLayout, &View->InlineBlock.Dim);
-        MakeElementSizable(&LayEl);
-        DefaultInteraction(&LayEl, NullInteraction);
-        EndElement(&LayEl);
+        rectangle2 BitmapBounds = UIBitmap(&BitmapLayout, &AssetMode->AddBitmap, View, BitmapScale,
+                                           V2(32.0f, 32.0f), NullInteraction);
         EndLayout(&BitmapLayout);
 
-        PushRect(&UIContext->RenderGroup, UIContext->BackingTransform, LayEl.Bounds, 5.0f, V4(0, 0, 0, 1.0f));
-
-        if(Bitmap)
+        if(IsInRectangle(BitmapBounds, Layout->MouseP))
         {
-            PushBitmap(&UIContext->RenderGroup, UIContext->BackingTransform, Bitmap, BitmapScale,
-                       V3(GetMinCorner(LayEl.Bounds), 6.0f), V4(1, 1, 1, 1), 0.0f);
-        }
-
-        PushRectOutline(&UIContext->RenderGroup, UIContext->UITransform, LayEl.Bounds, 0.0f, V4(1, 0, 0, 1), 1.0f);
+            // NOTE(paul): Align Percentage
+            v2 LocalMouseP = (1.0f / BitmapScale)*(Layout->MouseP - BitmapBounds.Min);
+            sprintf_s(Buffer, "BitmapMouseP: %f, %f", LocalMouseP.x, LocalMouseP.y);
+            Label(&BitmapStatsLayout, Buffer);
+            EndLayout(&GridLayout);
+        }    
     }
-#endif    
-//    PushBitmap(&UIContext->RenderGroup, UIContext->UITransform, &AssetMode->AddBitmap,
-//               (r32)(2.0f*AssetMode->AddBitmap.Height), V3(GetCenter(Rect), 0));
-
-#if 0 
-    if(IsInRectangle(Rect, Layout->MouseP))
+#endif
+    else
     {
-        v2 LocalMouseP = 0.5f*(Layout->MouseP - Rect.Min);
-        sprintf_s(Buffer, "LocalMouseP: %f, %f", LocalMouseP.x, LocalMouseP.y);
-        Label(&BitmapStatsLayout, Buffer);
-        EndLayout(&GridLayout);
-    }    
-#endif    
-//    PushLine(&UIContext->RenderGroup, UIContext->UITransform, V3(0, 0, 0), V3(Layout->MouseP, 0), V4(1, 0, 0, 1));
+        Label(Layout, "No Assets Found");
+    }
 }
 
 internal void

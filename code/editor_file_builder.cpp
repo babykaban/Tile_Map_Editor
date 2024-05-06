@@ -101,7 +101,7 @@ LoadBMP(char *FileName)
         Result.Width = Header->Width;
         Result.Height = Header->Height;
         Result.WidthOverHeight = (r32)Header->Width/(r32)Header->Height;
-        Result.AlignPercentage = V2(0.5f, 0.5f);
+        Result.AlignPercentage = V2(0.0f, 0.0f);
         
         Assert(Result.Height >= 0);
         Assert(Header->Compression == 3);

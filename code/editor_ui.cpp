@@ -975,14 +975,15 @@ UIBitmap(layout *Layout, loaded_bitmap *Bitmap, ui_view *View, r32 BitmapScale, 
     }
 
     layout_element LayEl = BeginElementRectangle(Layout, &View->InlineBlock.Dim);
-    MakeElementSizable(&LayEl);
     DefaultInteraction(&LayEl, ItemInteraction);
+    MakeElementSizable(&LayEl);
     EndElement(&LayEl);
 
+    rectangle2 Result = {};
     v2 ElementDim = GetDim(LayEl.Bounds);
     v2 ElementCenter = GetCenter(LayEl.Bounds);
 
-    u32 TileCountX = Bitmap->Width / 32;
+    r32 TileCountX = Bitmap->Width / GridSize.x;
     r32 AddX = ElementDim.x / TileCountX; 
     for(r32 X = 0.0f;
         X < ElementDim.x;
@@ -992,7 +993,7 @@ UIBitmap(layout *Layout, loaded_bitmap *Bitmap, ui_view *View, r32 BitmapScale, 
                  V3(LayEl.Bounds.Min.x + X, LayEl.Bounds.Max.y, 0.0f), V4(0, 1, 0, 1));
     }
 
-    u32 TileCountY = Bitmap->Height / 32;
+    r32 TileCountY = Bitmap->Height / GridSize.y;
     r32 AddY = ElementDim.y / TileCountY; 
     for(r32 Y = 0.0f;
         Y < ElementDim.y;
@@ -1006,6 +1007,9 @@ UIBitmap(layout *Layout, loaded_bitmap *Bitmap, ui_view *View, r32 BitmapScale, 
              V3(LayEl.Bounds.Max, 0.0f), V4(0, 0, 1, 1));
 
     PushRect(RenderGroup, UIContext->BackingTransform, LayEl.Bounds, 5.0f, V4(0, 0, 0, 0.5f));
+
+    rectangle2 Rect = RectCenterDim(GetCenter(LayEl.Bounds), V2(32.0f, 32.0f));
+    PushRect(RenderGroup, UIContext->BackingTransform, Rect, 10.0f, V4(1, 1, 1, 0.5f));
 
     if(Bitmap)
     {
