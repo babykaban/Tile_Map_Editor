@@ -29,7 +29,7 @@ AssetAddModeBitmap(edit_mode_asset *AssetMode, ui_context *UIContext, layout *La
 
     layout GridLayout = BeginLayout(UIContext, Layout->MouseP, V2(-950.0f, 430.0f));
     ui_interaction NullInteraction = {};
-    rectangle2 Rect = Grid(&GridLayout, V2(960.0f, 960.0f), V2(64.0f, 64.0f), NullInteraction, V4(0, 0, 0, 0.2f));
+//    rectangle2 Rect = Grid(&GridLayout, V2(960.0f, 960.0f), V2(64.0f, 64.0f), NullInteraction, V4(0, 0, 0, 0.2f));
     EndLayout(&GridLayout);
     
     u32 Result = SimpleScrollElement(Layout, &AssetMode->TestCursor,
@@ -64,18 +64,43 @@ AssetAddModeBitmap(edit_mode_asset *AssetMode, ui_context *UIContext, layout *La
     sprintf_s(Buffer, "AlignPercentage: V2(%f, %f)",
               AssetMode->AddBitmap.AlignPercentage.x, AssetMode->AddBitmap.AlignPercentage.y);
     Label(&BitmapStatsLayout, Buffer);
+    
+    ui_item_id BitmapItemID = UIItemIDFromEditMode(UIContext, EditMode_Assets);
+    ui_view *View = GetOrCreateDebugViewFor(UIContext, BitmapItemID);
+    r32 BitmapScale = View->InlineBlock.Dim.y;
 
+#if 0
+    if(BitmapScale != 0.0f)
+    {
+        if((BitmapScale / 64.0f) != 0.0f)
+        {
+            u32 Pixels = RoundReal32ToUInt32(BitmapScale);
+            u32 Sub = Pixels % 64;
+            BitmapScale = (r32)(Pixels - Sub);
+        }
+    }
+#endif
+    
+    layout BitmapLayout = BeginLayout(UIContext, Layout->MouseP, V2(-950.0f, 430.0f));
+    rectangle2 BitmapBounds = UIBitmap(&BitmapLayout, &AssetMode->AddBitmap, View, BitmapScale,
+                                       V2(32.0f, 32.0f), NullInteraction);
+    EndLayout(&BitmapLayout);
+
+    if(IsInRectangle(BitmapBounds, Layout->MouseP))
+    {
+        // NOTE(paul): Align Percentage
+        v2 LocalMouseP = (1.0f / BitmapScale)*(Layout->MouseP - BitmapBounds.Min);
+        sprintf_s(Buffer, "BitmapMouseP: %f, %f", LocalMouseP.x, LocalMouseP.y);
+        Label(&BitmapStatsLayout, Buffer);
+        EndLayout(&GridLayout);
+    }    
+
+#if 0
     {
         ui_item_id BitmapItemID = UIItemIDFromEditMode(UIContext, EditMode_Assets);
         ui_view *View = GetOrCreateDebugViewFor(UIContext, BitmapItemID);
         loaded_bitmap *Bitmap = &AssetMode->AddBitmap;
         r32 BitmapScale = View->InlineBlock.Dim.y;
-
-        if(Bitmap)
-        {
-            used_bitmap_dim Dim = GetBitmapDim(RenderGroup, DefaultFlatTransform(), Bitmap, BitmapScale, V3(0.0f, 0.0f, 0.0f), 1.0f);
-            View->InlineBlock.Dim.x = Dim.Size.x;
-        }
 
         layout BitmapLayout = BeginLayout(UIContext, Layout->MouseP, V2(-950.0f, 430.0f));
         layout_element LayEl = BeginElementRectangle(&BitmapLayout, &View->InlineBlock.Dim);
@@ -93,21 +118,12 @@ AssetAddModeBitmap(edit_mode_asset *AssetMode, ui_context *UIContext, layout *La
         }
 
         PushRectOutline(&UIContext->RenderGroup, UIContext->UITransform, LayEl.Bounds, 0.0f, V4(1, 0, 0, 1), 1.0f);
-
-        if(IsInRectangle(LayEl.Bounds, Layout->MouseP))
-        {
-            // NOTE(paul): Align Percentage
-            v2 LocalMouseP = (1.0f / BitmapScale)*(Layout->MouseP - LayEl.Bounds.Min);
-            sprintf_s(Buffer, "BitmapMouseP: %f, %f", LocalMouseP.x, LocalMouseP.y);
-            Label(&BitmapStatsLayout, Buffer);
-            EndLayout(&GridLayout);
-        }    
     }
-    
+#endif    
 //    PushBitmap(&UIContext->RenderGroup, UIContext->UITransform, &AssetMode->AddBitmap,
 //               (r32)(2.0f*AssetMode->AddBitmap.Height), V3(GetCenter(Rect), 0));
 
-
+#if 0 
     if(IsInRectangle(Rect, Layout->MouseP))
     {
         v2 LocalMouseP = 0.5f*(Layout->MouseP - Rect.Min);
@@ -115,7 +131,7 @@ AssetAddModeBitmap(edit_mode_asset *AssetMode, ui_context *UIContext, layout *La
         Label(&BitmapStatsLayout, Buffer);
         EndLayout(&GridLayout);
     }    
-    
+#endif    
 //    PushLine(&UIContext->RenderGroup, UIContext->UITransform, V3(0, 0, 0), V3(Layout->MouseP, 0), V4(1, 0, 0, 1));
 }
 

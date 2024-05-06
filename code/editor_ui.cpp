@@ -960,6 +960,64 @@ Grid(layout *Layout, v2 Bounds, v2 GridSize, ui_interaction ItemInteraction, v4 
     return(Element.Bounds);
 }
 
+internal rectangle2
+UIBitmap(layout *Layout, loaded_bitmap *Bitmap, ui_view *View, r32 BitmapScale, v2 GridSize, ui_interaction ItemInteraction, v4 BackdropColor = V4(0, 0, 0, 0))
+{
+    ui_context *UIContext = Layout->UIContext;
+    render_group *RenderGroup = &UIContext->RenderGroup;
+
+    Assert((GridSize.x > 0.0f) && (GridSize.y > 0.0f));
+    
+    if(Bitmap)
+    {
+        used_bitmap_dim Dim = GetBitmapDim(RenderGroup, DefaultFlatTransform(), Bitmap, BitmapScale, V3(0.0f, 0.0f, 0.0f), 1.0f);
+        View->InlineBlock.Dim.x = Dim.Size.x;
+    }
+
+    layout_element LayEl = BeginElementRectangle(Layout, &View->InlineBlock.Dim);
+    MakeElementSizable(&LayEl);
+    DefaultInteraction(&LayEl, ItemInteraction);
+    EndElement(&LayEl);
+
+    v2 ElementDim = GetDim(LayEl.Bounds);
+    v2 ElementCenter = GetCenter(LayEl.Bounds);
+
+    u32 TileCountX = Bitmap->Width / 32;
+    r32 AddX = ElementDim.x / TileCountX; 
+    for(r32 X = 0.0f;
+        X < ElementDim.x;
+        X += AddX)
+    {
+        PushLine(RenderGroup, UIContext->BackingTransform, V3(LayEl.Bounds.Min + V2(X, 0.0f), 0.0f),
+                 V3(LayEl.Bounds.Min.x + X, LayEl.Bounds.Max.y, 0.0f), V4(0, 1, 0, 1));
+    }
+
+    u32 TileCountY = Bitmap->Height / 32;
+    r32 AddY = ElementDim.y / TileCountY; 
+    for(r32 Y = 0.0f;
+        Y < ElementDim.y;
+        Y += AddY)
+    {
+        PushLine(RenderGroup, UIContext->BackingTransform, V3(LayEl.Bounds.Min + V2(0, Y), 0.0f),
+                 V3(LayEl.Bounds.Max.x, LayEl.Bounds.Min.y + Y, 0.0f), V4(0, 1, 0, 1));
+    }
+
+    PushLine(RenderGroup, UIContext->BackingTransform, V3(LayEl.Bounds.Min, 0.0f),
+             V3(LayEl.Bounds.Max, 0.0f), V4(0, 0, 1, 1));
+
+    PushRect(RenderGroup, UIContext->BackingTransform, LayEl.Bounds, 5.0f, V4(0, 0, 0, 0.5f));
+
+    if(Bitmap)
+    {
+        PushBitmap(RenderGroup, UIContext->BackingTransform, Bitmap, BitmapScale,
+                   V3(GetMinCorner(LayEl.Bounds), 6.0f), V4(1, 1, 1, 1), 0.0f);
+    }
+
+    PushRectOutline(RenderGroup, UIContext->UITransform, LayEl.Bounds, 0.0f, V4(1, 0, 0, 1), 1.0f);
+
+    return(LayEl.Bounds);
+}
+
 internal void
 EndUI(ui_context *UIContext, game_input *Input)
 {
