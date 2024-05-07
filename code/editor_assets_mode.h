@@ -49,7 +49,9 @@ struct edit_mode_asset
     b32 AddAsset;
 
     asset_add_mode AssetAddMode;
-    array_cursor TestCursor;
+    array_cursor BMPCursor;
+    array_cursor TagCursor;
+    array_cursor AssetTypeCursor;
 
     builder_assets BuilderAssets;
     

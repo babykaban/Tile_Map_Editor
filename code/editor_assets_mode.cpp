@@ -35,9 +35,9 @@ AssetAddModeBitmap(edit_mode_asset *AssetMode, ui_context *UIContext, layout *La
     if(AssetMode->BMPFileCount)
     {
         BeginRow(Layout);
-        u32 Result = SimpleScrollElement(Layout, &AssetMode->TestCursor,
+        u32 Result = SimpleScrollElement(Layout, &AssetMode->BMPCursor,
                                          AdvanceArrayCursorInteraction(UIItemIDFromEditMode(UIContext, EditMode_Assets),
-                                                                       &AssetMode->TestCursor, AssetMode->BMPFileCount),
+                                                                       &AssetMode->BMPCursor, AssetMode->BMPFileCount),
                                          V4(0.8f, 0.8f, 0.8f, 1), V4(1, 1, 1, 1), 4.0f, V4(0.0f, 0.635294117647f, 0.909803921569f, 1));
 
         ActionButton(Layout, "AddAsset", SetUInt32Interaction(UIItemIDFromEditMode(UIContext, EditMode_Assets),
@@ -105,6 +105,16 @@ AssetAddModeBitmap(edit_mode_asset *AssetMode, ui_context *UIContext, layout *La
                 AssetMode->PlaceAlignment = false;
             }
         }    
+
+        u32 AssetType = SimpleScrollElement(&BitmapLayout, &AssetMode->AssetTypeCursor,
+                                            AdvanceArrayCursorInteraction(UIItemIDFromEditMode(UIContext, EditMode_Assets),
+                                                                          &AssetMode->AssetTypeCursor, Asset_Count),
+                                            V4(0.8f, 0.8f, 0.8f, 1), V4(1, 1, 1, 1), 4.0f, V4(0.0f, 0.635294117647f, 0.909803921569f, 1));
+
+        u32 TagID = SimpleScrollElement(&BitmapLayout, &AssetMode->TagCursor,
+                                        AdvanceArrayCursorInteraction(UIItemIDFromEditMode(UIContext, EditMode_Assets),
+                                                                      &AssetMode->TagCursor, Tag_Count),
+                                        V4(0.8f, 0.8f, 0.8f, 1), V4(1, 1, 1, 1), 4.0f, V4(0.0f, 0.635294117647f, 0.909803921569f, 1));
         EndLayout(&BitmapLayout);
         EndRow(Layout);
     }

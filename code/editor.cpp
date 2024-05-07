@@ -632,7 +632,9 @@ PlayAssetEditMode(editor_state *EditorState, transient_state *TranState)
     }
     fclose(File);
 #endif
-    InitializeStringArrayCursor(&Result->TestCursor, 1, Result->BMPFileNames);
+    InitializeStringArrayCursor(&Result->BMPCursor, 1, Result->BMPFileNames);
+    InitializeStringArrayCursor(&Result->AssetTypeCursor, 1, AssetTypes);
+    InitializeStringArrayCursor(&Result->TagCursor, 1, AssetTags);
 
     InitializeBuilderAssets(&Result->BuilderAssets, &EditorState->ModeArena);
     

@@ -105,6 +105,63 @@ static const char *CliffHillTypes[] =
     "CliffHillType_Internal",
 };
 
+static char *AssetTags[] =
+{
+    "Tag_FacingDirection", // NOTE(casey): Angle in radians off of due right
+    "Tag_SpriteIndex",
+    "Tag_AnimationType",
+    "Tag_AssetType",
+
+    "Tag_UnicodeCodepoint",
+    "Tag_FontType",
+
+    "Tag_TileID",
+    "Tag_BiomeType",
+    "Tag_TileType",
+    "Tag_Height",
+    "Tag_CliffHillType",
+    "Tag_TileMainSurface",
+    "Tag_TileMergeSurface",
+
+    "Tag_TreeType",
+    "Tag_LightLevel",
+    "Tag_SizeLevel",
+    "Tag_Color",
+
+    "Tag_Variety",
+
+    "Tag_MagicElement",
+
+    "Tag_Sex",
+    "Tag_Age",
+    "Tag_HairColor",
+    "Tag_Beard",
+    "Tag_Accessories",
+    "Tag_TopOutfit",
+    "Tag_TopOutfitColor",
+    "Tag_BottomOutFit",
+    "Tag_BottomOutFitColor",
+
+    "Tag_NPCName",
+    "Tag_ConversationType",
+    "Tag_QuestRelated",
+    "Tag_DialogueParagraphIndex",
+    "Tag_QuestType",
+    "Tag_QuestName",
+
+    "Tag_Haircut",
+
+    "Tag_SpellName",
+    "Tag_MagicEffect",
+
+    "Tag_ItemName",
+    "Tag_DataType",
+
+    "Tag_MusicType",
+    "Tag_SoundEffectType",
+    "Tag_PropType",
+};
+
 static char *AssetTypes[] =
 {
     "Asset_None",
