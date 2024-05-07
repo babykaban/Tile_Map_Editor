@@ -41,7 +41,7 @@ struct asset_to_add
     asset_type_id TypeID;
     u32 TagCount;
     ssa_tag Tags[256];
-    add_asset_source AddSource;
+    add_asset_source Source;
 };
 
 struct edit_mode_asset
@@ -56,8 +56,8 @@ struct edit_mode_asset
     u32 BMPFileCount;
     char *BMPFileNames[1024];
 
-    b32 EditExistingBitmap;
-
+    b32 PlaceAlignment;
+    asset_to_add AssetToAdd;
     u32 BitmapIndex;
     loaded_bitmap AddBitmap;
 };
