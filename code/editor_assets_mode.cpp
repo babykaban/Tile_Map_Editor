@@ -58,6 +58,7 @@ AssetAddModeBitmap(edit_mode_asset *AssetMode, ui_context *UIContext, layout *La
 
             AssetMode->BitmapIndex = Result;
             AssetMode->AddBitmap = LoadBMP(Buffer);
+            AssetMode->AssetToAdd.Source.AddBitmap.FileName = FileName;
         }
     
         ui_item_id BitmapItemID = UIItemIDFromEditMode(UIContext, EditMode_Assets);
@@ -106,17 +107,65 @@ AssetAddModeBitmap(edit_mode_asset *AssetMode, ui_context *UIContext, layout *La
             }
         }    
 
+        BeginRow(&BitmapLayout);
         u32 AssetType = SimpleScrollElement(&BitmapLayout, &AssetMode->AssetTypeCursor,
                                             AdvanceArrayCursorInteraction(UIItemIDFromEditMode(UIContext, EditMode_Assets),
                                                                           &AssetMode->AssetTypeCursor, Asset_Count),
                                             V4(0.8f, 0.8f, 0.8f, 1), V4(1, 1, 1, 1), 4.0f, V4(0.0f, 0.635294117647f, 0.909803921569f, 1));
+        ActionButton(&BitmapLayout, "RecordAssetID", SetUInt32Interaction(UIItemIDFromEditMode(UIContext, EditMode_Assets),
+                                                                   (u32 *)&AssetMode->AssetToAdd.TypeID, AssetType));
+        EndRow(&BitmapLayout);
 
+        BeginRow(&BitmapLayout);
         u32 TagID = SimpleScrollElement(&BitmapLayout, &AssetMode->TagCursor,
                                         AdvanceArrayCursorInteraction(UIItemIDFromEditMode(UIContext, EditMode_Assets),
                                                                       &AssetMode->TagCursor, Tag_Count),
                                         V4(0.8f, 0.8f, 0.8f, 1), V4(1, 1, 1, 1), 4.0f, V4(0.0f, 0.635294117647f, 0.909803921569f, 1));
+
+        ActionButton(&BitmapLayout, "AddTag", SetUInt32Interaction(UIItemIDFromEditMode(UIContext, EditMode_Assets),
+                                                            (u32 *)&AssetMode->AddTag, true));
+        EndRow(&BitmapLayout);
         EndLayout(&BitmapLayout);
+
         EndRow(Layout);
+
+        if(AssetMode->AddTag)
+        {
+            ssa_tag *Tag = AssetMode->AssetToAdd.Tags + AssetMode->AssetToAdd.TagCount++;            
+            Tag->ID = TagID;
+            Tag->Value = 1.0f;
+
+            AssetMode->AddTag = false;
+        }
+        
+        layout AddAssetLayout = BeginLayout(UIContext, Layout->MouseP, V2(360, 540)); 
+
+        sprintf_s(Buffer, "TypeID: %s", AssetTypes[AssetMode->AssetToAdd.TypeID]);
+        Label(&AddAssetLayout, Buffer);
+
+        Label(&AddAssetLayout, "Tags: ");
+        for(u32 TagIndex = 0;
+            TagIndex < AssetMode->AssetToAdd.TagCount;
+            ++TagIndex)
+        {
+            ssa_tag *Tag = AssetMode->AssetToAdd.Tags + TagIndex;
+            sprintf_s(Buffer, "    ID: %s; Value: %f", AssetTags[Tag->ID], Tag->Value);
+            Label(&AddAssetLayout, Buffer);
+        }
+
+        Label(&AddAssetLayout, "AssetType: Bitmap");
+
+        sprintf_s(Buffer, "FileName: %s", AssetMode->AssetToAdd.Source.AddBitmap.FileName);
+        Label(&AddAssetLayout, Buffer);
+
+        sprintf_s(Buffer, "AlignPercentage: %f, %f", AssetMode->AssetToAdd.Source.AddBitmap.AlignPercentage.x,
+                  AssetMode->AssetToAdd.Source.AddBitmap.AlignPercentage.y);
+        Label(&AddAssetLayout, Buffer);
+
+        sprintf_s(Buffer, "RenderHeight: %f", AssetMode->AssetToAdd.Source.AddBitmap.RenderHeight);
+        Label(&AddAssetLayout, Buffer);
+
+        EndLayout(&AddAssetLayout);
     }
     else
     {
@@ -287,8 +336,6 @@ UpdateAndRenderAssetsMode(editor_state *EditorState, transient_state *TranState,
 
     builder_assets *BuilderAssets = &AssetMode->BuilderAssets;
     
-#if 0
-#endif
     switch(AssetMode->AssetAddMode)
     {
         case AssetMode_Bitmap:

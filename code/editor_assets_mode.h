@@ -59,6 +59,7 @@ struct edit_mode_asset
     char *BMPFileNames[1024];
 
     b32 PlaceAlignment;
+    b32 AddTag;
     asset_to_add AssetToAdd;
     u32 BitmapIndex;
     loaded_bitmap AddBitmap;

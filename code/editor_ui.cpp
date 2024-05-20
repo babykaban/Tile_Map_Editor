@@ -578,15 +578,6 @@ BeginInteract(ui_context *UIContext, game_input *Input, v2 MouseP)
             case Interaction_Select:
             {
             } break;                
-
-            case Interaction_AdvanceCursor:
-            {
-                array_cursor *Cursor = (array_cursor *)UIContext->Interaction.Target;
-                if(Cursor)
-                {
-                    ChangeCursorPositionFor(Cursor, UIContext->HotInteraction.UInt32, Input->MouseZ);
-                }
-            } break;
         }
 
         UIContext->Interaction = UIContext->HotInteraction;
@@ -618,6 +609,15 @@ EndInteract(ui_context *UIContext, game_input *Input, v2 MouseP)
         case Interaction_ToggleValue:
         {
             *(u32 *)UIContext->Interaction.Target = UIContext->Interaction.UInt32;
+        } break;
+
+        case Interaction_AdvanceCursor:
+        {
+            array_cursor *Cursor = (array_cursor *)UIContext->Interaction.Target;
+            if(Cursor)
+            {
+                ChangeCursorPositionFor(Cursor, UIContext->HotInteraction.UInt32, Input->MouseZ);
+            }
         } break;
     }
 
@@ -680,16 +680,18 @@ Interact(ui_context *UIContext, game_input *Input, v2 MouseP)
         }
 #endif
 
-        if(Input->MouseButtons[0].EndedDown)
+        if((Input->MouseButtons[0].EndedDown))
         {
             BeginInteract(UIContext, Input, MouseP);
         }
 
-        if((Input->MouseZ != 0) && (UIContext->HotInteraction.Type == Interaction_AdvanceCursor))
+        if((Input->MouseZ != 0))
         {
-            BeginInteract(UIContext, Input, MouseP);
+            if(UIContext->HotInteraction.Type == Interaction_AdvanceCursor)
+            {
+                EndInteract(UIContext, Input, MouseP);
+            }
         }
-        
     }
 
     UIContext->LastMouseP = MouseP;
