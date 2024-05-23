@@ -5,7 +5,7 @@
    $Creator: Handy Paul $
    $Notice: (C) Copyright 2023 by Handy Paul, Inc. All Rights Reserved. $
    ======================================================================== */
-
+#if 0
 inline ui_item_id
 UIItemIDFromEditMode(ui_context *UIContext, u32 EditMode)
 {
@@ -1037,4 +1037,1209 @@ EndUI(ui_context *UIContext, game_input *Input)
 
     // NOTE(casey): Clear the UI state for the next frame
     ZeroStruct(UIContext->NextHotInteraction);
+}
+#endif
+
+inline interaction_id
+InteractionID(ui_state *UIState, u32 Owner = 0)
+{
+    interaction_id Result = {};
+    Result.Owner = Owner;
+    Result.Value = UIState->NextInteractionID++;
+
+    return(Result);
+}
+
+inline b32
+IDsAreEqual(interaction_id A, interaction_id B)
+{
+    b32 Result = ((A.Owner == B.Owner) &&
+                  (A.Value == B.Value));
+
+    return(Result);
+}
+
+inline b32
+InteractionsAreEqual(interaction A, interaction B)
+{
+    b32 Result = (IDsAreEqual(A.ID, B.ID) &&
+                  (A.Type == B.Type) &&
+                  (A.Target == B.Target) &&
+                  (A.Generic == B.Generic));
+
+    return(Result);
+}
+
+inline b32
+InteractionIsHot(ui_state *UIState, interaction B)
+{
+    b32 Result = InteractionsAreEqual(UIState->HotInteraction, B);
+
+    if(B.Type == Interaction_None)
+    {
+        Result = false;
+    }
+
+    return(Result);
+}
+
+inline b32
+UIIsHex(char Char)
+{
+    b32 Result = (((Char >= '0') && (Char <= '9')) ||
+                  ((Char >= 'A') && (Char <= 'F')));
+
+    return(Result);
+}
+
+inline u32
+UIGetHex(char Char)
+{
+    u32 Result = 0;
+
+    if((Char >= '0') && (Char <= '9'))
+    {
+        Result = Char - '0';
+    }
+    else if((Char >= 'A') && (Char <= 'F'))
+    {
+        Result = 0xA + (Char - 'A');
+    }
+
+    return(Result);
+}
+
+internal rectangle2
+UITextOp(ui_state *UIState, ui_text_op Op, v2 P, char *String, v4 Color = V4(1, 1, 1, 1),
+         r32 AtZ = 0.0f)
+{
+    rectangle2 Result = InvertedInfinityRectangle2();
+    if(UIState && UIState->Font)
+    {
+        render_group *RenderGroup = &UIState->RenderGroup;
+        loaded_font *Font = UIState->Font;
+        ssa_font *Info = UIState->FontInfo;
+
+        u32 PrevCodePoint = 0;
+        r32 CharScale = UIState->FontScale;
+        r32 AtY = P.y;
+        r32 AtX = P.x;
+        for(char *At = String;
+            *At;
+            )
+        {
+            if((At[0] == '\\') &&
+               (At[1] == '#') &&
+               (At[2] != 0) &&
+               (At[3] != 0) &&
+               (At[4] != 0))
+            {
+                r32 CScale = 1.0f / 9.0f;
+                Color = V4(Clamp01(CScale*(r32)(At[2] - '0')),
+                           Clamp01(CScale*(r32)(At[3] - '0')),
+                           Clamp01(CScale*(r32)(At[4] - '0')),
+                           1.0f);
+                At += 5;
+            }
+            else if((At[0] == '\\') &&
+                    (At[1] == '^') &&
+                    (At[2] != 0))
+            {
+                r32 CScale = 1.0f / 9.0f;
+                CharScale = UIState->FontScale*Clamp01(CScale*(r32)(At[2] - '0'));
+                At += 3;
+            }
+            else
+            {
+                u32 CodePoint = *At;
+                if((At[0] == '\\') &&
+                   (UIIsHex(At[1])) &&
+                   (UIIsHex(At[2])) &&
+                   (UIIsHex(At[3])) &&
+                   (UIIsHex(At[4])))
+                {
+                    CodePoint = ((UIGetHex(At[1]) << 12) |
+                                 (UIGetHex(At[2]) << 8) |
+                                 (UIGetHex(At[3]) << 4) |
+                                 (UIGetHex(At[4]) << 0));
+                    At += 4;
+                }
+
+                r32 AdvanceX = CharScale*GetHorizontalAdvanceForPair(Info, Font, PrevCodePoint, CodePoint);
+                AtX += AdvanceX;
+
+                if(CodePoint != ' ')
+                {
+                    bitmap_id BitmapID = GetBitmapForGlyph(RenderGroup->Assets, Info, Font, CodePoint);
+                    ssa_bitmap *BitmapInfo = GetBitmapInfo(RenderGroup->Assets, BitmapID);
+
+                    r32 BitmapScale = CharScale*(r32)BitmapInfo->Dim[1];
+                    v3 BitmapOffset = V3(AtX, AtY, AtZ);
+                    if(Op == UITextOp_DrawText)
+                    {
+                        PushBitmap(RenderGroup, UIState->TextTransform, BitmapID, BitmapScale,
+                            BitmapOffset, Color, 1.0f);
+                        PushBitmap(RenderGroup, UIState->ShadowTransform, BitmapID, BitmapScale,
+                            BitmapOffset + V3(2.0f, -2.0f, 0.0f), V4(0, 0, 0, 1.0f), 1.0f);
+                    }
+                    else                    
+                    {
+                        Assert(Op == UITextOp_SizeText);
+
+                        loaded_bitmap *Bitmap = GetBitmap(RenderGroup->Assets, BitmapID, RenderGroup->GenerationID);
+                        if(Bitmap)
+                        {
+                            used_bitmap_dim Dim = GetBitmapDim(RenderGroup, DefaultFlatTransform(), Bitmap, BitmapScale, BitmapOffset, 1.0f);
+                            rectangle2 GlyphDim = RectMinDim(Dim.P.xy, Dim.Size);
+                            Result = Union(Result, GlyphDim);
+                        }
+                    }
+                }
+
+                PrevCodePoint = CodePoint;
+
+                ++At;
+            }
+        }
+    }
+
+    return(Result);
+}
+
+inline void
+UITextOutAt(ui_state *UIState, v2 P, char *String, v4 Color = V4(1, 1, 1, 1), r32 AtZ = 0.0f)
+{
+    render_group *RenderGroup = &UIState->RenderGroup;
+
+    UITextOp(UIState, UITextOp_DrawText, P, String, Color, AtZ);    
+}
+
+inline rectangle2
+UIGetTextSize(ui_state *UIState, char *String)
+{
+    rectangle2 Result = UITextOp(UIState, UITextOp_SizeText, V2(0, 0), String);
+
+    return(Result);
+}
+
+inline r32
+UIGetLineAdvance(ui_state *UIState)
+{
+    r32 Result = GetLineAdvanceFor(UIState->FontInfo)*UIState->FontScale;
+    return(Result);
+}
+
+inline r32
+GetBaseline(ui_state *UIState)
+{
+    r32 Result = UIState->FontScale*GetStartingBaselineY(UIState->FontInfo);
+    return(Result);
+}
+
+inline interaction
+UISetPointerInteraction(interaction_id ID, void **Target, void *Value)
+{
+    interaction Result = {};
+    Result.ID = ID;
+    Result.Type = Interaction_SetPointer;
+    Result.Target = Target;
+    Result.Pointer = Value;
+
+    return(Result);
+}
+
+inline interaction
+UISetUInt32Interaction(interaction_id ID, u32 *Target, u32 Value)
+{
+    interaction Result = {};
+    Result.ID = ID;
+    Result.Type = Interaction_SetUInt32;
+    Result.Target = Target;
+    Result.UInt32 = Value;
+
+    return(Result);
+}
+
+inline ui_layout 
+UIBeginLayout(ui_state *UIState, v2 MouseP, v2 UpperLeftCorner)
+{
+    ui_layout Layout = {};
+    Layout.UIState = UIState;
+    Layout.MouseP = MouseP;
+    Layout.BaseCorner = Layout.At = UpperLeftCorner;
+    Layout.LineAdvance = UIState->FontScale*GetLineAdvanceFor(UIState->FontInfo);
+    Layout.SpacingY = 4.0f;
+    Layout.SpacingX = 4.0f;
+    
+    return(Layout);
+}
+
+inline void
+UIEndLayout(ui_layout *Layout)
+{
+}
+
+inline ui_layout_element
+UIBeginElementRectangle(ui_layout *Layout, v2 *Dim)
+{
+    ui_layout_element Element = {};
+
+    Element.Layout = Layout;
+    Element.Dim = Dim;
+
+    return(Element);
+}
+
+inline void
+UIMakeElementSizable(ui_layout_element *Element)
+{
+    Element->Size = Element->Dim;
+}
+
+inline void
+UIDefaultInteraction(ui_layout_element *Element, interaction Interaction)
+{
+    Element->Interaction = Interaction;
+}
+
+inline void
+UIAdvanceElement(ui_layout *Layout, rectangle2 ElRect)
+{
+    Layout->NextYDelta = Minimum(Layout->NextYDelta, GetMinCorner(ElRect).y - Layout->At.y);
+
+    if(Layout->NoLineFeed)
+    {
+        Layout->At.x = GetMaxCorner(ElRect).x + Layout->SpacingX;
+    }
+    else
+    {
+        Layout->At.y += Layout->NextYDelta - Layout->SpacingY;
+        Layout->LineInitialized = false;
+    }
+}
+
+inline void
+UIEndElement(ui_layout_element *Element)
+{
+    ui_layout *Layout = Element->Layout;
+    ui_state *UIState = Layout->UIState;
+    object_transform NoTransform = UIState->BackingTransform;
+    
+    if(!Layout->LineInitialized)
+    {
+        Layout->At.x = Layout->BaseCorner.x + Layout->Depth*2.0f*Layout->LineAdvance;
+        Layout->LineInitialized = true;
+        Layout->NextYDelta = 0.0f;
+    }
+
+    r32 SizeHandlePixels = 4.0f;
+
+    v2 Frame = {0, 0};
+    if(Element->Size)
+    {
+        Frame.x = SizeHandlePixels;
+        Frame.y = SizeHandlePixels;
+    }
+
+    v2 TotalDim = *Element->Dim + 2.0f*Frame;
+
+    v2 TotalMinCorner = V2(Layout->At.x,
+                           Layout->At.y - TotalDim.y);
+    v2 TotalMaxCorner = TotalMinCorner + TotalDim;
+
+    v2 InteriorMinCorner = TotalMinCorner + Frame;
+    v2 InteriorMaxCorner = InteriorMinCorner + *Element->Dim;
+
+    rectangle2 TotalBounds = RectMinMax(TotalMinCorner, TotalMaxCorner);
+    Element->Bounds = RectMinMax(InteriorMinCorner, InteriorMaxCorner);
+
+    if(Element->Interaction.Type && IsInRectangle(Element->Bounds, Layout->MouseP))
+    {
+        UIState->NextHotInteraction = Element->Interaction;
+    }
+
+    if(Element->Size)
+    {
+        PushRect(&UIState->RenderGroup, NoTransform, RectMinMax(V2(TotalMinCorner.x, InteriorMinCorner.y),
+                V2(InteriorMinCorner.x, InteriorMaxCorner.y)), 0.0f,
+                 V4(0, 0, 0, 1));
+        PushRect(&UIState->RenderGroup, NoTransform, RectMinMax(V2(InteriorMaxCorner.x, InteriorMinCorner.y),
+                                                     V2(TotalMaxCorner.x, InteriorMaxCorner.y)), 0.0f,
+                 V4(0, 0, 0, 1));
+        PushRect(&UIState->RenderGroup, NoTransform, RectMinMax(V2(InteriorMinCorner.x, TotalMinCorner.y),
+                                                     V2(InteriorMaxCorner.x, InteriorMinCorner.y)), 0.0f,
+                 V4(0, 0, 0, 1));
+        PushRect(&UIState->RenderGroup, NoTransform, RectMinMax(V2(InteriorMinCorner.x, InteriorMaxCorner.y),
+                                                     V2(InteriorMaxCorner.x, TotalMaxCorner.y)), 0.0f,
+                 V4(0, 0, 0, 1));
+
+        interaction SizeInteraction = {};
+        SizeInteraction.Type = Interaction_Resize;
+        SizeInteraction.P = Element->Size;
+
+        rectangle2 SizeBox = AddRadiusTo(
+            RectMinMax(V2(InteriorMaxCorner.x, TotalMinCorner.y),
+                V2(TotalMaxCorner.x, InteriorMinCorner.y)), V2(4.0f, 4.0f));
+        PushRect(&UIState->RenderGroup, NoTransform, SizeBox, 0.0f,
+                 (InteractionIsHot(UIState, SizeInteraction) ? V4(1, 1, 0, 1) : V4(1, 1, 1, 1)));
+        if(IsInRectangle(SizeBox, Layout->MouseP))
+        {
+            UIState->NextHotInteraction = SizeInteraction;
+        }
+    }
+
+    UIAdvanceElement(Layout, TotalBounds);
+}
+
+internal v2
+UIBasicTextElement(ui_layout *Layout, char *Text, interaction ItemInteraction,
+                   v4 ItemColor = V4(0.8f, 0.8f, 0.8f, 1), v4 HotColor = V4(1, 1, 1, 1),
+                   r32 Border = 0.0f, v4 BackdropColor = V4(0, 0, 0, 0))
+{
+    ui_state *UIState = Layout->UIState;
+
+    rectangle2 TextBounds = UIGetTextSize(UIState, Text);
+    v2 Dim = {GetDim(TextBounds).x + 2.0f*Border, Layout->LineAdvance + 2.0f*Border};
+    
+    ui_layout_element Element = UIBeginElementRectangle(Layout, &Dim);
+    UIDefaultInteraction(&Element, ItemInteraction);
+    UIEndElement(&Element);
+
+    b32 IsHot = InteractionIsHot(Layout->UIState, ItemInteraction);
+
+    UITextOutAt(UIState, V2(GetMinCorner(Element.Bounds).x + Border,
+                            GetMaxCorner(Element.Bounds).y - Border - 
+                            UIState->FontScale*GetStartingBaselineY(UIState->FontInfo)),
+                Text, IsHot ? HotColor : ItemColor);
+    if(BackdropColor.w > 0.0f)
+    {
+        PushRect(&UIState->RenderGroup, 
+                 UIState->BackingTransform, Element.Bounds, 0.0f, BackdropColor);
+    }
+    
+    return(Dim);
+}
+
+internal void
+UIBeginRow(ui_layout *Layout)
+{
+    ++Layout->NoLineFeed;
+}
+
+internal void
+UILabel(ui_layout *Layout, char *Name)
+{
+    interaction NullInteraction = {};
+    UIBasicTextElement(Layout, Name, NullInteraction, V4(1, 1, 1, 1), V4(1, 1, 1, 1));
+}
+
+internal void
+UIActionButton(ui_layout *Layout, char *Name, interaction Interaction)
+{
+    UIBasicTextElement(Layout, Name, Interaction, 
+                       V4(0.5f, 0.5f, 0.5f, 1.0f), V4(1, 1, 1, 1),
+                       4.0f, V4(0, 0.5f, 1.0f, 1.0f));
+}
+
+internal void
+UIBooleanButton(ui_layout *Layout, char *Name, b32 Highlight, interaction Interaction)
+{
+    UIBasicTextElement(Layout, Name, Interaction, 
+                       Highlight ? V4(1, 1, 1, 1) : V4(0.5f, 0.5f, 0.5f, 1.0f), V4(1, 1, 1, 1),
+                       4.0f, V4(0.0f, 0.5f, 1.0f, 1.0f));
+}
+
+internal void
+UIEndRow(ui_layout *Layout)
+{
+    Assert(Layout->NoLineFeed > 0);
+    --Layout->NoLineFeed;
+
+    UIAdvanceElement(Layout, RectMinMax(Layout->At, Layout->At));
+}
+
+internal void
+BeginInteract(ui_state *UIState, game_input *Input, v2 MouseP)
+{
+    UITextOutAt(UIState, V2(0, 0), "BeginInteract");
+    if(UIState->HotInteraction.Type)
+    {
+        if(UIState->HotInteraction.Type == Interaction_AutoModifyVariable)
+        {
+        }
+
+        switch(UIState->HotInteraction.Type)
+        {
+            case Interaction_TearValue:
+            {
+            } break;
+
+            case Interaction_Select:
+            {
+            } break;                
+        }
+
+        UIState->Interaction = UIState->HotInteraction;
+    }
+    else
+    {
+        UIState->Interaction.Type = Interaction_NOP;
+    }
+}
+
+internal void
+EndInteract(ui_state *UIState, game_input *Input, v2 MouseP)
+{
+    UITextOutAt(UIState, V2(0, 0), "EndInteract");
+    switch(UIState->Interaction.Type)
+    {
+        case Interaction_ToggleExpansion:
+        {
+        } break;
+        
+        case Interaction_SetUInt32:
+        {
+            *(u32 *)UIState->Interaction.Target = UIState->Interaction.UInt32;
+        } break;
+        
+        case Interaction_SetPointer:
+        {
+            *(void **)UIState->Interaction.Target = UIState->Interaction.Pointer;
+        } break;
+
+        case Interaction_ToggleValue:
+        {
+        } break;
+    }
+
+    UIState->Interaction.Type = Interaction_None;
+    UIState->Interaction.Generic = 0;
+}
+
+internal void
+Interact(ui_state *UIState, game_input *Input, v2 MouseP)
+{
+    v2 dMouseP = MouseP - UIState->LastMouseP;
+    if(UIState->Interaction.Type)
+    {
+        v2 *P = UIState->Interaction.P;
+
+        // NOTE(casey): Mouse move interaction
+        switch(UIState->Interaction.Type)
+        {
+            case Interaction_DragValue:
+            {
+            } break;
+
+            case Interaction_Resize:
+            {
+                *P += V2(dMouseP.x, -dMouseP.y);
+                P->x = Maximum(P->x, 10.0f);
+                P->y = Maximum(P->y, 10.0f);
+            } break;
+
+            case Interaction_Move:
+            {
+                *P += V2(dMouseP.x, dMouseP.y);
+            } break;
+        }
+
+        // NOTE(casey): Click interaction
+        for(u32 TransitionIndex = Input->MouseButtons[PlatformMouseButton_Left].HalfTransitionCount;
+            TransitionIndex > 1;
+            --TransitionIndex)
+        {
+            EndInteract(UIState, Input, MouseP);
+            BeginInteract(UIState, Input, MouseP);
+        }
+
+        if(!Input->MouseButtons[PlatformMouseButton_Left].EndedDown)
+        {
+            EndInteract(UIState, Input, MouseP);
+        }
+    }
+    else
+    {
+        UIState->HotInteraction = UIState->NextHotInteraction;
+
+        for(u32 TransitionIndex = Input->MouseButtons[PlatformMouseButton_Left].HalfTransitionCount;
+            TransitionIndex > 1;
+            --TransitionIndex)
+        {
+            BeginInteract(UIState, Input, MouseP);
+            EndInteract(UIState, Input, MouseP);
+        }
+
+        if(Input->MouseButtons[PlatformMouseButton_Left].EndedDown)
+        {
+            BeginInteract(UIState, Input, MouseP);
+        }
+    }
+
+    UIState->LastMouseP = MouseP;
+}
+
+internal void
+BeginUI(ui_state *UIState, game_render_commands *Commands, game_assets *Assets, u32 MainGenerationID,
+        u32 Width, u32 Height)
+{
+    UIState->RenderGroup = BeginRenderGroup(Assets, Commands, MainGenerationID, false);
+
+    UIState->Font = PushFont(&UIState->RenderGroup, UIState->FontID);
+    UIState->FontInfo = GetFontInfo(UIState->RenderGroup.Assets, UIState->FontID);
+
+    UIState->GlobalWidth = (r32)Width;
+    UIState->GlobalHeight = (r32)Height;
+
+    asset_vector MatchVector = {};
+    asset_vector WeightVector = {};
+    MatchVector.E[Tag_FontType] = (r32)FontType_Debug;
+    WeightVector.E[Tag_FontType] = 1.0f;
+    UIState->FontID = GetBestMatchFontFrom(Assets, Asset_Font, &MatchVector, &WeightVector);
+
+    UIState->FontScale = 1.0f;
+    Orthographic(&UIState->RenderGroup, Width, Height, 1.0f);
+    UIState->LeftEdge = -0.5f*Width;
+    UIState->RightEdge = 0.5f*Width;
+
+    UIState->TextTransform = DefaultFlatTransform();
+    UIState->ShadowTransform = DefaultFlatTransform();
+    UIState->UITransform = DefaultFlatTransform();
+    UIState->BackingTransform = DefaultFlatTransform();
+
+    UIState->BackingTransform.SortBias = 100000.0f;
+    UIState->ShadowTransform.SortBias = 200000.0f;
+    UIState->UITransform.SortBias = 300000.0f;
+    UIState->TextTransform.SortBias = 400000.0f;
+
+    UIState->DefaultClipRect = UIState->RenderGroup.CurrentClipRectIndex;
+
+    UIState->NextInteractionID = 1;
+}
+
+internal void 
+UIDrawWindow(ui_state *UIState, ui_layout *Layout, ui_window *Window)
+{
+    render_group *RenderGroup = &UIState->RenderGroup;
+    if(Window->Viewable)
+    {
+        interaction NullInteraction = {};
+        ui_layout_element Element = UIBeginElementRectangle(Layout, &Window->Dim);
+        UIDefaultInteraction(&Element, NullInteraction);
+        UIEndElement(&Element);
+
+        v3 InitOffsetP = UIState->BackingTransform.OffsetP;
+        v2 Center = GetCenter(Element.Bounds);
+        v2 Dim = GetDim(Element.Bounds);
+    
+        UIState->BackingTransform.OffsetP += V3(Center, 0.0f);
+        v2 HalfDim = 0.5f*Dim;
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, 0, 0), Dim,
+                 V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, 0, 2.0f), Dim - V2(4.0f, 4.0f),
+                 V4(0.725490196078f, 0.478431372549f, 0.341176470588f, 1));
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, 0, 3.0f), Dim - V2(12.0f, 12.0f),
+                 V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, 0, 4.0f), Dim - V2(16.0f, 16.0f),
+                 V4(0.403921568627f, 0.254901960784f, 0.172549019608f, 1));
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, 0, 5.0f), Dim - V2(24.0f, 24.0f),
+                 V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, 0, 6.0f), Dim - V2(28.0f, 28.0f),
+                 V4(0.725490196078f, 0.478431372549f, 0.341176470588f, 1));
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, 0, 7.0f), Dim - V2(32.0f, 32.0f),
+                 V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, 0, 8.0f), Dim - V2(36.0f, 36.0f),
+                 V4(0.403921568627f, 0.254901960784f, 0.172549019608f, 1));
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, 0, 9.0f), Dim - V2(44.0f, 44.0f),
+                 V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+
+        r32 YOffset = HalfDim.y - 42.0f;
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, YOffset, 10.0f), V2(Dim.x - 44.0f, 48.0f),
+                 V4(0.403921568627f, 0.254901960784f, 0.172549019608f, 1));
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, YOffset, 11.0f), V2(Dim.x - 44.0f, 40.0f),
+                 V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, YOffset, 12.0f), V2(Dim.x - 48.0f, 36.0f),
+                 V4(0.725490196078f, 0.478431372549f, 0.341176470588f, 1));
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, YOffset, 13.0f), V2(Dim.x - 52.0f, 32.0f),
+                 V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, YOffset, 14.0f), V2(Dim.x - 56.0f, 28.0f),
+                 V4(0.811764705882f, 0.933333333333f, 0.960784313725f, 1));
+
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0.5f, HalfDim.y - 43.0f, 15.0f), V2(Dim.x - 58.0f, 26.0f),
+                 V4(0.0f, 0.635294117647f, 0.909803921569f, 1));
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0.0f, YOffset, 16.0f), V2(Dim.x - 60.0f, 24.0f),
+                 V4(0.6f, 0.850980392157f, 0.917647058824f, 1));
+
+        r32 Ax[2] = {HalfDim.x - 12.0f, -(HalfDim.x - 12.0f)};
+        r32 Ay[2] = {HalfDim.y - 3.0f, -(HalfDim.y - 3.0f)};
+
+        r32 Bx[2] = {HalfDim.x - 3.0f, -(HalfDim.x - 3.0f)};
+        r32 By[2] = {HalfDim.y - 12.0f, -(HalfDim.y - 12.0f)};
+
+        r32 Cx[2] = {HalfDim.x - 10.0f, -(HalfDim.x - 10.0f)};
+        r32 Cy[2] = {HalfDim.y - 10.0f, -(HalfDim.y - 10.0f)};
+
+        r32 Dx[2] = {HalfDim.x - 8.0f, -(HalfDim.x - 8.0f)};
+        r32 Dy[2] = {HalfDim.y - 8.0f, -(HalfDim.y - 8.0f)};
+
+        r32 Ex[2] = {HalfDim.x - 1.0f, -(HalfDim.x - 1.0f)};
+        r32 Ey[2] = {HalfDim.y - 1.0f, -(HalfDim.y - 1.0f)};
+
+        r32 Fx[2] = {HalfDim.x - 5.0f, -(HalfDim.x - 5.0f)};
+        r32 Fy[2] = {HalfDim.y - 6.0f, -(HalfDim.y - 6.0f)};
+
+        r32 Gx[2] = {HalfDim.x - 11.0f, -(HalfDim.x - 11.0f)};
+        r32 Gy[2] = {HalfDim.y - 7.0f, -(HalfDim.y - 7.0f)};
+
+        r32 Hx[2] = {HalfDim.x - 13.0f, -(HalfDim.x - 13.0f)};
+
+        u32 Indecies[4][2] = {{0, 0}, {0, 1}, {1, 0}, {1, 1}};
+
+        for(u32 Itter = 0;
+            Itter < 4;
+            ++Itter)
+        {
+            u32 IndexX = Indecies[Itter][0];
+            u32 IndexY = Indecies[Itter][1];
+
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Ax[IndexX], Ay[IndexY], 10.0f), V2(32.0f, 14.0f),
+                     V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Bx[IndexX], By[IndexY], 10.0f), V2(14.0f, 32.0f),
+                     V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Ax[IndexX], Ay[IndexY], 11.0f), V2(28.0f, 10.0f),
+                     V4(0.725490196078f, 0.478431372549f, 0.341176470588f, 1));
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Bx[IndexX], By[IndexY], 11.0f), V2(10.0f, 28.0f),
+                     V4(0.725490196078f, 0.478431372549f, 0.341176470588f, 1));
+
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Cx[IndexX], Cy[IndexY], 12.0f), V2(12.0f, 12.0f),
+                     V4(0.247058823529f, 0.282352941176f, 0.8f, 1));
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Dx[IndexX], Dy[IndexY], 12.0f), V2(12.0f, 12.0f),
+                     V4(0.247058823529f, 0.282352941176f, 0.8f, 1));
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Dx[IndexX], Ey[IndexY], 12.0f), V2(8.0f, 2.0f),
+                     V4(0.247058823529f, 0.282352941176f, 0.8f, 1));
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Ex[IndexX], Dy[IndexY], 12.0f), V2(2.0f, 8.0f),
+                     V4(0.247058823529f, 0.282352941176f, 0.8f, 1));
+
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Bx[IndexX], Dy[IndexY], 13.0f), V2(2.0f, 8.0f),
+                     V4(0.6f, 0.850980392157f, 0.917647058824f, 1));
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Fx[IndexX], Dy[IndexY], 13.0f), V2(2.0f, 12.0f),
+                     V4(0.6f, 0.850980392157f, 0.917647058824f, 1));
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Dx[IndexX], Fy[IndexY], 13.0f), V2(4.0f, 8.0f),
+                     V4(0.6f, 0.850980392157f, 0.917647058824f, 1));
+
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Gx[IndexX], Fy[IndexY], 14.0f), V2(2.0f, 8.0f),
+                     V4(0.0f, 0.635294117647f, 0.909803921569f, 1));
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Hx[IndexX], Gy[IndexY], 13.0f), V2(2.0f, 6.0f),
+                     V4(0.0f, 0.635294117647f, 0.909803921569f, 1));
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Cx[IndexX], By[IndexY], 13.0f), V2(8.0f, 4.0f),
+                     V4(0.0f, 0.635294117647f, 0.909803921569f, 1));
+
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Dx[IndexX], Dy[IndexY], 14.0f), V2(4.0f, 4.0f),
+                     V4(1, 1, 1, 1));
+        }
+
+        interaction CloseInteraction = UISetUInt32Interaction(InteractionID(UIState), (u32 *)&Window->Viewable, false);
+
+        v2 CloseDim = V2(20.0f, 20.0f);
+        rectangle2 CloseButton = RectCenterDim(UIState->BackingTransform.OffsetP.xy +
+                                               V2(HalfDim.x - 42.0f, YOffset), CloseDim);
+
+        if(IsInRectangle(CloseButton, Layout->MouseP))
+        {
+            UIState->NextHotInteraction = CloseInteraction;
+        }
+
+        PushRect(RenderGroup, UIState->BackingTransform, V3(HalfDim.x - 42.0f, YOffset, 17.0f), GetDim(CloseButton), V4(0.6f, 0, 0, 1));
+
+        UIState->BackingTransform.SortBias = 140000.0f;
+        ui_layout WindowLayout = UIBeginLayout(UIState, Layout->MouseP, UIState->BackingTransform.OffsetP.xy +
+                                               V2(-HalfDim.x + 25.0f, HalfDim.y - 70.0f));
+        UIState->BackingTransform.OffsetP = InitOffsetP;
+
+        UILabel(&WindowLayout, "Value");
+
+        UIEndLayout(&WindowLayout);
+        
+        UIState->BackingTransform.OffsetP = InitOffsetP;
+    }
+    else
+    {
+        UIActionButton(Layout, "Open",
+                       UISetUInt32Interaction(InteractionID(UIState), (u32 *)&Window->Viewable, true));
+    }
+}
+
+internal void
+ResetCursorArray(array_cursor *Cursor)
+{
+    for(u32 I = 0;
+        I < Cursor->ArrayCount;
+        ++I)
+    {
+        Cursor->Array[I] = I;
+    }
+}
+
+internal void
+InitializeCursor(array_cursor *Cursor, u32 CursorArrayCount)
+{
+    Cursor->ArrayPosition = 0;
+    Cursor->ArrayCount = CursorArrayCount;
+    ResetCursorArray(Cursor);
+}
+
+inline  void
+InitializeStringArrayCursor(array_cursor *Cursor, u32 CursorArrayCount, char **Data)
+{
+    Cursor->DataType = CursorDataType_StringArray;
+    Cursor->StringArray = Data;
+    InitializeCursor(Cursor, CursorArrayCount);
+}
+
+internal void
+ReInitializeCursor(array_cursor *Cursor, u32 CursorArrayCount)
+{
+    Cursor->ArrayPosition = 0;
+    Cursor->ArrayCount = CursorArrayCount;
+    ResetCursorArray(Cursor);
+}
+
+internal void
+ChangeCursorPositionFor(array_cursor *Cursor, u32 SourceArrayCount, s16 MouseZ)
+{
+    if(MouseZ != 0)
+    {
+        u32 CursorLastIndex = Cursor->ArrayCount - 1;
+        s32 Count = MouseZ > 0 ? MouseZ : MouseZ * -1;
+        for(s32 MouseRotIndex = 0;
+            MouseRotIndex < Count;
+            ++MouseRotIndex)
+        {
+            if(MouseZ > 0)
+            {
+                if(Cursor->ArrayPosition == 0)
+                {
+                    s32 NewFirst = Cursor->Array[0] - 1;
+                    for(u32 I = CursorLastIndex;
+                        I > 0;
+                        --I)
+                    {
+                        Cursor->Array[I] = Cursor->Array[I - 1];
+                    }
+
+                    if(NewFirst == -1)
+                    {
+                        NewFirst = SourceArrayCount - 1;
+                    }
+                    Cursor->Array[0] = NewFirst;
+                }
+                else
+                {
+                    --Cursor->ArrayPosition;
+                }
+            }
+            else
+            {
+                if(Cursor->ArrayPosition == CursorLastIndex)
+                {
+                    u32 NewLast = Cursor->Array[CursorLastIndex] + 1;
+                    for(u32 I = 0;
+                        I < Cursor->ArrayCount;
+                        ++I)
+                    {
+                        Cursor->Array[I] = Cursor->Array[I + 1];
+                    }
+
+                    if(NewLast == SourceArrayCount)
+                    {
+                        NewLast = 0;
+                    }
+                    Cursor->Array[CursorLastIndex] = NewLast;
+                }
+                else
+                {
+                    ++Cursor->ArrayPosition;
+                }
+            }
+        }
+    }
+}
+
+internal u32
+UISimpleScrollElement(ui_layout *Layout, array_cursor *Cursor, interaction ItemInteraction,
+                    v4 ItemColor = V4(0.8f, 0.8f, 0.8f, 1), v4 HotColor = V4(1, 1, 1, 1),
+                    r32 Border = 0.0f, v4 BackdropColor = V4(0, 0, 0, 0))
+{
+    ui_state *UIState = Layout->UIState;
+
+    u32 SourceArrayIndex = Cursor->Array[Cursor->ArrayPosition];
+    u32 ElementsToShow = Cursor->ArrayCount;
+    for(u32 Index = 0;
+        Index < ElementsToShow;
+        ++Index)
+    {
+        u32 AssetIndex = Cursor->Array[Index];
+        switch(Cursor->DataType)
+        {
+            case CursorDataType_StringArray:
+            {
+                char *Text = Cursor->StringArray[AssetIndex];
+
+                rectangle2 TextBounds = UIGetTextSize(UIState, Text);
+                v2 TextDim = GetDim(TextBounds);
+
+                v2 Dim = {320.0f + 2.0f*Border, Layout->LineAdvance + 2.0f*Border};
+                if(TextDim.x > 320.0f)
+                {
+                    Dim = {TextDim.x + 2.0f*Border, Layout->LineAdvance + 2.0f*Border};
+                }
+                
+                ui_layout_element Element = UIBeginElementRectangle(Layout, &Dim);
+                UIDefaultInteraction(&Element, ItemInteraction);
+                UIEndElement(&Element);
+
+                b32 IsHot = InteractionIsHot(Layout->UIState, ItemInteraction);
+
+                UITextOutAt(UIState, V2(GetMinCorner(Element.Bounds).x + 0.5f*Dim.x - 0.5f*TextDim.x,
+                                         GetMaxCorner(Element.Bounds).y - Border - 
+                                         UIState->FontScale*GetStartingBaselineY(UIState->FontInfo)),
+                            Text, IsHot ? HotColor : ItemColor);
+
+                if(BackdropColor.w > 0.0f)
+                {
+                    PushRect(&UIState->RenderGroup, 
+                             UIState->BackingTransform, Element.Bounds, 0.0f, BackdropColor);
+                }
+            } break;
+        }
+    }
+
+    return(SourceArrayIndex);
+}
+
+internal void 
+UIDrawScrollWindow(ui_state *UIState, ui_layout *Layout, ui_window *Window,
+                   array_cursor *Cursor, u32 *Variable)
+{
+    render_group *RenderGroup = &UIState->RenderGroup;
+    if(Window->Viewable)
+    {
+        interaction NullInteraction = {};
+        ui_layout_element Element = UIBeginElementRectangle(Layout, &Window->Dim);
+        UIDefaultInteraction(&Element, NullInteraction);
+        UIEndElement(&Element);
+
+        v3 InitOffsetP = UIState->BackingTransform.OffsetP;
+        v2 Center = GetCenter(Element.Bounds);
+        v2 Dim = GetDim(Element.Bounds);
+    
+        UIState->BackingTransform.OffsetP += V3(Center, 0.0f);
+        v2 HalfDim = 0.5f*Dim;
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, 0, 0), Dim,
+                 V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, 0, 2.0f), Dim - V2(4.0f, 4.0f),
+                 V4(0.725490196078f, 0.478431372549f, 0.341176470588f, 1));
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, 0, 3.0f), Dim - V2(12.0f, 12.0f),
+                 V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, 0, 4.0f), Dim - V2(16.0f, 16.0f),
+                 V4(0.403921568627f, 0.254901960784f, 0.172549019608f, 1));
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, 0, 5.0f), Dim - V2(24.0f, 24.0f),
+                 V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, 0, 6.0f), Dim - V2(28.0f, 28.0f),
+                 V4(0.725490196078f, 0.478431372549f, 0.341176470588f, 1));
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, 0, 7.0f), Dim - V2(32.0f, 32.0f),
+                 V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, 0, 8.0f), Dim - V2(36.0f, 36.0f),
+                 V4(0.403921568627f, 0.254901960784f, 0.172549019608f, 1));
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, 0, 9.0f), Dim - V2(44.0f, 44.0f),
+                 V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+
+        r32 YOffset = HalfDim.y - 42.0f;
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, YOffset, 10.0f), V2(Dim.x - 44.0f, 48.0f),
+                 V4(0.403921568627f, 0.254901960784f, 0.172549019608f, 1));
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, YOffset, 11.0f), V2(Dim.x - 44.0f, 40.0f),
+                 V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, YOffset, 12.0f), V2(Dim.x - 48.0f, 36.0f),
+                 V4(0.725490196078f, 0.478431372549f, 0.341176470588f, 1));
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, YOffset, 13.0f), V2(Dim.x - 52.0f, 32.0f),
+                 V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0, YOffset, 14.0f), V2(Dim.x - 56.0f, 28.0f),
+                 V4(0.811764705882f, 0.933333333333f, 0.960784313725f, 1));
+
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0.5f, HalfDim.y - 43.0f, 15.0f), V2(Dim.x - 58.0f, 26.0f),
+                 V4(0.0f, 0.635294117647f, 0.909803921569f, 1));
+        PushRect(RenderGroup, UIState->BackingTransform, V3(0.0f, YOffset, 16.0f), V2(Dim.x - 60.0f, 24.0f),
+                 V4(0.6f, 0.850980392157f, 0.917647058824f, 1));
+
+        r32 Ax[2] = {HalfDim.x - 12.0f, -(HalfDim.x - 12.0f)};
+        r32 Ay[2] = {HalfDim.y - 3.0f, -(HalfDim.y - 3.0f)};
+
+        r32 Bx[2] = {HalfDim.x - 3.0f, -(HalfDim.x - 3.0f)};
+        r32 By[2] = {HalfDim.y - 12.0f, -(HalfDim.y - 12.0f)};
+
+        r32 Cx[2] = {HalfDim.x - 10.0f, -(HalfDim.x - 10.0f)};
+        r32 Cy[2] = {HalfDim.y - 10.0f, -(HalfDim.y - 10.0f)};
+
+        r32 Dx[2] = {HalfDim.x - 8.0f, -(HalfDim.x - 8.0f)};
+        r32 Dy[2] = {HalfDim.y - 8.0f, -(HalfDim.y - 8.0f)};
+
+        r32 Ex[2] = {HalfDim.x - 1.0f, -(HalfDim.x - 1.0f)};
+        r32 Ey[2] = {HalfDim.y - 1.0f, -(HalfDim.y - 1.0f)};
+
+        r32 Fx[2] = {HalfDim.x - 5.0f, -(HalfDim.x - 5.0f)};
+        r32 Fy[2] = {HalfDim.y - 6.0f, -(HalfDim.y - 6.0f)};
+
+        r32 Gx[2] = {HalfDim.x - 11.0f, -(HalfDim.x - 11.0f)};
+        r32 Gy[2] = {HalfDim.y - 7.0f, -(HalfDim.y - 7.0f)};
+
+        r32 Hx[2] = {HalfDim.x - 13.0f, -(HalfDim.x - 13.0f)};
+
+        u32 Indecies[4][2] = {{0, 0}, {0, 1}, {1, 0}, {1, 1}};
+
+        for(u32 Itter = 0;
+            Itter < 4;
+            ++Itter)
+        {
+            u32 IndexX = Indecies[Itter][0];
+            u32 IndexY = Indecies[Itter][1];
+
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Ax[IndexX], Ay[IndexY], 10.0f), V2(32.0f, 14.0f),
+                     V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Bx[IndexX], By[IndexY], 10.0f), V2(14.0f, 32.0f),
+                     V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
+
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Ax[IndexX], Ay[IndexY], 11.0f), V2(28.0f, 10.0f),
+                     V4(0.725490196078f, 0.478431372549f, 0.341176470588f, 1));
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Bx[IndexX], By[IndexY], 11.0f), V2(10.0f, 28.0f),
+                     V4(0.725490196078f, 0.478431372549f, 0.341176470588f, 1));
+
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Cx[IndexX], Cy[IndexY], 12.0f), V2(12.0f, 12.0f),
+                     V4(0.247058823529f, 0.282352941176f, 0.8f, 1));
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Dx[IndexX], Dy[IndexY], 12.0f), V2(12.0f, 12.0f),
+                     V4(0.247058823529f, 0.282352941176f, 0.8f, 1));
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Dx[IndexX], Ey[IndexY], 12.0f), V2(8.0f, 2.0f),
+                     V4(0.247058823529f, 0.282352941176f, 0.8f, 1));
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Ex[IndexX], Dy[IndexY], 12.0f), V2(2.0f, 8.0f),
+                     V4(0.247058823529f, 0.282352941176f, 0.8f, 1));
+
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Bx[IndexX], Dy[IndexY], 13.0f), V2(2.0f, 8.0f),
+                     V4(0.6f, 0.850980392157f, 0.917647058824f, 1));
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Fx[IndexX], Dy[IndexY], 13.0f), V2(2.0f, 12.0f),
+                     V4(0.6f, 0.850980392157f, 0.917647058824f, 1));
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Dx[IndexX], Fy[IndexY], 13.0f), V2(4.0f, 8.0f),
+                     V4(0.6f, 0.850980392157f, 0.917647058824f, 1));
+
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Gx[IndexX], Fy[IndexY], 14.0f), V2(2.0f, 8.0f),
+                     V4(0.0f, 0.635294117647f, 0.909803921569f, 1));
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Hx[IndexX], Gy[IndexY], 13.0f), V2(2.0f, 6.0f),
+                     V4(0.0f, 0.635294117647f, 0.909803921569f, 1));
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Cx[IndexX], By[IndexY], 13.0f), V2(8.0f, 4.0f),
+                     V4(0.0f, 0.635294117647f, 0.909803921569f, 1));
+
+            PushRect(RenderGroup, UIState->BackingTransform, V3(Dx[IndexX], Dy[IndexY], 14.0f), V2(4.0f, 4.0f),
+                     V4(1, 1, 1, 1));
+        }
+
+        interaction CloseInteraction = UISetUInt32Interaction(InteractionID(UIState), (u32 *)&Window->Viewable, false);
+
+        v2 CloseDim = V2(20.0f, 20.0f);
+        rectangle2 CloseButton = RectCenterDim(UIState->BackingTransform.OffsetP.xy +
+                                               V2(HalfDim.x - 42.0f, YOffset), CloseDim);
+
+        if(IsInRectangle(CloseButton, Layout->MouseP))
+        {
+            UIState->NextHotInteraction = CloseInteraction;
+        }
+
+        PushRect(RenderGroup, UIState->BackingTransform, V3(HalfDim.x - 42.0f, YOffset, 17.0f), GetDim(CloseButton), V4(0.6f, 0, 0, 1));
+
+        UIState->BackingTransform.SortBias = 140000.0f;
+        ui_layout WindowLayout = UIBeginLayout(UIState, Layout->MouseP, UIState->BackingTransform.OffsetP.xy +
+                                               V2(-HalfDim.x + 22.0f, HalfDim.y - 70.0f));
+
+        u32 OldClipRect = RenderGroup->CurrentClipRectIndex;
+        RenderGroup->CurrentClipRectIndex = 
+            PushClipRect(RenderGroup, UIState->BackingTransform, V3(0, 0, 0), Dim - V2(44.0f, 44.0f));
+
+        UIState->BackingTransform.OffsetP = InitOffsetP;
+
+        u32 SourceArrayIndex = Cursor->Array[Cursor->ArrayPosition];
+        u32 ElementsToShow = (u32)((Dim.y - 44.0f) / (WindowLayout.LineAdvance + 6.0f));
+
+        if(ElementsToShow != Cursor->ArrayCount)
+        {
+            ReInitializeCursor(Cursor, ElementsToShow);
+        }
+        
+        for(u32 Index = 0;
+            Index < ElementsToShow;
+            ++Index)
+        {
+            u32 AssetIndex = Cursor->Array[Index];
+            switch(Cursor->DataType)
+            {
+                case CursorDataType_StringArray:
+                {
+                    char *Text = Cursor->StringArray[AssetIndex];
+
+                    rectangle2 TextBounds = UIGetTextSize(UIState, Text);
+                    v2 TextDim = GetDim(TextBounds);
+
+                    v2 ElementDim = {Dim.x - 44.0f, WindowLayout.LineAdvance};
+                    if(TextDim.x > ElementDim.x)
+                    {
+                        Window->Dim.x = ElementDim.x + 64.0f;
+                        ElementDim = {TextDim.x, WindowLayout.LineAdvance};
+                    }
+                    
+                    ui_layout_element ScrollElement = UIBeginElementRectangle(&WindowLayout, &ElementDim);
+                    UIDefaultInteraction(&ScrollElement,
+                                         UISetUInt32Interaction(InteractionID(UIState), (u32 *)Variable, AssetIndex));
+                    UIEndElement(&ScrollElement);
+
+                    UITextOutAt(UIState, V2(GetMinCorner(Element.Bounds).x + 0.5f*ElementDim.x - 0.5f*TextDim.x,
+                                            GetMaxCorner(Element.Bounds).y - 
+                                            UIState->FontScale*GetStartingBaselineY(UIState->FontInfo)),
+                                Text, V4(0.8f, 0.8f, 0.8f, 1));
+
+                    v4 BackdropColor = V4(0, 0.5f, 0.5f, 1);
+
+                    if(BackdropColor.w > 0.0f)
+                    {
+                        PushRect(&UIState->RenderGroup, 
+                                 UIState->BackingTransform, Element.Bounds, 0.0f, BackdropColor);
+                    }
+                } break;
+            }
+        }
+
+        v2 ScrollDim = Dim - V2(44.0f, 44.0f);
+        rectangle2 ScrollBounds = RectCenterDim(Center, ScrollDim);
+        
+        if(IsInRectangle(ScrollBounds, Layout->MouseP) && UIState->MouseZ != 0)
+        {
+            ChangeCursorPositionFor(Cursor, Asset_Count, UIState->MouseZ);
+        }
+        
+        UIEndLayout(&WindowLayout);
+        RenderGroup->CurrentClipRectIndex = OldClipRect;
+        
+        UIState->BackingTransform.OffsetP = InitOffsetP;
+    }
+    else
+    {
+        UIActionButton(Layout, "Open",
+                       UISetUInt32Interaction(InteractionID(UIState), (u32 *)&Window->Viewable, true));
+    }
+}
+
+internal void
+DrawAssetsModeAddBitmapUI(edit_mode_asset *AssetMode, ui_state *UIState, v2 MouseP)
+{
+    ui_layout Layout_ = UIBeginLayout(UIState, MouseP, V2(UIState->LeftEdge,
+                                                         0.5f*UIState->GlobalHeight));
+    ui_layout *Layout = &Layout_;
+
+    UIBeginRow(Layout);
+    UIActionButton(Layout, "Sound", UISetUInt32Interaction(InteractionID(UIState, EditMode_Assets),
+                                                           (u32 *)&AssetMode->AssetAddMode, AssetMode_Sound));
+    UIActionButton(Layout, "Assetset", UISetUInt32Interaction(InteractionID(UIState, EditMode_Assets),
+                                                              (u32 *)&AssetMode->AssetAddMode, AssetMode_AssetSet));
+    UIActionButton(Layout, "SpriteSheet", UISetUInt32Interaction(InteractionID(UIState, EditMode_Assets),
+                                                                 (u32 *)&AssetMode->AssetAddMode, AssetMode_SpriteSheet));
+    UIActionButton(Layout, "TileSet", UISetUInt32Interaction(InteractionID(UIState, EditMode_Assets),
+                                                             (u32 *)&AssetMode->AssetAddMode, AssetMode_TileSet));
+    UIActionButton(Layout, "Font", UISetUInt32Interaction(InteractionID(UIState, EditMode_Assets),
+                                                          (u32 *)&AssetMode->AssetAddMode, AssetMode_Font));
+    UIActionButton(Layout, "Quest", UISetUInt32Interaction(InteractionID(UIState, EditMode_Assets),
+                                                           (u32 *)&AssetMode->AssetAddMode, AssetMode_Quest));
+    UIActionButton(Layout, "BitnaryFile", UISetUInt32Interaction(InteractionID(UIState, EditMode_Assets),
+                                                                 (u32 *)&AssetMode->AssetAddMode, AssetMode_BinaryFile));
+    UIEndRow(Layout);
+}
+
+internal void
+DrawUI(editor_state *EditorState, ui_state *UIState, v2 MouseP)
+{
+    switch(EditorState->EditMode)
+    {
+        case EditMode_Terrain:
+        {
+        } break;
+
+        case EditMode_Decoration:
+        {
+        } break;
+        
+        case EditMode_Collision:
+        {
+        } break;
+        
+        case EditMode_Assets:
+        {
+            edit_mode_asset *AssetMode = EditorState->AssetMode;
+            switch(AssetMode->AssetAddMode)
+            {
+                case AssetMode_Bitmap:
+                {
+                } break;
+
+                case AssetMode_Sound:
+                {
+                } break;
+                
+                case AssetMode_AssetSet:
+                {
+                } break;
+
+                case AssetMode_SpriteSheet:
+                {
+                } break;
+
+                case AssetMode_TileSet:
+                {
+                } break;
+
+                case AssetMode_Font:
+                {
+                } break;
+
+                case AssetMode_Quest:
+                {
+                } break;
+
+                case AssetMode_BinaryFile:
+                {
+                } break;
+
+                InvalidDefaultCase;
+            }
+        } break;
+
+        InvalidDefaultCase;
+    }
+}
+
+internal void
+EndUI(editor_state *EditorState, game_input *Input)
+{
+    ui_state *UIState = EditorState->UI;
+    
+    render_group *RenderGroup = &UIState->RenderGroup;
+
+    UIState->AltUI = Input->MouseButtons[PlatformMouseButton_Right].EndedDown;
+    UIState->MouseZ = Input->MouseZ;
+    v2 MouseP = Unproject(RenderGroup, DefaultFlatTransform(), V2i(Input->MouseX, Input->MouseY)).xy;
+    UIState->MouseTextLayout = UIBeginLayout(UIState, MouseP, MouseP);
+
+    DrawUI(EditorState, UIState, MouseP);
+
+    UIEndLayout(&UIState->MouseTextLayout);
+    Interact(UIState, Input, MouseP);
+    
+    EndRenderGroup(&UIState->RenderGroup);
+
+    // NOTE(casey): Clear the UI state for the next frame
+    ZeroStruct(UIState->NextHotInteraction);
 }

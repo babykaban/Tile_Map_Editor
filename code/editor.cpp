@@ -631,10 +631,11 @@ PlayAssetEditMode(editor_state *EditorState, transient_state *TranState)
         fwrite(Buffer, StringLength(Buffer), 1, File);
     }
     fclose(File);
-#endif
+
     InitializeStringArrayCursor(&Result->BMPCursor, 1, Result->BMPFileNames);
     InitializeStringArrayCursor(&Result->AssetTypeCursor, 1, AssetTypes);
     InitializeStringArrayCursor(&Result->TagCursor, 1, AssetTags);
+#endif
 
     InitializeBuilderAssets(&Result->BuilderAssets, &EditorState->ModeArena);
     
@@ -674,6 +675,10 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         world *World = EditorState->World;
         SubArena(&World->Arena, &TotalArena, Megabytes(10));
         InitializeWorld(World, WorldChunkDimInMeters);
+
+        EditorState->UI = PushStruct(&TotalArena, ui_state);
+        ui_state *UI = EditorState->UI;
+        SubArena(&UI->Arena, &TotalArena, Megabytes(10));
 
         SubArena(&EditorState->ModeArena, &TotalArena, GetArenaSizeRemaining(&TotalArena));
 
@@ -734,9 +739,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             GroundBuffer->P = NullPosition();
         }
 
-        TranState->UIContext = PushStruct(&TranState->TranArena, ui_context);
-        SubArena(&TranState->UIContext->ContextArena, &TranState->TranArena, Megabytes(2));
-        
         TranState->IsInitialized = true;
     }
 
@@ -765,15 +767,14 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     Orthographic(RenderGroup, RenderCommands->Width, RenderCommands->Height, 1.0f);
     Clear(RenderGroup, V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
 
-    ui_context *UIContext = TranState->UIContext;
-    BeginUI(UIContext, RenderCommands, TranState->Assets, TranState->MainGenerationID,
+    BeginUI(EditorState->UI, RenderCommands, TranState->Assets, TranState->MainGenerationID,
             RenderCommands->Width, RenderCommands->Height);
-    
+
     switch(EditorState->EditMode)
     {
         case EditMode_Assets:
         {
-            UpdateAndRenderAssetsMode(EditorState, TranState, UIContext, RenderGroup, Input, EditorState->AssetMode,
+            UpdateAndRenderAssetsMode(EditorState, TranState, RenderGroup, Input, EditorState->AssetMode,
                                       RenderCommands);
         } break;
 
@@ -789,8 +790,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         {
         } break;
     }
-    
-    EndUI(UIContext, Input);
+
+    EndUI(EditorState, Input);
 
     EndRenderGroup(RenderGroup);
     EndTemporaryMemory(RenderMemory);

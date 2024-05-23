@@ -424,9 +424,20 @@ typedef struct game_controller_input
     };
 } game_controller_input;
 
+enum game_input_mouse_button
+{
+    PlatformMouseButton_Left,
+    PlatformMouseButton_Middle,
+    PlatformMouseButton_Right,
+    PlatformMouseButton_Extended0,
+    PlatformMouseButton_Extended1,
+
+    PlatformMouseButton_Count,
+};
+
 typedef struct game_input
 {
-    game_button_state MouseButtons[5];
+    game_button_state MouseButtons[PlatformMouseButton_Count];
     int32 MouseX, MouseY;
     int16 MouseZ;
     
