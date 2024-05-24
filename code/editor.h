@@ -345,7 +345,7 @@ struct editor_state
     memory_arena ModeArena;
 
     world *World;
-    ui_state *UI;
+//    ui_state *UI;
     
     edit_mode EditMode;
     union
@@ -377,6 +377,7 @@ struct transient_state
 {
     bool32 IsInitialized;
     memory_arena TranArena;
+    memory_arena StringArena;
 
     u32 MainGenerationID;
     

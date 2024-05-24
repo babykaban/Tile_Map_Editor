@@ -6,7 +6,7 @@
    $Creator: Casey Muratori $
    $Notice: (C) Copyright 2014 by Molly Rocket, Inc. All Rights Reserved. $
    ======================================================================== */
-
+    
 static const char *Biomes[] =
 {
     "AncientForest",
@@ -246,6 +246,7 @@ static char *AssetTypes[] =
     "Asset_Prop",    
     "Asset_MouseLeftButton",    
 };
+
 
 enum asset_font_type
 {

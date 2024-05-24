@@ -26,7 +26,7 @@ struct world_tile
 struct edit_mode_terrain
 {
     tileset_stats TileSetStats;
-    array_cursor TileMenuBarCursor;
+//    array_cursor TileMenuBarCursor;
 
     b32 WorldTilesInitialized;
     u32 WorldTileCount;

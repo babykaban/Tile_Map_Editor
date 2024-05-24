@@ -605,6 +605,7 @@ PlayAssetEditMode(editor_state *EditorState, transient_state *TranState)
     edit_mode_asset *Result = PushStruct(&EditorState->ModeArena, edit_mode_asset);
 
     Result->AssetAddMode = AssetMode_Bitmap;
+#if 0
 
     // NOTE(paul): Initialize New Assets
     platform_file_group FileGroup = Platform.GetAllFilesOfTypeBeginA(PlatformFileType_BMP, "editor/bmps");
@@ -618,7 +619,7 @@ PlayAssetEditMode(editor_state *EditorState, transient_state *TranState)
         Platform.GetNextFileNameEndA(&FileGroup);
     }
     Platform.GetAllFilesOfTypeEndA(&FileGroup);
-#if 0
+
     FILE *File;
     char Buffer[512];
     fopen_s(&File, "test.txt", "w");
@@ -676,9 +677,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         SubArena(&World->Arena, &TotalArena, Megabytes(10));
         InitializeWorld(World, WorldChunkDimInMeters);
 
-        EditorState->UI = PushStruct(&TotalArena, ui_state);
-        ui_state *UI = EditorState->UI;
-        SubArena(&UI->Arena, &TotalArena, Megabytes(10));
+//        EditorState->UI = PushStruct(&TotalArena, ui_state);
+//        ui_state *UI = EditorState->UI;
+//        SubArena(&UI->Arena, &TotalArena, Megabytes(10));
 
         SubArena(&EditorState->ModeArena, &TotalArena, GetArenaSizeRemaining(&TotalArena));
 
@@ -715,6 +716,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
         TranState->HighPriorityQueue = Memory->HighPriorityQueue;
         TranState->LowPriorityQueue = Memory->LowPriorityQueue;
+
+//        SubArena(&TranState->StringArena, &TranState->TranArena, Megabytes(10));
+//        InitializeUIStrings(EditorState->UI, &TranState->StringArena);
         
         for(uint32 TaskIndex = 0;
             TaskIndex < ArrayCount(TranState->Tasks);
@@ -767,13 +771,14 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     Orthographic(RenderGroup, RenderCommands->Width, RenderCommands->Height, 1.0f);
     Clear(RenderGroup, V4(0.301960784314f, 0.188235294118f, 0.125490196078f, 1));
 
-    BeginUI(EditorState->UI, RenderCommands, TranState->Assets, TranState->MainGenerationID,
-            RenderCommands->Width, RenderCommands->Height);
+//    BeginUI(EditorState->UI, RenderCommands, TranState->Assets, TranState->MainGenerationID,
+//            RenderCommands->Width, RenderCommands->Height);
 
     switch(EditorState->EditMode)
     {
         case EditMode_Assets:
         {
+            printf("%s", AssetTypes[3]);
             UpdateAndRenderAssetsMode(EditorState, TranState, RenderGroup, Input, EditorState->AssetMode,
                                       RenderCommands);
         } break;
@@ -791,7 +796,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         } break;
     }
 
-    EndUI(EditorState, Input);
+//    EndUI(EditorState, Input);
 
     EndRenderGroup(RenderGroup);
     EndTemporaryMemory(RenderMemory);

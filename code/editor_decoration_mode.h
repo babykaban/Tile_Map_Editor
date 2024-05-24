@@ -42,7 +42,7 @@ struct animated_decoration
 struct edit_mode_decoration
 {
     assetset_stats AssetSetStats;
-    array_cursor AssetMenuBarCursor;
+//    array_cursor AssetMenuBarCursor;
 
     decoration *Decorations;
     // NOTE(paul): Only for drawing
