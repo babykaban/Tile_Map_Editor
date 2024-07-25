@@ -1,9 +1,4 @@
 # Tile_Map_Editor
 
-This is an extation for my project to create tiled map;
-
-Some code that is used in this code is adopdet from 
-video series "Handmade Hero" maded by Casey Muratori.
-
-Paul: Casey, if you doesn't want me to share this 
-code on github please let me know.
+This is an extation for my project to create tiled maps;
+Some code that is used was adopdet from "Handmade Hero" video series created by Casey Muratori.
